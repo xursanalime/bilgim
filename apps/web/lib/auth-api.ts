@@ -4,9 +4,7 @@
  */
 
 import { apiClient } from './api-client';
-import { setTokens } from './auth';
 import type { LoginResult } from './mfa-api';
-import { isMfaChallengeRequired } from './mfa-api';
 
 export type { LoginResult } from './mfa-api';
 export { isMfaChallengeRequired } from './mfa-api';
@@ -82,25 +80,17 @@ export const authApi = {
   },
 
   /**
-   * POST /auth/login — also stores tokens on success.
+   * POST /auth/login.
    *
-   * When the account has a verified MFA factor the API returns an
-   * `MfaChallengeRequired` envelope instead of tokens; in that case we do
-   * NOT store anything and hand the challenge back to the caller so it can
-   * render the second-factor step.
+   * The API sets HttpOnly access/refresh cookies on the response
+   * (`credentials: 'include'` in `apiClient`) — nothing to persist here.
+   * When the account has a verified MFA factor, the API returns an
+   * `MfaChallengeRequired` envelope instead, with no cookies set yet.
    */
   async login(payload: LoginPayload): Promise<LoginResult> {
-    const result = await apiClient.post<LoginResult>('/auth/login', payload, {
+    return apiClient.post<LoginResult>('/auth/login', payload, {
       public: true,
     });
-    if (isMfaChallengeRequired(result)) {
-      return result;
-    }
-    setTokens({
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-    });
-    return result;
   },
 
   /** POST /auth/password-reset/request */

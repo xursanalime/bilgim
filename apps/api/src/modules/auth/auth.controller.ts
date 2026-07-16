@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { JwtPayload } from './tokens.service';
+import { JwtPayload, TokensService } from './tokens.service';
 import { Public } from '../../common/decorators/public.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -57,7 +57,64 @@ import {
  */
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly tokensService: TokensService,
+  ) {}
+
+  /**
+   * Set the HttpOnly access/refresh cookies plus a non-sensitive
+   * `bilgim_session_hint` cookie that JS (middleware + client
+   * components) can read for routing/display decisions, since it can
+   * no longer read the real (HttpOnly) access token — by design
+   * (Req 21.3). The hint mirrors the access token's own claims
+   * (`sub`, `email`, `role`, `publicId`, `exp`) but is NOT itself a
+   * credential: the API never accepts it as proof of identity, only
+   * the HttpOnly JWT (or Bearer header, for mobile) is trusted.
+   */
+  private setAuthCookies(
+    res: any,
+    tokens: { accessToken: string; refreshToken: string },
+  ): void {
+    const secure = process.env.NODE_ENV === 'production';
+
+    res.cookie('access_token', tokens.accessToken, {
+      httpOnly: true,
+      secure,
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000,
+      path: '/',
+    });
+
+    res.cookie('refresh_token', tokens.refreshToken, {
+      httpOnly: true,
+      secure,
+      sameSite: 'strict',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: '/api/v1/auth',
+    });
+
+    const decoded = this.tokensService.decodeUnsafe(tokens.accessToken);
+    if (decoded) {
+      res.cookie(
+        'bilgim_session_hint',
+        JSON.stringify({
+          sub: decoded.sub,
+          email: decoded.email,
+          role: decoded.role,
+          publicId: decoded.publicId,
+          exp: decoded.exp,
+        }),
+        {
+          httpOnly: false,
+          secure,
+          sameSite: 'lax',
+          maxAge: 15 * 60 * 1000,
+          path: '/',
+        },
+      );
+    }
+  }
 
   /**
    * POST /auth/register
@@ -123,27 +180,7 @@ export class AuthController {
       return result;
     }
     const tokens = result;
-
-    // Set access token as HttpOnly cookie for browser clients (Req 21.3)
-    res.cookie('access_token', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000, // 15 minutes
-      path: '/',
-    });
-
-    // Set refresh token as HttpOnly cookie (Task 24.1):
-    //   - sameSite=strict: refresh token never travels with cross-site nav
-    //   - path=/api/v1/auth: scoped to auth endpoints behind the global prefix
-    res.cookie('refresh_token', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      path: '/api/v1/auth',
-    });
-
+    this.setAuthCookies(res, tokens);
     return tokens;
   }
 
@@ -176,22 +213,7 @@ export class AuthController {
       ip: req.ip,
     });
 
-    res.cookie('access_token', result.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000,
-      path: '/',
-    });
-
-    res.cookie('refresh_token', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-      path: '/api/v1/auth',
-    });
-
+    this.setAuthCookies(res, result);
     return result;
   }
 
@@ -219,25 +241,30 @@ export class AuthController {
       ip: req.ip,
     });
 
-    // Set new access token as HttpOnly cookie (Req 21.3)
-    res.cookie('access_token', result.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000, // 15 minutes
-      path: '/',
-    });
+    this.setAuthCookies(res, result);
+    return result;
+  }
 
-    // Set new refresh token as HttpOnly cookie (Task 24.1):
-    //   - sameSite=strict: refresh token never travels with cross-site nav
-    //   - path=/api/v1/auth: scoped to auth endpoints behind the global prefix
-    res.cookie('refresh_token', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      path: '/api/v1/auth',
-    });
+  /**
+   * POST /auth/logout
+   * Revoke the current session (refresh token) and clear all auth
+   * cookies. Browser clients can no longer delete the HttpOnly
+   * access/refresh cookies from JS, so this endpoint is the only way
+   * to actually end a browser session (Req 21.3).
+   */
+  @Public()
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  async logout(
+    @Req() req: any,
+    @Res({ passthrough: true }) res: any,
+  ): Promise<{ message: string }> {
+    const refreshToken: string | undefined = req.cookies?.refresh_token;
+    const result = await this.authService.logout(refreshToken);
+
+    res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('refresh_token', { path: '/api/v1/auth' });
+    res.clearCookie('bilgim_session_hint', { path: '/' });
 
     return result;
   }

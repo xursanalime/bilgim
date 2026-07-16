@@ -15,13 +15,10 @@
 
 import { io, type Socket } from 'socket.io-client';
 
-import { getAccessToken } from './auth';
-
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 let liveSocket: Socket | null = null;
-let liveSocketToken: string | null = null;
 
 /**
  * Resolve the canonical WebSocket origin (no trailing slash, no path).
@@ -40,31 +37,19 @@ export function getSocketOrigin(): string {
 /**
  * Get (or create) the shared `/live` namespace socket.
  *
- * The token is sent both via `auth.token` (preferred — matches the
- * `authenticateSocket` helper on the API) and via the `Authorization`
- * header for transports that pass headers along.
- *
- * If the access token rotates between calls we recycle the socket so
- * the API never sees a stale handshake.
+ * Auth is cookie-based: the HttpOnly `access_token` cookie rides along
+ * automatically on the handshake (`withCredentials: true`), and the API's
+ * `authenticateSocket` helper reads it from the raw `Cookie` header. No
+ * token ever passes through client JS.
  */
 export function getLiveSocket(): Socket {
-  const token = getAccessToken();
-
-  if (liveSocket && liveSocketToken === token) {
+  if (liveSocket) {
     return liveSocket;
   }
 
-  if (liveSocket) {
-    liveSocket.removeAllListeners();
-    liveSocket.disconnect();
-    liveSocket = null;
-  }
-
-  liveSocketToken = token;
   liveSocket = io(`${getSocketOrigin()}/live`, {
     transports: ['websocket'],
-    auth: token ? { token } : {},
-    ...(token ? { extraHeaders: { Authorization: `Bearer ${token}` } } : {}),
+    withCredentials: true,
     autoConnect: true,
     reconnection: true,
     reconnectionAttempts: 5,
@@ -83,6 +68,5 @@ export function disconnectLiveSocket(): void {
     liveSocket.removeAllListeners();
     liveSocket.disconnect();
     liveSocket = null;
-    liveSocketToken = null;
   }
 }

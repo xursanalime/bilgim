@@ -18,11 +18,28 @@ import { TokensService, type JwtPayload } from '../../auth/tokens.service';
 export type WsAuthUser = JwtPayload;
 
 /**
+ * Extract a cookie value from a raw `Cookie` header string. Socket.IO's
+ * handshake headers are not run through `cookie-parser` (that's an
+ * Express-request-only middleware), so this is a minimal manual parse.
+ */
+function readCookie(cookieHeader: string, name: string): string | undefined {
+  for (const part of cookieHeader.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    if (part.slice(0, eq).trim() !== name) continue;
+    const value = part.slice(eq + 1).trim();
+    return value ? decodeURIComponent(value) : undefined;
+  }
+  return undefined;
+}
+
+/**
  * Internal helper used by both the guard and the gateway's connection
  * lifecycle hook. Pulls the JWT from `socket.handshake.auth.token`,
- * `handshake.query.token`, or the standard `Authorization: Bearer`
- * header. Returns `null` when no token is present, throws `WsException`
- * when verification fails.
+ * `handshake.query.token`, the standard `Authorization: Bearer` header,
+ * or (browser clients) the HttpOnly `access_token` cookie sent on the
+ * handshake. Returns `null` when no token is present, throws
+ * `WsException` when verification fails.
  */
 export async function authenticateSocket(
   socket: Socket,
@@ -33,13 +50,19 @@ export async function authenticateSocket(
   const fromQuery = (handshake.query as { token?: string | string[] } | undefined)
     ?.token;
   const fromHeader = handshake.headers?.authorization;
+  const cookieHeader = handshake.headers?.cookie;
+  const fromCookie =
+    typeof cookieHeader === 'string'
+      ? readCookie(cookieHeader, 'access_token')
+      : undefined;
 
   const raw =
     fromAuth ??
     (Array.isArray(fromQuery) ? fromQuery[0] : fromQuery) ??
     (typeof fromHeader === 'string' && fromHeader.startsWith('Bearer ')
       ? fromHeader.slice('Bearer '.length)
-      : undefined);
+      : undefined) ??
+    fromCookie;
 
   if (!raw) {
     return null;

@@ -14,15 +14,12 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { X, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
-import { getAccessToken } from '../../lib/auth';
 import { useFocusTrap } from '../../lib/a11y/use-focus-trap';
 
 // ─── Shared fetch ──────────────────────────────────────────────────────────
 
 async function fetchViaProxy(assetId: string): Promise<string> {
-  const token = getAccessToken();
   const res = await fetch(`/api/media/proxy?assetId=${encodeURIComponent(assetId)}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
     credentials: 'include',
   });
   if (!res.ok) throw new Error(`proxy ${res.status}`);

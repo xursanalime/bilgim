@@ -3,11 +3,23 @@ import type { NextRequest } from 'next/server';
 import createMiddleware from 'next-intl/middleware';
 import { supportedLocales, defaultLocale } from '@bilgim/i18n';
 
-const AUTH_COOKIE = 'bilgim_access_token';
-const REFRESH_COOKIE = 'bilgim_refresh_token';
-const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
+// Real access/refresh JWTs are HttpOnly (`access_token` / `refresh_token`,
+// set by apps/api's AuthController) — middleware never reads or writes
+// their value directly, it only forwards them. Routing decisions here use
+// the non-sensitive `bilgim_session_hint` cookie the API sets alongside
+// them (`{ sub, email, role, publicId, exp }`, mirrors the JWT's claims
+// but grants no access on its own).
+const SESSION_HINT_COOKIE = 'bilgim_session_hint';
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+interface SessionHint {
+  sub: string;
+  email: string;
+  role: 'STUDENT' | 'TEACHER' | 'ADMIN';
+  publicId?: string;
+  exp: number;
+}
 
 // Routes that don't require authentication
 const publicPaths = [
@@ -85,66 +97,44 @@ function isPublicPath(pathname: string): boolean {
   );
 }
 
-/**
- * Basic JWT expiry check (without signature verification — server validates fully).
- * Returns true if token appears valid and not expired.
- */
-function isTokenValid(token: string): boolean {
+function readSessionHint(request: NextRequest): SessionHint | null {
+  const raw = request.cookies.get(SESSION_HINT_COOKIE)?.value;
+  if (!raw) return null;
   try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return false;
-
-    const payload = JSON.parse(atob(parts[1]!));
-    if (payload.exp && payload.exp * 1000 < Date.now()) {
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Exchange a refresh token for a fresh access/refresh pair via the API.
- * Returns the new tokens or null when the refresh token is invalid/expired.
- */
-async function refreshTokens(
-  refreshToken: string,
-): Promise<{ accessToken: string; refreshToken: string } | null> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      accessToken?: string;
-      refreshToken?: string;
-    };
-    if (!data.accessToken || !data.refreshToken) return null;
-    return {
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-    };
+    const hint = JSON.parse(raw) as SessionHint;
+    if (!hint.exp || hint.exp * 1000 < Date.now()) return null;
+    return hint;
   } catch {
     return null;
   }
 }
 
-function setAuthCookies(
-  response: NextResponse,
-  tokens: { accessToken: string; refreshToken: string },
-): void {
-  const secure = process.env.NODE_ENV === 'production';
-  const common = {
-    path: '/',
-    maxAge: COOKIE_MAX_AGE,
-    sameSite: 'lax' as const,
-    secure,
-  };
-  response.cookies.set(AUTH_COOKIE, tokens.accessToken, common);
-  response.cookies.set(REFRESH_COOKIE, tokens.refreshToken, common);
+/**
+ * Ask the API to rotate the refresh token, forwarding the browser's
+ * cookies along (middleware runs server-side, so `fetch` does not
+ * automatically attach the incoming request's cookies — they must be
+ * passed explicitly). Returns the raw `Set-Cookie` header values from
+ * the API response so the caller can mirror them onto the outgoing
+ * response verbatim (they're already correctly HttpOnly/Secure/SameSite).
+ */
+async function refreshSessionCookies(
+  request: NextRequest,
+): Promise<string[] | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        cookie: request.headers.get('cookie') ?? '',
+      },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) return null;
+    const setCookies = res.headers.getSetCookie?.() ?? [];
+    return setCookies.length > 0 ? setCookies : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function middleware(request: NextRequest) {
@@ -161,28 +151,24 @@ export async function middleware(request: NextRequest) {
 
   // Check authentication for protected routes (dashboard, courses, etc.)
   if (isProtectedPath(pathname)) {
-    const accessToken = request.cookies.get(AUTH_COOKIE)?.value;
+    const hint = readSessionHint(request);
 
-    // Happy path: a valid (unexpired) access token is present.
-    if (accessToken && isTokenValid(accessToken)) {
+    // Happy path: a valid (unexpired) session hint is present — the real
+    // HttpOnly access token cookie rides along automatically on the
+    // eventual API calls, nothing to do here.
+    if (hint) {
       return intlMiddleware(request);
     }
 
-    // Access token missing/expired — try to silently refresh using the
-    // long-lived refresh token cookie so the user is NOT bounced to login.
-    const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
-    if (refreshToken) {
-      const refreshed = await refreshTokens(refreshToken);
-      if (refreshed) {
-        // Mirror the fresh access token onto the incoming request cookies so
-        // any Server Component reading it in this same pass sees the new one.
-        request.cookies.set(AUTH_COOKIE, refreshed.accessToken);
-        // Re-run the i18n middleware to build the normal response, then
-        // attach the rotated cookies so the browser keeps the new session.
-        const response = intlMiddleware(request) ?? NextResponse.next();
-        setAuthCookies(response, refreshed);
-        return response;
+    // Hint missing/expired — try a silent refresh using the HttpOnly
+    // refresh token cookie so the user isn't bounced to login.
+    const setCookies = await refreshSessionCookies(request);
+    if (setCookies) {
+      const response = intlMiddleware(request) ?? NextResponse.next();
+      for (const cookie of setCookies) {
+        response.headers.append('set-cookie', cookie);
       }
+      return response;
     }
 
     // No way to authenticate → redirect to login with a callback.
@@ -190,9 +176,9 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL(`/${locale}/login`, request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
     const redirect = NextResponse.redirect(loginUrl);
-    // Clear any stale auth cookies so we don't loop.
-    redirect.cookies.set(AUTH_COOKIE, '', { path: '/', maxAge: 0 });
-    redirect.cookies.set(REFRESH_COOKIE, '', { path: '/', maxAge: 0 });
+    // Clear the stale hint so we don't loop; the HttpOnly cookies (if any)
+    // are already invalid/expired server-side or will be on next use.
+    redirect.cookies.set(SESSION_HINT_COOKIE, '', { path: '/', maxAge: 0 });
     return redirect;
   }
 

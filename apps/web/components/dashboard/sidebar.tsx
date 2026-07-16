@@ -22,7 +22,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { clearTokens } from '../../lib/auth';
+import { logout } from '../../lib/auth';
 import { usePendingRequests } from '../../hooks/use-pending-requests';
 import { useUnreadDmCount } from '../../hooks/use-unread-dm-count';
 import { usePendingHomeworkCount } from '../../hooks/use-pending-homework-count';
@@ -113,8 +113,8 @@ export function DashboardSidebar({ locale, role, userName, userEmail }: SidebarP
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  function handleLogout() {
-    clearTokens();
+  async function handleLogout() {
+    await logout();
     window.location.href = `${base}/login`;
   }
 

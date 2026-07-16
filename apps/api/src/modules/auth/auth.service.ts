@@ -654,6 +654,12 @@ export class AuthService {
     dto: RefreshDto,
     meta: { userAgent?: string; ip?: string },
   ): Promise<RefreshResult> {
+    if (!dto.refreshToken) {
+      throw new UnauthorizedException({
+        code: 'INVALID_REFRESH_TOKEN',
+        message: 'Invalid or expired refresh token',
+      });
+    }
     const tokenHash = this.tokensService.hashToken(dto.refreshToken);
     const now = new Date();
 
@@ -744,6 +750,22 @@ export class AuthService {
       accessToken,
       refreshToken: newRefreshToken,
     };
+  }
+
+  /**
+   * Revoke the session backing a refresh token (Req 21.3 logout).
+   * Best-effort: an already-invalid/expired token is treated as a no-op
+   * so logout always succeeds from the client's point of view.
+   */
+  async logout(refreshToken: string | undefined): Promise<{ message: string }> {
+    if (refreshToken) {
+      const tokenHash = this.tokensService.hashToken(refreshToken);
+      await this.prisma.session.updateMany({
+        where: { refreshTokenHash: tokenHash, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+    return { message: 'Logged out' };
   }
 
   /**

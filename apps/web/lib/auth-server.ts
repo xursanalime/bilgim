@@ -11,7 +11,10 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-export const ACCESS_COOKIE = 'bilgim_access_token';
+// Must match the HttpOnly cookie name AuthController actually sets
+// (apps/api/src/modules/auth/auth.controller.ts) — NOT the old
+// client-side `bilgim_*` cookie name, which no longer exists.
+export const ACCESS_COOKIE = 'access_token';
 
 export interface ServerUser {
   sub: string;

@@ -5,6 +5,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { PrismaClient } from '@prisma/client';
 import helmet from 'helmet';
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { EnvConfig } from './config/config.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -43,6 +44,13 @@ async function bootstrap() {
   // reverse proxy (nginx ingress / traefik). Public clients can no longer
   // spoof their IP to evade IP-based rate limits (Task 24.1).
   app.set('trust proxy', 'loopback');
+
+  // Parse incoming Cookie headers into `req.cookies` — required for the
+  // refresh-token cookie fallback in AuthController.refresh() and for
+  // JwtStrategy's cookie-based extraction. Without this, `req.cookies`
+  // is `undefined` and browser clients relying on HttpOnly auth cookies
+  // silently fail over to the JSON-body tokens instead.
+  app.use(cookieParser());
 
   // Global hardening — helmet, CORS, body size limits, compression,
   // request timeouts (Task 24.1, Req 17.x / 21.x).

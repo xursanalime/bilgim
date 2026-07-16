@@ -19,7 +19,10 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { defaultLocale } from '@bilgim/i18n';
 
-const ACCESS_TOKEN_COOKIE = 'bilgim_access_token';
+// Must match the HttpOnly cookie name AuthController actually sets
+// (apps/api/src/modules/auth/auth.controller.ts) — NOT the old
+// client-side `bilgim_*` cookie name, which no longer exists.
+const ACCESS_TOKEN_COOKIE = 'access_token';
 
 export type UserRole = 'STUDENT' | 'TEACHER' | 'ADMIN';
 

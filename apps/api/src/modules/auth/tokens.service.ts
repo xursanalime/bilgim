@@ -52,6 +52,19 @@ export class TokensService {
   }
 
   /**
+   * Decode an access token's payload without verifying its signature.
+   * Only safe to use on a token this server just issued in the same
+   * request (e.g. to mirror `role`/`exp` into a non-sensitive cookie
+   * for middleware routing decisions) — never use this to authenticate
+   * a caller-supplied token.
+   */
+  decodeUnsafe(token: string): (JwtPayload & { exp: number }) | null {
+    return this.jwtService.decode(token) as
+      | (JwtPayload & { exp: number })
+      | null;
+  }
+
+  /**
    * Generate a cryptographically secure random token (hex string).
    * Used for email verification and password reset tokens.
    */

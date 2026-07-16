@@ -13,7 +13,6 @@
  */
 
 import { apiClient } from './api-client';
-import { setTokens } from './auth';
 import type {
   AuthenticationOptionsJSON,
   AuthenticationResponseJSON,
@@ -164,23 +163,18 @@ export const mfaApi = {
 
   /**
    * POST /auth/mfa/challenge — complete the second factor with a TOTP or
-   * backup code. On success the API sets auth cookies AND returns the token
-   * pair, which we persist client-side via `setTokens`.
+   * backup code. The API sets HttpOnly auth cookies on the response;
+   * nothing to persist client-side.
    */
   async completeChallengeWithCode(
     mfaToken: string,
     code: string,
   ): Promise<LoginTokens> {
-    const result = await apiClient.post<LoginTokens>(
+    return apiClient.post<LoginTokens>(
       '/auth/mfa/challenge',
       { mfaToken, code },
       { public: true },
     );
-    setTokens({
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-    });
-    return result;
   },
 
   /**
@@ -191,15 +185,10 @@ export const mfaApi = {
     mfaToken: string,
     response: AuthenticationResponseJSON,
   ): Promise<LoginTokens> {
-    const result = await apiClient.post<LoginTokens>(
+    return apiClient.post<LoginTokens>(
       '/auth/mfa/challenge',
       { mfaToken, webauthn: { response } },
       { public: true },
     );
-    setTokens({
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-    });
-    return result;
   },
 };

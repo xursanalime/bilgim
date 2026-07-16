@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Skill(run)"
+      "Skill(run)",
+      "Bash(npx -y pnpm@9.6.0 add cookie-parser --filter @bilgim/api)",
+      "Bash(npx -y pnpm@9.6.0 add -D @types/cookie-parser --filter @bilgim/api)"
     ]
   }
 }

@@ -3,12 +3,6 @@
  * Handles authentication headers, token refresh, and error responses.
  */
 
-import {
-  getAccessToken,
-  refreshAccessToken,
-  clearTokens,
-} from './auth';
-
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 const API_PREFIX = '/api/v1';
@@ -69,16 +63,37 @@ function buildUrl(path: string, params?: RequestOptions['params']): string {
   return url.toString();
 }
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const token = getAccessToken();
-  // Note: we intentionally do NOT proactively refresh here. The refresh
-  // token is rotated server-side on every use, so refreshing from multiple
-  // places (middleware + client) with the same token trips the backend's
-  // token-family reuse detection and nukes the session. Instead we send
-  // whatever access token we have and let the 401 handler refresh-and-retry
-  // exactly once when the server actually rejects it.
-  if (!token) return {};
-  return { Authorization: `Bearer ${token}` };
+// The access/refresh tokens live in HttpOnly cookies now — the browser
+// attaches them automatically on same-site requests (`credentials:
+// 'include'` below). Nothing here reads or forwards a token value.
+
+let refreshPromise: Promise<boolean> | null = null;
+
+/**
+ * Ask the API to rotate the refresh token. Deduplicates concurrent calls
+ * so parallel 401s don't each trigger their own refresh (which would trip
+ * the backend's token-family reuse detection).
+ */
+async function refreshSession(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}${API_PREFIX}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  })();
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
 }
 
 // --- Core Request Function ---
@@ -97,12 +112,6 @@ async function request<T>(
     ...(fetchOptions.headers as Record<string, string>),
   };
 
-  // Add auth headers unless explicitly public
-  if (!isPublic) {
-    const authHeaders = await getAuthHeaders();
-    Object.assign(headers, authHeaders);
-  }
-
   // Add idempotency key for mutating requests
   if (idempotencyKey) {
     headers['Idempotency-Key'] = idempotencyKey;
@@ -114,6 +123,9 @@ async function request<T>(
     ...fetchOptions,
     method,
     headers,
+    // HttpOnly access/refresh cookies ride along automatically; public
+    // (unauthenticated) requests still send credentials harmlessly.
+    credentials: 'include',
     body: body ? JSON.stringify(body) : null,
   });
 
@@ -123,16 +135,15 @@ async function request<T>(
     // single refresh-and-retry before giving up, so a transparently-expired
     // token doesn't surface as an error or force a logout.
     if (response.status === 401 && !isPublic && !isRetry) {
-      const refreshed = await refreshAccessToken();
+      const refreshed = await refreshSession();
       if (refreshed) {
         return request<T>(method, path, options, true);
       }
-      // Refresh failed → session is truly dead. Clear and bounce to login,
-      // preserving the locale prefix and the current path as callbackUrl so
-      // the user lands back where they were after re-authenticating. A
-      // `reason` flag lets the login screen show a clear "session expired"
-      // message instead of a blank/broken state.
-      clearTokens();
+      // Refresh failed → session is truly dead. Bounce to login, preserving
+      // the locale prefix and the current path as callbackUrl so the user
+      // lands back where they were after re-authenticating. A `reason` flag
+      // lets the login screen show a clear "session expired" message
+      // instead of a blank/broken state.
       if (typeof window !== 'undefined') {
         const { pathname, search } = window.location;
         const localeMatch = pathname.match(/^\/(uz|ru|en)(?:\/|$)/);

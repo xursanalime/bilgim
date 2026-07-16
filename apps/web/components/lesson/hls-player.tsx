@@ -6,7 +6,6 @@ import { Maximize, Minimize } from 'lucide-react';
 import { UserWatermark } from './user-watermark';
 import { useContentProtection } from '../../hooks/use-content-protection';
 import { useScreenCaptureDetection } from '../../hooks/use-screen-capture-detection';
-import { getAccessToken } from '../../lib/auth';
 
 interface HlsPlayerProps {
   /**
@@ -42,9 +41,7 @@ export function HlsPlayer({
   // assetId orqali proxy dan URL olish
   useEffect(() => {
     if (assetId) {
-      const token = getAccessToken();
       fetch(`/api/media/proxy?assetId=${encodeURIComponent(assetId)}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
         credentials: 'include',
       })
         .then(async (res) => {

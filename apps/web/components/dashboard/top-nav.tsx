@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { Menu, X, Bell, User } from 'lucide-react';
-import { clearTokens } from '../../lib/auth';
+import { logout } from '../../lib/auth';
 import { cn } from '../../lib/utils';
 import { useFocusTrap } from '../../lib/a11y/use-focus-trap';
 import { usePendingRequests } from '../../hooks/use-pending-requests';
@@ -48,8 +48,8 @@ export function DashboardTopNav({
     setMobileOpen(false);
   }, [pathname]);
 
-  function handleLogout() {
-    clearTokens();
+  async function handleLogout() {
+    await logout();
     window.location.href = `/${locale}/login`;
   }
 
