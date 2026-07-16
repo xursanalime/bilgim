@@ -96,6 +96,10 @@ const config: Config = {
         // Apple Green — Success (jonli, tasdiqlash)
         green: {
           DEFAULT: 'rgb(var(--green) / <alpha-value>)',
+          // AA-safe text-only variant (ACCESSIBILITY.md §3) — use for small
+          // body/status text instead of the base (vivid) DEFAULT, which
+          // fails 4.5:1 on the light canvas.
+          strong: 'rgb(var(--green-strong) / <alpha-value>)',
           50: '#E6FAEB',
           100: '#BFF1CC',
           200: '#80E2A0',
@@ -112,6 +116,8 @@ const config: Config = {
         // Apple Orange — Premium (badge, star, alert)
         orange: {
           DEFAULT: 'rgb(var(--orange) / <alpha-value>)',
+          // AA-safe text-only variant (ACCESSIBILITY.md §3).
+          strong: 'rgb(var(--orange-strong) / <alpha-value>)',
           50: '#FFF5E6',
           100: '#FFE3BF',
           200: '#FFC780',
@@ -128,6 +134,8 @@ const config: Config = {
         // Apple Red — Error / Live indicator
         red: {
           DEFAULT: 'rgb(var(--red) / <alpha-value>)',
+          // AA-safe text-only variant (ACCESSIBILITY.md §3).
+          strong: 'rgb(var(--red-strong) / <alpha-value>)',
           50: '#FFEBE9',
           100: '#FFC7C2',
           200: '#FF9E96',
@@ -144,6 +152,8 @@ const config: Config = {
         // Apple Purple — AI Tutor (magic, intellect)
         purple: {
           DEFAULT: 'rgb(var(--purple) / <alpha-value>)',
+          // AA-safe text-only variant (ACCESSIBILITY.md §3).
+          strong: 'rgb(var(--purple-strong) / <alpha-value>)',
           50: '#F5EBFC',
           100: '#E5C9F5',
           200: '#D2A0EB',
@@ -159,6 +169,8 @@ const config: Config = {
 
         teal: {
           DEFAULT: 'rgb(var(--teal) / <alpha-value>)',
+          // AA-safe text-only variant (ACCESSIBILITY.md §3).
+          strong: 'rgb(var(--teal-strong) / <alpha-value>)',
           400: '#5DBDEC',
           500: '#32ADE6',
           600: '#218BB8',

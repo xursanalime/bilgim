@@ -32,6 +32,18 @@
     --purple-tint: 245 235 252; /* light purple */
     --teal: 50 173 230; /* #32ADE6 — info */
 
+    /* ── AA-safe *-strong text variants (ACCESSIBILITY.md §3) ──
+       `green`/`orange`/`teal`/`red`/`purple` fail WCAG AA (4.5:1) as small
+       text on the light canvas (#FFFFFF). These darker, text-only shades
+       are additive — the base colors are untouched and remain correct for
+       fills/icons/large text/borders. Use `text-{color}-strong` for actual
+       small body/status copy. ── */
+    --green-strong: 14 124 90; /* #0E7C5A */
+    --orange-strong: 178 94 0; /* #B25E00 */
+    --teal-strong: 26 127 176; /* #1A7FB0 */
+    --red-strong: 215 0 21; /* #D70015 */
+    --purple-strong: 142 54 192; /* #8E36C0 */
+
     /* ── Ink (text) ────────────────────────────────── */
     --ink-strong: 29 29 31; /* #1D1D1F — primary text */
     --ink: 51 51 56; /* secondary heading */
@@ -96,6 +108,16 @@
     --purple: 191 90 242; /* #BF5AF2 */
     --purple-tint: 44 20 58; /* deep purple wash */
     --teal: 100 210 255; /* #64D2FF */
+
+    /* ── AA-safe *-strong text variants (dark theme) ──
+       The base brand colors already pass AA as text on the dark canvas
+       (#16161C), so the `*-strong` text variant reuses the same value here
+       — no separate darker shade is needed in dark mode. */
+    --green-strong: 48 209 88; /* #30D158 — same as --green above */
+    --orange-strong: 255 159 10; /* #FF9F0A — same as --orange above */
+    --teal-strong: 100 210 255; /* #64D2FF — same as --teal above */
+    --red-strong: 255 69 58; /* #FF453A — same as --red above */
+    --purple-strong: 191 90 242; /* #BF5AF2 — same as --purple above */
 
     /* ── Ink (text) — inverted hierarchy ───────────── */
     --ink-strong: 245 245 247; /* #F5F5F7 — primary text */
@@ -275,6 +297,24 @@
   }
   .text-teal {
     color: rgb(var(--teal));
+  }
+
+  /* AA-safe text-only variants (ACCESSIBILITY.md §3) — use these instead of
+     the base `.text-{color}` utilities for small body/status TEXT. */
+  .text-green-strong {
+    color: rgb(var(--green-strong));
+  }
+  .text-orange-strong {
+    color: rgb(var(--orange-strong));
+  }
+  .text-teal-strong {
+    color: rgb(var(--teal-strong));
+  }
+  .text-red-strong {
+    color: rgb(var(--red-strong));
+  }
+  .text-purple-strong {
+    color: rgb(var(--purple-strong));
   }
 
   .text-ink {

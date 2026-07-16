@@ -20,6 +20,10 @@ const config: Config = {
   },
   // Add more setup options before each test is run
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  // Playwright e2e specs (apps/web/e2e/**) use the @playwright/test runner,
+  // not Jest — exclude them so `pnpm test` doesn't try (and fail) to load
+  // `@playwright/test` under jsdom. Run e2e via `pnpm test:e2e` instead.
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/'],
   moduleNameMapper: {
     // Workspace package aliases (mirrors tsconfig `paths`) so tests can
     // import the shared @bilgim/i18n package and its locale catalogs.

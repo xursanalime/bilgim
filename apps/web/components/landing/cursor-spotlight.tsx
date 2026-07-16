@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { prefersReducedMotion } from '../../lib/use-prefers-reduced-motion';
+
 /**
  * CursorSpotlight — soft purple halo that follows the cursor.
  *
@@ -15,9 +17,8 @@ export function CursorSpotlight() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
     const isCoarse = window.matchMedia('(pointer: coarse)').matches;
-    if (mql.matches || isCoarse) return;
+    if (prefersReducedMotion() || isCoarse) return;
 
     setEnabled(true);
 

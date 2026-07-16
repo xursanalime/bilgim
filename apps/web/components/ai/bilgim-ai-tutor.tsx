@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 
 import { cn } from '../../lib/utils';
+import { usePrefersReducedMotion } from '../../lib/use-prefers-reduced-motion';
 import {
   aiTutorApi,
   TutorRateLimitError,
@@ -150,21 +151,6 @@ function recordUsage(intent: TutorIntent): void {
   } catch {
     /* storage full / unavailable — non-fatal */
   }
-}
-
-// ── Reduced-motion hook ──────────────────────────────────────────────────
-
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReduced(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mq.addEventListener?.('change', handler);
-    return () => mq.removeEventListener?.('change', handler);
-  }, []);
-  return reduced;
 }
 
 // ── Progressive reveal (streaming feel) ─────────────────────────────────

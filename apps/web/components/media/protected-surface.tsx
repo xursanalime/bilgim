@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import clsx from 'clsx';
 
 import { useCaptureGuard } from './use-capture-guard';
+import { usePrefersReducedMotion } from '../../lib/use-prefers-reduced-motion';
 
 /**
  * ProtectedSurface — the single, reusable wrapper that consolidates Bilgim's
@@ -70,27 +71,6 @@ export interface ProtectedSurfaceProps {
 const DEFAULT_NOTICE =
   'Himoyalangan kontent — yozib olish va tarqatish suvli belgi orqali kuzatiladi.';
 const DEFAULT_OBSCURED_MESSAGE = 'Diqqat boshqa oynaga ko\u2018tirildi — ijro to\u2018xtatildi.';
-
-/** Reactively track the reduced-motion preference (SSR-safe). */
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return;
-    }
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReduced(query.matches);
-    const onChange = (event: MediaQueryListEvent) => setReduced(event.matches);
-    if (typeof query.addEventListener === 'function') {
-      query.addEventListener('change', onChange);
-      return () => query.removeEventListener('change', onChange);
-    }
-    // Safari < 14 fallback.
-    query.addListener(onChange);
-    return () => query.removeListener(onChange);
-  }, []);
-  return reduced;
-}
 
 export function ProtectedSurface({
   children,

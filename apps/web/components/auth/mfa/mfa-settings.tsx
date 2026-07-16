@@ -438,7 +438,7 @@ function DisableTotpDialog({
             />
           </div>
           {error && (
-            <p role="alert" className="text-xs font-medium text-red">
+            <p role="alert" className="text-xs font-medium text-red-strong">
               {error}
             </p>
           )}

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react';
 
+import { prefersReducedMotion } from '../../../lib/use-prefers-reduced-motion';
+
 /**
  * ParticleField — interaktiv canvas zarrachalar fon.
  *
@@ -33,7 +35,7 @@ export function ParticleField({
     if (!ctx) return;
 
     // Reduced motion — statik zarrachalar
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduced = prefersReducedMotion();
 
     let raf = 0;
     let visible = true;

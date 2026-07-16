@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
 
 import {
   Dialog,
@@ -52,5 +53,13 @@ describe('Dialog component', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
+  });
+
+  it('has no automated a11y violations while open (axe smoke test)', async () => {
+    render(<Example />);
+    await userEvent.click(screen.getByText('Open'));
+    await screen.findByRole('dialog');
+    const results = await axe(document.body);
+    expect(results).toHaveNoViolations();
   });
 });

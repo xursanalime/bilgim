@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { getToken, tokenVars, tokens } from '../../lib/design/tokens';
+import { usePrefersReducedMotion } from '../../lib/use-prefers-reduced-motion';
 
 /**
  * Per-viewer forensic watermark overlay (Requirements 3.1, 3.2, 3.3, 3.5).
@@ -116,24 +117,8 @@ export function WatermarkOverlay({
 
   const [positionIndex, setPositionIndex] = useState(0);
   const [now, setNow] = useState(() => new Date());
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  // Track the reduced-motion preference reactively (no jarring transitions).
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return;
-    }
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReducedMotion(query.matches);
-    const onChange = (event: MediaQueryListEvent) => setReducedMotion(event.matches);
-    // Safari < 14 only supports the deprecated addListener signature.
-    if (typeof query.addEventListener === 'function') {
-      query.addEventListener('change', onChange);
-      return () => query.removeEventListener('change', onChange);
-    }
-    query.addListener(onChange);
-    return () => query.removeListener(onChange);
-  }, []);
+  // Reactive reduced-motion preference (no jarring transitions).
+  const reducedMotion = usePrefersReducedMotion();
 
   // Reposition on an interval so the watermark can't be cropped out (Req 3.2).
   useEffect(() => {

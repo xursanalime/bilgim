@@ -17,6 +17,7 @@ import {
   Heart,
 } from 'lucide-react';
 import { SectionHeader } from './features-bento';
+import { prefersReducedMotion } from '../../lib/use-prefers-reduced-motion';
 
 /**
  * LiveShowcase — class video stage with real participant videos.
@@ -311,8 +312,7 @@ function CaptionStrip() {
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) return;
+    if (prefersReducedMotion()) return;
     const interval = window.setInterval(() => {
       setIdx((i) => (i + 1) % CAPTIONS.length);
     }, 4500);
@@ -484,8 +484,7 @@ function SmartVideo({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) {
+    if (prefersReducedMotion()) {
       el.pause();
       return;
     }

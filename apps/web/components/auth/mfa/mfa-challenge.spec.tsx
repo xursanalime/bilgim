@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
 
 import { MfaChallenge } from './mfa-challenge';
 import type { MfaChallengeRequired, LoginTokens } from '../../../lib/mfa-api';
@@ -109,5 +110,18 @@ describe('MfaChallenge', () => {
 
     expect(screen.queryByLabelText(/tasdiqlash kodi/i)).not.toBeInTheDocument();
     expect(screen.getByText(/passkey/i)).toBeInTheDocument();
+  });
+
+  it('has no automated a11y violations (axe smoke test)', async () => {
+    const { container } = render(
+      <MfaChallenge
+        challenge={makeChallenge(['totp', 'backup'])}
+        locale="uz"
+        onSuccess={jest.fn()}
+        onCancel={jest.fn()}
+      />,
+    );
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
   });
 });

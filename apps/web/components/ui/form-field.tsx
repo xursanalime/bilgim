@@ -69,7 +69,7 @@ export const FormField = forwardRef<HTMLInputElement, FormFieldProps>(
           {...inputProps}
         />
         {error ? (
-          <p id={`${id}-error`} className="text-xs font-medium text-red">
+          <p id={`${id}-error`} className="text-xs font-medium text-red-strong">
             {error}
           </p>
         ) : helperText ? (

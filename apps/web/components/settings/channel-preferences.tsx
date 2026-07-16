@@ -186,7 +186,7 @@ function ChannelRow({
               </span>
             ) : null}
             {saved ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-green-tint px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-green">
+              <span className="inline-flex items-center gap-1 rounded-full bg-green-tint px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-green-strong">
                 <CheckCircle2 className="h-2.5 w-2.5" />
                 Saqlandi
               </span>

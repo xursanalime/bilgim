@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
 
 import { BackupCodes } from './backup-codes';
 
@@ -39,5 +40,11 @@ describe('BackupCodes', () => {
 
     await userEvent.click(done);
     expect(onAcknowledge).toHaveBeenCalledTimes(1);
+  });
+
+  it('has no automated a11y violations (axe smoke test)', async () => {
+    const { container } = render(<BackupCodes codes={CODES} onAcknowledge={jest.fn()} />);
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
   });
 });

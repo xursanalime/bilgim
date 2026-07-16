@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react';
 
+import { prefersReducedMotion } from '../../lib/use-prefers-reduced-motion';
+
 /**
  * LightBeam — signature vertical light pillar (Aurora Dawn palette).
  *
@@ -48,8 +50,7 @@ export function LightBeam({ className = '' }: { className?: string }) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) return;
+    if (prefersReducedMotion()) return;
 
     let raf = 0;
     let particles: {

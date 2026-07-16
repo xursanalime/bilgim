@@ -26,6 +26,7 @@ import { PartyPopper, Sparkles, X } from 'lucide-react';
 import { gamificationApi } from '../../lib/api/gamification';
 import { getLevelProgress } from '../../lib/gamification-constants';
 import { cn } from '../../lib/utils';
+import { usePrefersReducedMotion } from '../../lib/use-prefers-reduced-motion';
 
 const AUTO_DISMISS_MS = 6000;
 
@@ -41,27 +42,6 @@ interface LevelUpState {
   level: number;
   levelName: string;
   color: string;
-}
-
-/** Reactively track the reduced-motion preference (SSR-safe). */
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return;
-    }
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReduced(query.matches);
-    const onChange = (event: MediaQueryListEvent) => setReduced(event.matches);
-    if (typeof query.addEventListener === 'function') {
-      query.addEventListener('change', onChange);
-      return () => query.removeEventListener('change', onChange);
-    }
-    // Safari < 14 fallback.
-    query.addListener(onChange);
-    return () => query.removeListener(onChange);
-  }, []);
-  return reduced;
 }
 
 export function LevelUpToast({ role, locale }: LevelUpToastProps) {

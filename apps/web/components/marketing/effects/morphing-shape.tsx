@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react';
 
+import { prefersReducedMotion } from '../../../lib/use-prefers-reduced-motion';
+
 /**
  * MorphingShape — Antimatter AI stilida particle-based 3D shape.
  *
@@ -173,7 +175,7 @@ export function MorphingShape({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduced = prefersReducedMotion();
 
     let raf = 0;
     let rotation = 0;

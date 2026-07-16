@@ -199,3 +199,61 @@ export function expectNoBasicA11yViolations(container: ParentNode): void {
     );
   }
 }
+
+// ═════════════════════════════════════════════════════════════════
+// Optional real-axe delegation (ACCESSIBILITY.md → "Follow-up: wire axe
+// into CI").
+//
+// `jest-axe` is now an (optional-at-runtime) devDependency. Rather than a
+// rip-and-replace of every call site, `expectNoA11yViolations` below tries
+// to resolve `jest-axe` at call time and delegates to real `axe-core` for
+// full WCAG rule coverage when it's installed. If it isn't resolvable
+// (e.g. a checkout before the dependency was installed, or a stripped-down
+// CI cache), it transparently falls back to the dependency-free
+// `expectNoBasicA11yViolations` baseline above — so this helper always
+// works, in either repo state, without call sites needing to know which
+// path ran.
+//
+// `jest.setup.ts` registers jest-axe's `toHaveNoViolations` matcher the
+// same way (best-effort, swallowing the "module not found" case) so
+// `expect(results).toHaveNoViolations()` is available whenever this runs.
+// ═════════════════════════════════════════════════════════════════
+
+/** Minimal shape of the bits of `jest-axe` this helper depends on. */
+interface JestAxeModule {
+  axe: (container: Element | ParentNode) => Promise<{ violations: unknown[] }>;
+}
+
+function loadJestAxe(): JestAxeModule | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require('jest-axe') as JestAxeModule;
+  } catch {
+    // Not installed / not resolvable — caller falls back to the basic check.
+    return null;
+  }
+}
+
+/**
+ * Assert no accessibility violations in `container`, preferring real
+ * `axe-core` (via `jest-axe`) when available and falling back to
+ * {@link expectNoBasicA11yViolations} otherwise.
+ *
+ * @example
+ * const { container } = render(<MyComponent />);
+ * await expectNoA11yViolations(container);
+ */
+export async function expectNoA11yViolations(container: ParentNode): Promise<void> {
+  const jestAxe = loadJestAxe();
+  if (!jestAxe) {
+    expectNoBasicA11yViolations(container);
+    return;
+  }
+
+  const results = await jestAxe.axe(container as Element);
+  // `toHaveNoViolations` is registered globally by jest.setup.ts whenever
+  // jest-axe is resolvable, so it mirrors the same availability check here.
+  // Cast is needed because the matcher's type comes from `jest-axe`'s own
+  // ambient types, which augment `expect` only when the package is present.
+  (expect(results) as unknown as { toHaveNoViolations(): void }).toHaveNoViolations();
+}

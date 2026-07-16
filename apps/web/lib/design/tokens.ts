@@ -54,20 +54,34 @@ export interface TokenTree {
     /** Success (`--green`). */
     readonly success: string;
     readonly successTint: string;
+    /**
+     * AA-safe text-only success shade (`--green-strong`). Use instead of
+     * `success` for small body/status TEXT on the light canvas — the base
+     * `success` fails WCAG AA (4.5:1) as small text (ACCESSIBILITY.md §3).
+     */
+    readonly successStrong: string;
     /** Warning / premium (`--orange`). */
     readonly warn: string;
     readonly warnTint: string;
+    /** AA-safe text-only warning shade (`--orange-strong`). See `successStrong`. */
+    readonly warnStrong: string;
     /** Danger / error (`--red`). */
     readonly danger: string;
     readonly dangerTint: string;
+    /** AA-safe text-only danger shade (`--red-strong`). See `successStrong`. */
+    readonly dangerStrong: string;
     /** Informational (`--teal`). */
     readonly info: string;
+    /** AA-safe text-only info shade (`--teal-strong`). See `successStrong`. */
+    readonly infoStrong: string;
   };
   /** AI tutor accent (purple). */
   readonly ai: {
     /** AI accent (`--purple`). */
     readonly accent: string;
     readonly accentTint: string;
+    /** AA-safe text-only AI accent shade (`--purple-strong`). See `successStrong`. */
+    readonly accentStrong: string;
   };
   /** Text / ink hierarchy. */
   readonly text: {
@@ -129,15 +143,20 @@ export const tokens: TokenTree = {
   semantic: {
     success: '#10B981',
     successTint: '#EBFCF5',
+    successStrong: '#0E7C5A',
     warn: '#FF9F0A',
     warnTint: '#FFF5E6',
+    warnStrong: '#B25E00',
     danger: '#FF3B30',
     dangerTint: '#FFEBE9',
+    dangerStrong: '#D70015',
     info: '#32ADE6',
+    infoStrong: '#1A7FB0',
   },
   ai: {
     accent: '#AF52DE',
     accentTint: '#F5EBFC',
+    accentStrong: '#8E36C0',
   },
   text: {
     strong: '#1D1D1F',
@@ -171,15 +190,20 @@ export const tokenVars: CssVarTree = {
   semantic: {
     success: '--green',
     successTint: '--green-tint',
+    successStrong: '--green-strong',
     warn: '--orange',
     warnTint: '--orange-tint',
+    warnStrong: '--orange-strong',
     danger: '--red',
     dangerTint: '--red-tint',
+    dangerStrong: '--red-strong',
     info: '--teal',
+    infoStrong: '--teal-strong',
   },
   ai: {
     accent: '--purple',
     accentTint: '--purple-tint',
+    accentStrong: '--purple-strong',
   },
   text: {
     strong: '--ink-strong',
@@ -290,15 +314,20 @@ export function getTokens(): TokenTree {
     semantic: {
       success: getToken(tokenVars.semantic.success, tokens.semantic.success),
       successTint: getToken(tokenVars.semantic.successTint, tokens.semantic.successTint),
+      successStrong: getToken(tokenVars.semantic.successStrong, tokens.semantic.successStrong),
       warn: getToken(tokenVars.semantic.warn, tokens.semantic.warn),
       warnTint: getToken(tokenVars.semantic.warnTint, tokens.semantic.warnTint),
+      warnStrong: getToken(tokenVars.semantic.warnStrong, tokens.semantic.warnStrong),
       danger: getToken(tokenVars.semantic.danger, tokens.semantic.danger),
       dangerTint: getToken(tokenVars.semantic.dangerTint, tokens.semantic.dangerTint),
+      dangerStrong: getToken(tokenVars.semantic.dangerStrong, tokens.semantic.dangerStrong),
       info: getToken(tokenVars.semantic.info, tokens.semantic.info),
+      infoStrong: getToken(tokenVars.semantic.infoStrong, tokens.semantic.infoStrong),
     },
     ai: {
       accent: getToken(tokenVars.ai.accent, tokens.ai.accent),
       accentTint: getToken(tokenVars.ai.accentTint, tokens.ai.accentTint),
+      accentStrong: getToken(tokenVars.ai.accentStrong, tokens.ai.accentStrong),
     },
     text: {
       strong: getToken(tokenVars.text.strong, tokens.text.strong),

@@ -379,7 +379,7 @@ export function RegisterForm({ locale, initialRole, callbackUrl }: RegisterFormP
           </span>
         </label>
         {errors.terms && (
-          <p className="text-xs text-red">{errors.terms.message}</p>
+          <p className="text-xs text-red-strong">{errors.terms.message}</p>
         )}
 
         {captchaRequired && (

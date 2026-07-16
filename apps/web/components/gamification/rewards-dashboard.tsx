@@ -15,6 +15,7 @@ import confetti from 'canvas-confetti';
 import { gamificationApi, type RewardItem } from '../../lib/api/gamification';
 import { cn } from '../../lib/utils';
 import { tokens } from '../../lib/design/tokens';
+import { prefersReducedMotion } from '../../lib/use-prefers-reduced-motion';
 import { Card, StatCard } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -31,11 +32,6 @@ import { toast } from '../ui/toast';
 
 interface RewardsDashboardProps {
   locale: string;
-}
-
-function prefersReducedMotion(): boolean {
-  if (typeof window === 'undefined' || !window.matchMedia) return false;
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 // Reward item-type → icon + accent tint (design-system palette).

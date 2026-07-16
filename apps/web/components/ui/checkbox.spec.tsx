@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
 
 import { Checkbox } from './checkbox';
 
@@ -40,5 +41,11 @@ describe('Checkbox component', () => {
     const cb = screen.getByRole('checkbox');
     await userEvent.click(cb);
     expect(cb).not.toBeChecked();
+  });
+
+  it('has no automated a11y violations (axe smoke test)', async () => {
+    const { container } = render(<Checkbox aria-label="Accept terms" indeterminate />);
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
   });
 });

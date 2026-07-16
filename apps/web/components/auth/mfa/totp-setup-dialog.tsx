@@ -204,7 +204,7 @@ export function TotpSetupDialog({
                 aria-describedby={error ? 'totp-code-error' : undefined}
               />
               {error && (
-                <p id="totp-code-error" role="alert" className="text-xs font-medium text-red">
+                <p id="totp-code-error" role="alert" className="text-xs font-medium text-red-strong">
                   {error}
                 </p>
               )}

@@ -15,6 +15,7 @@ import { gamificationApi } from '../../lib/api/gamification';
 import { cn } from '../../lib/utils';
 import confetti from 'canvas-confetti';
 import { tokens } from '../../lib/design/tokens';
+import { prefersReducedMotion } from '../../lib/use-prefers-reduced-motion';
 
 // ═════════════════════════════════════════════════════════════════
 // DailyChallengesWidget — compact daily-challenge tracker for the
@@ -22,11 +23,6 @@ import { tokens } from '../../lib/design/tokens';
 // localized in Uzbek. Reduced-motion users get no confetti burst.
 // (Requirements 12.4, 12.5)
 // ═════════════════════════════════════════════════════════════════
-
-function prefersReducedMotion(): boolean {
-  if (typeof window === 'undefined' || !window.matchMedia) return false;
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
 
 export function DailyChallengesWidget() {
   const [isExpanded, setIsExpanded] = useState(false);

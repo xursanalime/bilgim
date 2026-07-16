@@ -1,4 +1,5 @@
 import createNextIntlPlugin from 'next-intl/plugin';
+import { withSentryConfig } from '@sentry/nextjs';
 
 const withNextIntl = createNextIntlPlugin('./i18n.ts');
 
@@ -94,4 +95,27 @@ const nextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+// Sentry infra-readiness only (Task: error tracking) — no real Sentry
+// account/org exists yet. `withSentryConfig` wraps the build to inject
+// error-tracking instrumentation and (optionally) upload source maps when
+// `SENTRY_AUTH_TOKEN` is set; with no DSN configured (see .env.example),
+// the runtime SDK no-ops and nothing is ever sent. Sentry's own docs
+// recommend composing it as the OUTERMOST wrapper, hence it wraps
+// `withNextIntl(nextConfig)` rather than the other way around.
+export default withSentryConfig(withNextIntl(nextConfig), {
+  // Suppresses the Sentry CLI's build-time source-map-upload logs unless a
+  // real auth token/org/project is configured.
+  silent: true,
+  // These are unset today (no Sentry account exists) — sourcemap upload is
+  // skipped automatically by the Sentry webpack plugin when they're absent.
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Avoid Sentry's tunneling rewrite (adds an extra API route) — not needed
+  // until ad-blocker circumvention becomes a real concern with a live DSN.
+  tunnelRoute: undefined,
+  // Don't fail the build if the Sentry CLI can't reach sentry.io (e.g. no
+  // token, sandboxed/offline environments).
+  disableServerWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+  disableClientWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+});
