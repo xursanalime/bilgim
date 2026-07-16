@@ -604,14 +604,14 @@ async function loadShaka(): Promise<ShakaModule | null> {
   if (!shakaModulePromise) {
     shakaModulePromise = (async () => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
-        const dynamicImport = new Function(
-          'specifier',
-          'return import(specifier);',
-        ) as (specifier: string) => Promise<unknown>;
-        const mod = (await dynamicImport('shaka-player')) as
-          | { default?: ShakaModule }
-          | ShakaModule;
+        // `webpackIgnore` tells webpack to leave this import as a literal
+        // runtime `import()` instead of trying to statically resolve/bundle
+        // the (currently uninstalled) module — same "optional dependency"
+        // effect as the old `new Function('specifier', 'return
+        // import(specifier)')` trick, without needing CSP `unsafe-eval`.
+        const mod = (await import(
+          /* webpackIgnore: true */ 'shaka-player'
+        )) as { default?: ShakaModule } | ShakaModule;
         const shaka =
           (mod as { default?: ShakaModule }).default ?? (mod as ShakaModule);
         if (!shaka || !shaka.Player) return null;

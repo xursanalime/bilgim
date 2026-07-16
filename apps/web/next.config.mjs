@@ -20,7 +20,12 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // `unsafe-eval` was previously required by a `new Function(...)`
+      // dynamic-import shim in protected-video-player.tsx (hiding the
+      // optional, not-installed `shaka-player` package from webpack). That
+      // shim now uses a `webpackIgnore` magic comment instead, so eval-like
+      // execution is no longer needed anywhere in the app.
+      "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
       // img-src: R2 dan to'g'ridan rasm yuklanmaydi, proxy orqali keladi (blob:)
       // Avatarlar va tashqi rasmlar uchun https: qo'shildi
