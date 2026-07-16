@@ -8,6 +8,17 @@
 // throwing. Do NOT assume monitoring is "live" just because this file
 // exists; check that the DSN env var is actually set in the target
 // environment first.
+//
+// KNOWN FOLLOW-UP: @sentry/nextjs v8 prints a deprecation warning asking
+// this file's content to be moved into an `instrumentation.ts` `register()`
+// hook instead. Tried that migration — it breaks the dev server here
+// (`next dev` fails to bundle `supports-color`, a transitive ESM-only dep
+// pulled in via `@sentry/nextjs`'s OpenTelemetry server instrumentation:
+// debug -> require-in-the-middle -> @opentelemetry/instrumentation ->
+// @sentry/opentelemetry). Left on the older top-level-file pattern (still
+// fully supported, just deprecated) until that upstream/webpack
+// incompatibility is resolved — whoever wires up a real DSN should
+// revisit this first.
 // ═════════════════════════════════════════════════════════════════
 
 import * as Sentry from '@sentry/nextjs';
