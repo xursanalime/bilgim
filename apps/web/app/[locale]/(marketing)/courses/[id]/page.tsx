@@ -6,8 +6,8 @@ import { unstable_setRequestLocale } from 'next-intl/server';
 import {
   serverDiscovery,
   ServerDiscoveryError,
-  type DiscoveryCourseSummary,
-} from '../../../../../lib/discovery-api';
+} from '../../../../../lib/server-discovery';
+import type { DiscoveryCourseSummary } from '../../../../../lib/api/discovery';
 import {
   formatRating,
   formatUzs,

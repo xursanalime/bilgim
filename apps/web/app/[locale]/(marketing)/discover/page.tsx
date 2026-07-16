@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { unstable_setRequestLocale } from 'next-intl/server';
 
 import {
@@ -28,6 +29,27 @@ interface DiscoverPageProps {
 }
 
 const PAGE_SIZE = 20;
+
+export function generateMetadata({
+  params: { locale },
+}: DiscoverPageProps): Metadata {
+  const title = "Ustozlarni kashf eting | Bilgim";
+  const description =
+    "Bilgim platformasidagi ingliz tili ustozlarini CEFR daraja va imtihon yo'nalishi bo'yicha qidiring va o'zingizga mos ustozni toping.";
+  return {
+    title,
+    description,
+    alternates: { canonical: `/${locale}/discover` },
+    openGraph: {
+      type: 'website',
+      title,
+      description,
+      url: `/${locale}/discover`,
+      siteName: 'Bilgim',
+    },
+    twitter: { card: 'summary_large_image', title, description },
+  };
+}
 
 /**
  * Public instructor catalog (Req 15.2, 15.3).

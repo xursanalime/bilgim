@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { unstable_setRequestLocale } from 'next-intl/server';
 import { RegisterForm } from '../../../../components/auth/register-form';
 import { AuroraAuthLayout } from '../../../../components/auth/aurora-auth-layout';
@@ -5,6 +6,27 @@ import { AuroraAuthLayout } from '../../../../components/auth/aurora-auth-layout
 interface RegisterPageProps {
   params: { locale: string };
   searchParams: { role?: string; callbackUrl?: string };
+}
+
+export function generateMetadata({
+  params: { locale },
+}: RegisterPageProps): Metadata {
+  const title = "Ro'yxatdan o'tish | Bilgim";
+  const description =
+    "Bilgim'da bepul ro'yxatdan o'ting — 14 kunlik sinov, karta talab qilinmaydi. O'qituvchi yoki talaba sifatida boshlang.";
+  return {
+    title,
+    description,
+    alternates: { canonical: `/${locale}/register` },
+    openGraph: {
+      type: 'website',
+      title,
+      description,
+      url: `/${locale}/register`,
+      siteName: 'Bilgim',
+    },
+    twitter: { card: 'summary_large_image', title, description },
+  };
 }
 
 export default function RegisterPage({

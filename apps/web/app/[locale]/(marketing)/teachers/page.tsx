@@ -5,8 +5,8 @@ import { unstable_setRequestLocale } from 'next-intl/server';
 import {
   serverDiscovery,
   ServerDiscoveryError,
-  type DiscoveryTeacherSummary,
-} from '../../../../lib/discovery-api';
+} from '../../../../lib/server-discovery';
+import type { DiscoveryTeacherSummary } from '../../../../lib/api/discovery';
 import { TeacherCard } from '../../../../components/marketing/discovery-cards';
 import {
   DiscoveryEmptyState,

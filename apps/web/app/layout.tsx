@@ -6,6 +6,7 @@ import {
   THEME_NO_FLASH_SCRIPT,
 } from '../components/providers/theme-provider';
 import { SkipLink } from '../components/a11y/skip-link';
+import { CookieConsentBanner } from '../components/marketing/cookie-consent-banner';
 import { tokens } from '../lib/design/tokens';
 
 /**
@@ -70,6 +71,7 @@ export default function RootLayout({
       <body className="antialiased">
         <SkipLink />
         <ThemeProvider defaultTheme="light">{children}</ThemeProvider>
+        <CookieConsentBanner />
       </body>
     </html>
   );

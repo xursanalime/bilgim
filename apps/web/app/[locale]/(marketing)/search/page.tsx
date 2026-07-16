@@ -5,9 +5,11 @@ import { unstable_setRequestLocale } from 'next-intl/server';
 import {
   serverDiscovery,
   ServerDiscoveryError,
-  type DiscoveryCourseSummary,
-  type DiscoveryTeacherSummary,
-} from '../../../../lib/discovery-api';
+} from '../../../../lib/server-discovery';
+import type {
+  DiscoveryCourseSummary,
+  DiscoveryTeacherSummary,
+} from '../../../../lib/api/discovery';
 import { SearchControls } from '../../../../components/marketing/search-controls';
 import { CourseCard, TeacherCard } from '../../../../components/marketing/discovery-cards';
 import {

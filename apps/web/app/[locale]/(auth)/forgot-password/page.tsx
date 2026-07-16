@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { unstable_setRequestLocale } from 'next-intl/server';
 import { ForgotPasswordForm } from '../../../../components/auth/forgot-password-form';
 import { AuroraAuthLayout } from '../../../../components/auth/aurora-auth-layout';
@@ -7,6 +8,27 @@ interface ForgotPasswordPageProps {
 }
 
 import React from 'react';
+
+export function generateMetadata({
+  params: { locale },
+}: ForgotPasswordPageProps): Metadata {
+  const title = "Parolni tiklash | Bilgim";
+  const description =
+    "Bilgim akkauntingiz uchun parolni tiklash havolasini email orqali oling.";
+  return {
+    title,
+    description,
+    alternates: { canonical: `/${locale}/forgot-password` },
+    openGraph: {
+      type: 'website',
+      title,
+      description,
+      url: `/${locale}/forgot-password`,
+      siteName: 'Bilgim',
+    },
+    twitter: { card: 'summary_large_image', title, description },
+  };
+}
 
 export default function ForgotPasswordPage({
   params: { locale },
