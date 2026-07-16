@@ -1,0 +1,53 @@
+# Bilgim Platform Namespaces with Pod Security Standards (restricted profile)
+# Requirement 31.9: Kubernetes Pod Security Standards (restricted profile)
+# Requirement 31.4: Immutable infrastructure — no SSH, GitOps only
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bilgim-production
+  labels:
+    app.kubernetes.io/part-of: bilgim
+    environment: production
+    # Pod Security Standards — restricted profile enforcement
+    # Blocks: privileged containers, host network, root user, hostPath, etc.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+  annotations:
+    description: "Bilgim production namespace with restricted PSS enforcement"
+    security.bilgim.uz/ssh-access: "disabled"
+    security.bilgim.uz/change-method: "gitops-only"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bilgim-staging
+  labels:
+    app.kubernetes.io/part-of: bilgim
+    environment: staging
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+  annotations:
+    description: "Bilgim staging namespace with restricted PSS enforcement"
+    security.bilgim.uz/ssh-access: "disabled"
+    security.bilgim.uz/change-method: "gitops-only"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bilgim-vault
+  labels:
+    app.kubernetes.io/part-of: bilgim
+    environment: production
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: latest
+  annotations:
+    description: "HashiCorp Vault namespace — baseline PSS (Vault requires mlock)"

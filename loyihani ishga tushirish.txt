@@ -1,0 +1,16 @@
+  menga shunday terminal uchun buyruq qilib berki men bitta buyruq bilan butun loyihani ishga tushira olay
+   
+  Terminalga bu buyruqni kiriting:
+  
+  bash "/home/xursanalime/Downloads/bilgim-main (1)/bilgim-main/start.sh"
+  
+  Yoki qisqaroq yo'l bilan alias qo'shish uchun:
+  
+  echo 'alias bilgim="bash \"/home/xursanalime/Downloads/bilgim-main (1)/bilgim-main/start.sh\""' >> ~/.bashrc && source ~/.bashrc
+  
+  Shundan keyin har doim faqat:
+  
+  bilgim
+  
+  deb yozsangiz loyiha ishga tushadi. bilgim stop va bilgim status ham ishlaydi.
+

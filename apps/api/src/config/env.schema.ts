@@ -1,0 +1,1128 @@
+import { z } from 'zod';
+
+export const envSchema = z.object({
+  // App
+  NODE_ENV: z
+    .enum(['development', 'production', 'test'])
+    .default('development'),
+  API_PORT: z.coerce.number().default(4000),
+  APP_URL: z.string().url().default('http://localhost:3000'),
+  API_URL: z.string().url().default('http://localhost:4000'),
+
+  // Security / hardening (Task 24.1, Req 17.x, 21.x)
+  /**
+   * Comma-separated list of origins permitted by the CORS layer.
+   * Defaults to APP_URL + the local Next dev server. Values like
+   * `https://bilgim.uz,https://www.bilgim.uz` lock down the
+   * production allowlist.
+   */
+  WEB_ORIGIN: z
+    .string()
+    .default('http://localhost:3000,http://127.0.0.1:3000'),
+  /**
+   * When `true`, CORS responds with `Access-Control-Allow-Credentials: true`.
+   * Defaults to `true` since the web app uses HttpOnly auth cookies, but
+   * any deployment serving cross-origin public clients (mobile, embeds)
+   * should disable this explicitly.
+   */
+  CORS_CREDENTIALS: z
+    .union([z.boolean(), z.string()])
+    .default('true')
+    .transform((v) =>
+      typeof v === 'boolean' ? v : v.toLowerCase() === 'true',
+    ),
+  /**
+   * Maximum request body size (bytes) — applied to JSON and urlencoded
+   * parsers. Defaults to 1 MB to limit slow-loris / payload-flood vectors;
+   * media uploads use multipart presigned URLs and never traverse this
+   * parser.
+   */
+  BODY_LIMIT_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(1024 * 1024),
+  /**
+   * Hard timeout (milliseconds) for inbound HTTP requests. Requests that
+   * exceed this duration are forcibly closed to defend against
+   * slow-loris-style attacks. Defaults to 30s.
+   */
+  REQUEST_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30_000),
+  /**
+   * When `true`, helmet's CSP middleware is enabled. Default is `true`
+   * for production and `false` everywhere else, because the dev tooling
+   * (Next.js Fast Refresh, Swagger UI, source maps) needs inline scripts.
+   */
+  HELMET_CSP: z
+    .union([z.boolean(), z.string()])
+    .optional()
+    .transform((v) => {
+      if (typeof v === 'boolean') return v;
+      if (typeof v === 'string') return v.toLowerCase() === 'true';
+      return undefined;
+    }),
+  /**
+   * Comma-separated list of CIDR ranges or single IPs that bypass every
+   * application-side WAF check (Task 27.1). Use this for trusted
+   * internal CIDRs (Kubernetes pod range, monitoring agents, office
+   * NAT). Loopback (`127.0.0.1`, `::1`) is always allow-listed.
+   *
+   * Examples:
+   *   WAF_ALLOWLIST=10.0.0.0/8,172.16.0.0/12,203.0.113.5
+   *
+   * Invalid entries are dropped at startup with a warning so a typo
+   * never widens the allow-list.
+   */
+  WAF_ALLOWLIST: z.string().default(''),
+
+  // HMAC request signing (Task 29.4, Req 30.1)
+  /**
+   * Shared secret used to verify `X-Signature` headers on routes
+   * decorated with `@RequireHmac()`. Must be a high-entropy string
+   * (≥32 bytes recommended). Optional in dev / test so the local
+   * stack works without ceremony; production deployments MUST set
+   * a real key, otherwise any signed admin endpoint returns
+   * `401 SIGNATURE_MISCONFIGURED`.
+   *
+   * Rotation pattern: configure two keys (active + previous) for a
+   * brief overlap window when rotating, then drop the old one once
+   * all signed clients have moved over.
+   */
+  HMAC_ADMIN_SECRET: z.string().optional(),
+  /**
+   * Per-surface secret for the Payme webhook signing path. Distinct
+   * from `HMAC_ADMIN_SECRET` so the impact of a leaked key is bounded
+   * to one surface and rotation is independent.
+   */
+  PAYME_HMAC_SECRET: z.string().optional(),
+  /**
+   * Shared secret used by the {@link HmacVerifyMiddleware} on
+   * `/api/v1/internal/*` (server-to-server) routes (Task 29.4, Req 30.1).
+   *
+   * Format: any high-entropy ≥32-byte string. The middleware refuses
+   * to start when the value is set but shorter than 32 chars so a
+   * typo can never silently weaken the surface; leaving it unset in
+   * production hard-disables every `/internal/*` route (the middleware
+   * fails closed with `SIGNATURE_MISCONFIGURED`).
+   *
+   * Generate with: `openssl rand -hex 32`
+   */
+  INTERNAL_API_SECRET: z
+    .string()
+    .min(
+      32,
+      'INTERNAL_API_SECRET must be at least 32 characters (≥256 bits)',
+    )
+    .optional(),
+  /**
+   * Master switch for the application-layer WAF middleware
+   * (`apps/api/src/common/security/waf/waf.middleware.ts`).
+   *
+   * Defaults are environment-aware — on in production, off everywhere
+   * else — so local dev can craft test payloads without tripping the
+   * rule table. Operators can flip the toggle explicitly to either
+   * value at any time.
+   */
+  WAF_ENABLED: z
+    .union([z.boolean(), z.string()])
+    .optional()
+    .transform((v) => {
+      if (typeof v === 'boolean') return v;
+      if (typeof v === 'string') return v.toLowerCase() === 'true';
+      return undefined;
+    }),
+  /**
+   * Per-IP request budget for **anonymous** callers, applied by the
+   * DDoS guard's sliding-window counter
+   * (`apps/api/src/common/security/waf/ddos-protection.service.ts`).
+   * Defaults to 100 req / `DDOS_WINDOW_SECONDS`.
+   */
+  DDOS_RATE_LIMIT_UNAUTH: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(100),
+  /**
+   * Per-IP request budget for **authenticated** callers. Defaults to
+   * 1000 req / `DDOS_WINDOW_SECONDS` — an order of magnitude higher
+   * than anon so legitimate users are not throttled by the same NAT
+   * that an abusive anonymous flooder is sharing.
+   */
+  DDOS_RATE_LIMIT_AUTH: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(1000),
+  /**
+   * Sliding-window length applied to both DDoS counters, in seconds.
+   */
+  DDOS_WINDOW_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60),
+  /**
+   * Comma-separated list of CIDR ranges or single IPs that the DDoS
+   * guard skips entirely. Same parsing rules as `WAF_ALLOWLIST`.
+   * Loopback (`127.0.0.1`, `::1`) is always implicitly skipped so the
+   * kubelet's health probes never get throttled.
+   */
+  DDOS_IP_WHITELIST: z.string().default(''),
+  /**
+   * Per-IP token-bucket cap applied by `DdosProtectionService` to
+   * every anonymous caller (Task 27.1, requirement 2). The bucket
+   * holds `DDOS_IP_RATE_LIMIT` tokens and refills `1/window` tokens
+   * per second, so a spike up to the full bucket size is allowed
+   * before the limit kicks in.
+   *
+   * Defaults to 200 req/min — the conservative value documented in
+   * the task spec. Operators wanting the higher per-IP cap from the
+   * design doc (1000 req/min) can set this explicitly.
+   */
+  DDOS_IP_RATE_LIMIT: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(200),
+  /**
+   * Comma-separated list of CIDR ranges or single IPs allowed to hit
+   * the `/admin/*` routes (Task 27.1, requirement 3). Empty / unset
+   * disables the check entirely — useful for local dev and for
+   * environments where admin access is gated at the network layer
+   * (VPN, bastion host, ingress ACL).
+   *
+   * Loopback (`127.0.0.1`, `::1`) is always implicitly allowed so
+   * local debugging and kubelet probes stay open.
+   *
+   * Examples:
+   *   ADMIN_IP_ALLOWLIST=10.0.0.0/8,203.0.113.5
+   */
+  ADMIN_IP_ALLOWLIST: z.string().default(''),
+
+  // ---- Threat protection (Task 27.1) ----
+  /**
+   * Master switch for the application-layer threat-protection
+   * middleware (`apps/api/src/common/security/threat-protection`).
+   *
+   * The middleware composes:
+   *   - the suspicious-request detector (SQLi / XSS / path traversal
+   *     / oversized headers → 400 `WAF_BLOCKED`)
+   *   - the tiered rate limiter (per-IP burst, per-IP global,
+   *     per-user → 429 `RATE_LIMITED`)
+   *   - the geo-blocker (`BLOCKED_COUNTRIES` → 403 `GEO_BLOCKED`)
+   *
+   * Defaults are environment-aware — on in production, off everywhere
+   * else — so local dev can craft test payloads without tripping the
+   * rule table. Operators can flip the toggle explicitly to either
+   * value at any time.
+   */
+  THREAT_PROTECTION_ENABLED: z
+    .union([z.boolean(), z.string()])
+    .optional()
+    .transform((v) => {
+      if (typeof v === 'boolean') return v;
+      if (typeof v === 'string') return v.toLowerCase() === 'true';
+      return undefined;
+    }),
+  /** Per-IP burst cap for the tiered rate limiter (req / 1s). */
+  THREAT_RATE_LIMIT_IP_BURST: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(50),
+  /** Burst-ban duration applied when the burst cap is exceeded (s). */
+  THREAT_RATE_LIMIT_IP_BURST_BAN_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5),
+  /** Per-IP global cap for the tiered rate limiter (req / 60s). */
+  THREAT_RATE_LIMIT_IP_GLOBAL: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(600),
+  /** Global-ban duration applied when the global cap is exceeded (s). */
+  THREAT_RATE_LIMIT_IP_GLOBAL_BAN_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60),
+  /** Per-user cap for the tiered rate limiter (req / 60s). */
+  THREAT_RATE_LIMIT_USER: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(1200),
+  /** User-ban duration applied when the user cap is exceeded (s). */
+  THREAT_RATE_LIMIT_USER_BAN_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60),
+
+  // ---- Application-level rate limiting (Task 27.1, Req 27.2) ----
+  /**
+   * Per-IP token-bucket capacity for the SecurityModule rate-limit
+   * guard (`apps/api/src/modules/security/waf/rate-limit.guard.ts`).
+   * The bucket holds this many tokens and refills `capacity / window`
+   * tokens per second, so a spike up to the full bucket size is
+   * allowed before the limit kicks in.
+   *
+   * Defaults to 1000 req/min — the value documented in Task 27.1.
+   * Sits ABOVE `DDOS_IP_RATE_LIMIT` (200 req/min) so the DDoS guard
+   * catches the obvious flood first, while this guard catches the
+   * stealthier "fan out across many endpoints" pattern.
+   */
+  SECURITY_RATE_LIMIT_IP: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(1000),
+  /** Refill window for the per-IP bucket, in seconds. */
+  SECURITY_RATE_LIMIT_IP_WINDOW_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60),
+  /**
+   * Per-user token-bucket capacity. Only evaluated when
+   * `request.user` carries a `sub` / `id`. Defaults to 300 req/min
+   * matching Task 27.1.
+   */
+  SECURITY_RATE_LIMIT_USER: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(300),
+  /** Refill window for the per-user bucket, in seconds. */
+  SECURITY_RATE_LIMIT_USER_WINDOW_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60),
+  /**
+   * Comma-separated list of ISO-3166-1 alpha-2 country codes that the
+   * geo-blocker rejects (placeholder for full MaxMind integration).
+   * Defaults to empty — no country is blocked. Codes are
+   * case-insensitive and invalid entries are dropped at startup.
+   *
+   * Example: `BLOCKED_COUNTRIES=KP,IR,SY`
+   */
+  BLOCKED_COUNTRIES: z.string().default(''),
+  /**
+   * Static `ip-or-cidr=ISO_CODE` overrides used by the geo-blocker
+   * when the upstream `cf-ipcountry` header is missing. Useful for
+   * tests and on-prem deployments without Cloudflare in front.
+   *
+   * Format: comma-separated `ip|cidr=CC` pairs.
+   * Example: `GEO_OVERRIDES=203.0.113.0/24=KP,198.51.100.5=IR`
+   */
+  GEO_OVERRIDES: z.string().default(''),
+
+  /**
+   * Optional path to a MaxMind GeoLite2 City `.mmdb` file consumed by
+   * `GeoIpService` (Task 27.3, Req 27.3). When unset, IP →
+   * (latitude, longitude) resolution falls back to the
+   * `cf-ipcountry` header → country-centroid table baked into the
+   * service. Production deployments should drop in the free GeoLite2
+   * download and point this at the file path so impossible-travel
+   * detection has city-level precision.
+   *
+   * The `@maxmind/geoip2-node` package is intentionally an optional
+   * dependency — it is loaded lazily at first lookup. If the package
+   * is missing or the file cannot be read, the service logs once and
+   * keeps running on the header path.
+   */
+  MAXMIND_GEOIP_DB_PATH: z.string().default(''),
+
+  // ---- Threat intelligence feeds (Task 27.5, Req 27.10) ----
+  /**
+   * Master switch for `ThreatIntelService` periodic feed sync. When
+   * `false` (the default) the cron is a no-op even if API keys are
+   * configured — useful in CI / local dev so test runs never hit a
+   * real upstream feed.
+   *
+   * In production set this to `true` AND provide at least one of
+   * `ABUSEIPDB_API_KEY` or `SPAMHAUS_FEED_URL`.
+   */
+  THREAT_INTEL_SYNC_ENABLED: z
+    .union([z.boolean(), z.string()])
+    .default('false')
+    .transform((v) =>
+      typeof v === 'boolean' ? v : v.toLowerCase() === 'true',
+    ),
+  /**
+   * AbuseIPDB v2 API key. When set, the threat-intel cron pulls the
+   * `/api/v2/blacklist?confidenceMinimum=90` endpoint every 6 hours
+   * and bulk-imports the returned IPs into `IpBlocklistService` with
+   * a 7-day TTL. Free-tier keys are rate-limited to ~5,000 entries
+   * per day; the 90% confidence floor keeps the pull well under that
+   * budget while preserving recall on actively scanning hosts.
+   *
+   * Generate / rotate via the AbuseIPDB dashboard:
+   *   https://www.abuseipdb.com/account/api
+   */
+  ABUSEIPDB_API_KEY: z.string().optional(),
+  /**
+   * Spamhaus feed URL. The public DROP / EDROP lists (text format)
+   * live at:
+   *   https://www.spamhaus.org/drop/drop.txt
+   *   https://www.spamhaus.org/drop/edrop.txt
+   * Operators should mirror these into their own bucket / proxy and
+   * point this at the mirror; pulling directly from spamhaus.org from
+   * a high-traffic origin runs into their fair-use throttle. When
+   * unset the Spamhaus parser is a no-op.
+   */
+  SPAMHAUS_FEED_URL: z.string().optional(),
+  /**
+   * Backwards-compat alias accepted for deployments that already set
+   * `SPAMHAUS_API_KEY`. The Spamhaus DROP feed itself doesn't need an
+   * API key, so this is treated as a feature flag — when present and
+   * `SPAMHAUS_FEED_URL` is unset, the parser falls back to the
+   * public DROP URL. Empty string means "no Spamhaus feed".
+   */
+  SPAMHAUS_API_KEY: z.string().optional(),
+  /**
+   * Canonical path to the MaxMind GeoLite2 City `.mmdb` file used by
+   * `GeoIpService` (Task 27.3, Req 27.3). Same semantics as
+   * `MAXMIND_GEOIP_DB_PATH` — kept as a separate variable because
+   * the task spec wording standardised the name on `GEOIP_MMDB_PATH`
+   * and external operators / Helm charts already reference both.
+   * The service reads `GEOIP_MMDB_PATH` first and falls back to
+   * `MAXMIND_GEOIP_DB_PATH`, so either may be set.
+   *
+   * Optional — when unset, MaxMind resolution is skipped and the
+   * service falls back to the `cf-ipcountry` header.
+   */
+  GEOIP_MMDB_PATH: z.string().optional(),
+  /**
+   * Great-circle distance threshold (km) above which two consecutive
+   * logins inside `IMPOSSIBLE_TRAVEL_WINDOW_SECONDS` are flagged as
+   * impossible travel and the session is blocked + MFA re-verification
+   * is forced (Task 27.3, Req 27.3). Defaults to 500 km — a value
+   * comfortably above the radius reachable by ground transport in an
+   * hour and well below the haversine-vs-vincenty error band.
+   */
+  IMPOSSIBLE_TRAVEL_DISTANCE_KM: z.coerce
+    .number()
+    .positive()
+    .default(500),
+  /**
+   * Time window (seconds) over which the impossible-travel distance
+   * threshold is evaluated. Defaults to 3600 (1 hour) per Req 27.3.
+   */
+  IMPOSSIBLE_TRAVEL_WINDOW_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(3600),
+  /**
+   * Alias accepted for deployments that prefer the millisecond-form
+   * env name from the task spec. When both `_WINDOW_MS` and
+   * `_WINDOW_SECONDS` are set, the millisecond value wins so an
+   * operator can override the time window without flipping units.
+   * Defaults to 3_600_000 ms (1 h).
+   */
+  IMPOSSIBLE_TRAVEL_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .optional(),
+  /**
+   * Alias for `MAXMIND_GEOIP_DB_PATH` / `GEOIP_MMDB_PATH` accepted in
+   * the Task 27.3 spec wording. The `GeoIpService` reads the canonical
+   * `GEOIP_MMDB_PATH` first, falls back to `MAXMIND_GEOIP_DB_PATH`,
+   * and finally to this short alias so external operators / Helm
+   * charts that already standardised on `MAXMIND_DB_PATH` keep
+   * working without renaming.
+   */
+  MAXMIND_DB_PATH: z.string().optional(),
+
+  // Auth — login lockout (Task 27.2, Req 27.4 / 27.5 / 27.9)
+  /**
+   * Progressive lockout for failed login attempts. Each tier defines
+   * the failure count that triggers the lockout and the duration in
+   * seconds. The defaults match the spec wording for Task 27.2 —
+   * 5/1m, 10/5m, 20/30m, 50/24h — and operators can tune them
+   * without a code change.
+   *
+   * The four tiers are checked in ascending order of `_FAILS`. Setting
+   * a higher tier's threshold below an earlier tier is undefined
+   * behaviour: the loader sorts the table, but the schedule loses its
+   * progressive shape and an attacker can dodge the longer lockout.
+   */
+  LOGIN_LOCKOUT_TIER_1_FAILS: z.coerce.number().int().positive().default(5),
+  LOGIN_LOCKOUT_TIER_1_DURATION_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60),
+  LOGIN_LOCKOUT_TIER_2_FAILS: z.coerce.number().int().positive().default(10),
+  LOGIN_LOCKOUT_TIER_2_DURATION_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5 * 60),
+  LOGIN_LOCKOUT_TIER_3_FAILS: z.coerce.number().int().positive().default(20),
+  LOGIN_LOCKOUT_TIER_3_DURATION_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30 * 60),
+  LOGIN_LOCKOUT_TIER_4_FAILS: z.coerce.number().int().positive().default(50),
+  LOGIN_LOCKOUT_TIER_4_DURATION_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(24 * 60 * 60),
+
+  /**
+   * Distinct emails attempted from the same IP inside a rolling
+   * 1-hour window that flag the IP as credential stuffing. Defaults
+   * to 20 — see `CredentialStuffingDetector` for details.
+   */
+  CREDENTIAL_STUFFING_DISTINCT_EMAILS_PER_HOUR: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(20),
+
+  /**
+   * hCaptcha server-side secret used by `HCaptchaService` (Task 27.2,
+   * Req 27.4). When unset, hCaptcha verification is in DEV-MODE
+   * BYPASS — a single WARN line is logged at boot. Production
+   * deployments MUST set this so the captcha gate added after a
+   * TEMP_LOCKED is actually enforced.
+   *
+   * Generate / rotate via the hCaptcha dashboard:
+   *   https://dashboard.hcaptcha.com/
+   */
+  HCAPTCHA_SECRET: z.string().optional(),
+
+  // ---- Bot detection (Task 27.4, Req 27.6) ----
+  /**
+   * Master switch for the bot-detection guard
+   * (`apps/api/src/modules/security/bot-detection/bot-detection.guard.ts`).
+   *
+   * When `false`, the guard short-circuits to ALLOW on every request
+   * even if `@RequireBotCheck()` is set on the route — useful as an
+   * incident kill-switch when a tuning regression is producing false
+   * positives. Defaults to `true` so the protection is on by default.
+   */
+  BOT_DETECTION_ENABLED: z
+    .union([z.boolean(), z.string()])
+    .default('true')
+    .transform((v) =>
+      typeof v === 'boolean' ? v : v.toLowerCase() === 'true',
+    ),
+  /**
+   * Score `>= BOT_DETECTION_BLOCK_THRESHOLD` → `BLOCK` decision
+   * (`403 BOT_DETECTED`). Operators can lower this to harden a
+   * specific route or raise it during noisy migrations. Default
+   * `0.85` per the task body (Req 27.6).
+   */
+  BOT_DETECTION_BLOCK_THRESHOLD: z.coerce
+    .number()
+    .min(0)
+    .max(1)
+    .default(0.85),
+  /**
+   * Score `>= BOT_DETECTION_CHALLENGE_THRESHOLD` (and below the
+   * BLOCK threshold) → `CHALLENGE` decision. The bot-detection guard
+   * sets `req.captchaRequired = true` and demands a valid
+   * `hCaptchaToken`. Default `0.5` per the task body (Req 27.6).
+   */
+  BOT_DETECTION_CHALLENGE_THRESHOLD: z.coerce
+    .number()
+    .min(0)
+    .max(1)
+    .default(0.5),
+
+  // Encryption (Task 28.1, Req 21.8, 28.1, 28.3)
+  /**
+   * Master key for at-rest field encryption (AES-256-GCM). Must be a
+   * **base64-encoded 32-byte value** — generate with:
+   *   `openssl rand -base64 32`
+   *
+   * The boot-time validator in `CryptoModule` (via
+   * `EncryptionKeyManager`) decodes the key and refuses to start if
+   * the decoded length is anything other than 32 bytes. The
+   * schema-level `min(32)` guard catches obviously empty / truncated
+   * values before the binary decode runs (the base64 representation
+   * of 32 bytes is 44 characters, so any value under 32 chars is
+   * unambiguously wrong).
+   *
+   * **Required in production, optional in dev / test.** Production
+   * deployments must set a real key; dev / test fall back to a
+   * stable well-known dev key (logged at WARN once) so existing
+   * fixtures keep working.
+   */
+  MASTER_ENCRYPTION_KEY: z
+    .string()
+    .min(32, 'MASTER_ENCRYPTION_KEY must be at least 32 characters')
+    .optional(),
+  /**
+   * Master key for the field-level `EncryptionService` under
+   * `apps/api/src/common/security/encryption/` (Task 28.1).
+   *
+   * Format: hex-encoded 32 bytes (64 hex chars). Generate with:
+   *   `openssl rand -hex 32`
+   *
+   * **Optional in the schema, required at boot in production.** The
+   * length / hex validation is intentionally pushed to the
+   * `EncryptionService` constructor rather than enforced via Zod
+   * here, because the spec asks for a custom `MASTER_KEY_MISSING` /
+   * `MASTER_KEY_INVALID` error code that distinguishes "set but
+   * malformed" from "missing entirely". Zod's flat union message
+   * would lose that distinction.
+   *
+   * In development / test, leaving this unset falls back to a
+   * stable dev key (logged once at WARN). Production deployments
+   * MUST set a real value — the constructor refuses to start when
+   * `NODE_ENV=production` and `MASTER_KEY` is missing.
+   */
+  MASTER_KEY: z.string().optional(),
+  /**
+   * Master key for the at-rest field-level `EncryptionService` under
+   * `apps/api/src/common/security/encryption.service.ts` (Task 28.1).
+   *
+   * Format: **hex-encoded 32 bytes (exactly 64 hex chars)**. Generate
+   * with:
+   *   `openssl rand -hex 32`
+   *
+   * Unlike `MASTER_ENCRYPTION_KEY` and `MASTER_KEY`, this key has no
+   * dev fallback — the spec requires the boot to refuse to start
+   * when the key is missing or has the wrong length. The Zod regex
+   * + length check below is the boot guard; the `EncryptionService`
+   * constructor performs the same validation defensively so unit
+   * tests that bypass `envSchema` still get a deterministic error.
+   *
+   * The schema marks the field optional to keep existing test
+   * fixtures and dev `.env` files (which may not yet supply the
+   * key) buildable. Any attempt to construct an `EncryptionService`
+   * without a real value throws.
+   */
+  ENCRYPTION_KEY: z
+    .string()
+    .regex(
+      /^[0-9a-fA-F]{64}$/,
+      'ENCRYPTION_KEY must be hex-encoded 32 bytes (64 hex chars). Generate with `openssl rand -hex 32`.',
+    )
+    .optional(),
+
+  // ---- KMS / Key management (Task 28.2) ----
+  /**
+   * Selects the active `KmsProvider` implementation bound by
+   * `SecurityModule`.
+   *
+   *   - `local` — store DEKs in the Prisma `EncryptionKey` table,
+   *               wrapped by the master key. Suitable for dev /
+   *               single-tenant deployments.
+   *   - `vault` — talk to HashiCorp Vault's Transit secrets
+   *               engine. Requires `VAULT_ADDR`, `VAULT_TOKEN` and
+   *               `VAULT_TRANSIT_KEY` to be set; otherwise the
+   *               module logs a warning and falls back to `local`.
+   *
+   * Defaults to `local` so local development and unit tests work
+   * without standing up Vault. Production deployments should
+   * normally pick `vault`.
+   */
+  KMS_PROVIDER: z.enum(['local', 'vault']).default('local'),
+  /**
+   * Vault address used by `VaultKmsProvider`, e.g.
+   * `https://vault.internal:8200`. Required when
+   * `KMS_PROVIDER=vault`. The provider falls back to the local
+   * provider when this is unset to keep dev environments running.
+   */
+  VAULT_ADDR: z.string().optional(),
+  /**
+   * Vault token used to authenticate the Transit secrets-engine
+   * calls. Should be short-lived and bound to a policy that allows
+   * only `read`, `update` (rotate), and `read` on
+   * `transit/export/encryption-key/<key>`.
+   */
+  VAULT_TOKEN: z.string().optional(),
+  /**
+   * Name of the Vault Transit key used as the at-rest DEK source.
+   * Each Vault version maps to a single `KmsKey`.
+   */
+  VAULT_TRANSIT_KEY: z.string().optional(),
+  /**
+   * Mount path of the Transit secrets engine. Defaults to
+   * `transit` (Vault's out-of-the-box path). Only set this when
+   * the engine has been mounted under a custom path.
+   */
+  VAULT_TRANSIT_MOUNT: z.string().default('transit'),
+  /**
+   * Days between automatic key rotations. Defaults to 90 (Req
+   * 28.5). The cron itself wakes monthly and only rotates when the
+   * active key's age has exceeded this threshold, so values lower
+   * than ~30 may need a tighter cron expression.
+   */
+  KMS_ROTATION_INTERVAL_DAYS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(90),
+
+  // ---- Backup encryption (Task 28.4, Req 28.8) ----
+  /**
+   * Master key for the offline backup encryption pipeline
+   * (`BackupEncryptionService` + `apps/api/scripts/backup-encrypt.ts`).
+   *
+   * Format: **base64-encoded 32 bytes** (44 base64 chars). Generate
+   * with:
+   *   `openssl rand -base64 32`
+   *
+   * **Intentionally separate from `MASTER_ENCRYPTION_KEY` /
+   * `ENCRYPTION_KEY`** (Req 28.8). Compromise of the live data
+   * encryption key MUST NOT grant access to historical backups, and
+   * vice versa. Operators store this in a different secrets backend
+   * (e.g. KMS partition / Vault path) than the live keys.
+   *
+   * Optional in the schema so dev / test runs without backup
+   * configured continue to boot. The service logs a single WARN at
+   * startup when the key is missing and `encryptStream` /
+   * `decryptStream` throw `BackupEncryptionError(KEY_MISSING)` if
+   * called.
+   */
+  BACKUP_ENCRYPTION_KEY: z.string().optional(),
+
+  // ---- TLS enforcement (Task 28.4, Req 28.2) ----
+  /**
+   * Master switch for `TlsEnforcementMiddleware`. When `true`, the
+   * middleware rejects plaintext HTTP requests with a 403
+   * `TLS_REQUIRED` envelope. When `false`, the middleware is a
+   * no-op.
+   *
+   * Defaults are environment-aware — `true` in `production`,
+   * `false` everywhere else — so local dev and tests keep working
+   * over plain HTTP. Operators can override either value
+   * explicitly.
+   *
+   * The middleware trusts `X-Forwarded-Proto` from the first hop
+   * (Cloudflare / ingress); make sure `app.set('trust proxy', 1)`
+   * is wired in `main.ts` (already done as part of Task 24.1)
+   * before flipping this on.
+   */
+  TLS_ENFORCEMENT_ENABLED: z
+    .union([z.boolean(), z.string()])
+    .optional()
+    .transform((v) => {
+      if (typeof v === 'boolean') return v;
+      if (typeof v === 'string') return v.toLowerCase() === 'true';
+      return undefined;
+    }),
+
+  // Database
+  DATABASE_URL: z.string().min(1),
+  DATABASE_READ_REPLICA_URL: z.string().optional(),
+  /**
+   * When `true`, the Prisma slow-query middleware (Task 24.2) emits a
+   * WARN log line for any query taking longer than 200ms, with the
+   * `{ model, action, durationMs }` shape. Defaults to `true` in
+   * `development` and `false` everywhere else so production noise is
+   * driven from APM (Tempo / Grafana), not application logs.
+   *
+   * Operators can flip this on temporarily to debug a regression
+   * without redeploying — `LOG_SLOW_QUERIES=true` is safe in all envs
+   * because the middleware only logs (it never blocks the request).
+   */
+  LOG_SLOW_QUERIES: z
+    .union([z.boolean(), z.string()])
+    .optional()
+    .transform((v) => {
+      if (typeof v === 'boolean') return v;
+      if (typeof v === 'string') return v.toLowerCase() === 'true';
+      return undefined;
+    }),
+
+  // Redis
+  REDIS_URL: z.string().default('redis://localhost:6379'),
+
+  // Observability (Task 24.3)
+  /**
+   * When set, callers must pass `?token=<METRICS_TOKEN>` (or the
+   * `X-Metrics-Token` header) to scrape `/metrics`. This is *soft*
+   * protection — `/metrics` is intended to live behind a private VPC
+   * / Prometheus scrape-only firewall — but a token check stops a
+   * misconfigured ingress from leaking metric cardinality to the
+   * open internet. When unset (typical in dev), the endpoint is
+   * unrestricted.
+   */
+  METRICS_TOKEN: z.string().optional(),
+  /**
+   * Selects the runtime log format. `json` forces single-line JSON
+   * envelopes (Loki-friendly), `pretty`/`text` keeps the human
+   * console output. When unset, JSON is used in `production` and
+   * the pretty console output is used everywhere else.
+   */
+  LOG_FORMAT: z.enum(['json', 'pretty', 'text']).optional(),
+
+  // JWT
+  /**
+   * Symmetric HS256 signing secret. Boot-guarded to be at least 32 bytes
+   * (≈256 bits) so a brute-force attack against the access token is
+   * computationally infeasible (Task 24.1, Req 21.2). Shorter values
+   * cause the `envSchema.safeParse(...)` in `AppConfigModule` to reject
+   * startup, mirroring the same posture for `JWT_ACCESS_SECRET` /
+   * `JWT_REFRESH_SECRET` deployments that split the keys.
+   */
+  JWT_SECRET: z
+    .string()
+    .min(32, 'JWT_SECRET must be at least 32 bytes (256 bits) for HS256'),
+  /**
+   * Optional split-secret deployments. If present they're enforced to
+   * the same minimum length so a misconfigured rotation can never weaken
+   * either side of the access/refresh pair.
+   */
+  JWT_ACCESS_SECRET: z
+    .string()
+    .min(32, 'JWT_ACCESS_SECRET must be at least 32 bytes (256 bits)')
+    .optional(),
+  JWT_REFRESH_SECRET: z
+    .string()
+    .min(32, 'JWT_REFRESH_SECRET must be at least 32 bytes (256 bits)')
+    .optional(),
+  JWT_ACCESS_TTL: z.string().default('15m'),
+  JWT_REFRESH_TTL: z.string().default('30d'),
+
+  // MFA (Task 29.1)
+  /**
+   * 32-byte (≥256-bit) secret used to wrap TOTP shared secrets and
+   * WebAuthn public keys via AES-256-GCM at the column level.
+   * Optional today because Task 28.1 (column-level EncryptionService)
+   * may not be wired yet. When unset, the MFA module falls back to a
+   * deterministic dev key so tests work locally; production MUST set
+   * this to a value rotated through KMS.
+   */
+  MFA_ENCRYPTION_KEY: z.string().optional(),
+  /**
+   * Issuer string embedded in `otpauth://` URIs. Authenticator apps
+   * use this as the account label prefix.
+   */
+  MFA_TOTP_ISSUER: z.string().default('Bilgim'),
+  /**
+   * WebAuthn relying-party id (eTLD+1 of APP_URL). Defaults to
+   * `localhost` so dev works out of the box.
+   */
+  MFA_WEBAUTHN_RP_ID: z.string().default('localhost'),
+  /**
+   * WebAuthn relying-party name shown to users during enrollment.
+   */
+  MFA_WEBAUTHN_RP_NAME: z.string().default('Bilgim'),
+  /**
+   * Origin(s) the WebAuthn response must originate from.
+   * Comma-separated list. Defaults to APP_URL when unset.
+   */
+  MFA_WEBAUTHN_ORIGIN: z.string().optional(),
+  /**
+   * Short-lived MFA challenge token TTL (seconds). The login flow
+   * issues this token after a successful password check and accepts
+   * it on the `/auth/mfa/challenge` endpoint within this window.
+   */
+  MFA_CHALLENGE_TTL_SEC: z.coerce.number().int().positive().default(5 * 60),
+
+  // Cloudflare R2
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET_NAME: z.string().default('bilgim-media'),
+  R2_PUBLIC_URL: z.string().optional(),
+
+  // Storage driver selection. `r2` (default) uses Cloudflare R2 / S3.
+  // `local` serves objects from the machine's own filesystem via the
+  // `/storage/*` endpoints — used for single-box / dev media hosting.
+  STORAGE_DRIVER: z.enum(['r2', 'local']).default('r2'),
+  /** Root directory for local object storage. Default `<cwd>/.local-storage`. */
+  STORAGE_DIR: z.string().optional(),
+  /**
+   * Master switch for the BullMQ `video.transcode` (ffmpeg → HLS)
+   * pipeline. When `false` — or whenever `STORAGE_DRIVER=local`
+   * (single-box / dev media server with no ffmpeg worker) — VIDEO
+   * uploads skip transcoding and are marked READY for progressive
+   * playback of the original file via the same-origin media proxy.
+   * Defaults to `true` so cloud deployments keep the HLS pipeline.
+   */
+  MEDIA_TRANSCODING_ENABLED: z
+    .union([z.boolean(), z.string()])
+    .default('true')
+    .transform((v) =>
+      typeof v === 'boolean' ? v : v.toLowerCase() === 'true',
+    ),
+  /** Public base URL of THIS API, used to build local presigned URLs. */
+  API_PUBLIC_URL: z.string().optional(),
+  /** HMAC secret for local presigned URLs. Falls back to JWT_SECRET. */
+  STORAGE_SIGNING_SECRET: z.string().optional(),
+
+  // Payme
+  PAYME_MERCHANT_ID: z.string().optional(),
+  PAYME_KEY: z.string().optional(),
+  PAYME_TEST_KEY: z.string().optional(),
+  PAYME_LOGIN: z.string().default('Paycom'),
+  PAYME_IP_ALLOWLIST: z.string().optional(),
+  PAYME_CHECKOUT_URL: z
+    .string()
+    .url()
+    .default('https://checkout.paycom.uz'),
+
+  // Claude AI
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z.string().default('claude-3-5-sonnet-latest'),
+
+  // Google Gemini AI
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
+  /**
+   * Selects which `AiAdapter` implementation `AiModule` binds at
+   * bootstrap. `mock` keeps the deterministic in-process adapter used
+   * by tests and dev; `anthropic` switches to the real `@anthropic-ai/sdk`
+   * client (Task 20.1, Req 13.1, 13.4, 13.5).
+   *
+   * Default is `mock` so existing test suites and local development
+   * continue to work without an API key. Setting `AI_PROVIDER=anthropic`
+   * in production requires `ANTHROPIC_API_KEY` to be present — the
+   * module guards against the misconfiguration on startup. Setting
+   * `AI_PROVIDER=gemini` likewise requires `GEMINI_API_KEY`.
+   */
+  AI_PROVIDER: z.enum(['anthropic', 'gemini', 'mock']).default('mock'),
+  /**
+   * When `true`, `HomeworkModule` binds `AI_GRADING_PORT` to the real
+   * `AnthropicAiGradingAdapter` (Task 20.3) which routes per-module
+   * grading through `AiGatewayService` → Anthropic. Default is `false`
+   * so existing tests and local dev continue to use the deterministic
+   * `MockAiAdapter` and never make network calls.
+   *
+   * Operators who turn this on MUST also have `AI_PROVIDER=anthropic`
+   * and a valid `ANTHROPIC_API_KEY` — otherwise the gateway is
+   * unhealthy and grading falls back to error rows in `AiCall`.
+   */
+  AI_GRADING_REAL: z
+    .preprocess(
+      (value) =>
+        typeof value === 'string'
+          ? value === 'true' || value === '1'
+          : value,
+      z.boolean(),
+    )
+    .default(false),
+  /**
+   * Per-user rate limit window size in milliseconds. Defaults to 10 min
+   * matching Req 13.5 ("60 calls / 10 daqiqa").
+   */
+  AI_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(10 * 60 * 1000),
+  /** Per-user rate limit max calls inside the window. */
+  AI_RATE_LIMIT_MAX_CALLS: z.coerce.number().default(60),
+  /**
+   * Threshold in `[0, 1]` above which `Submission.aiFlagged` flips to
+   * `true` after AI-text detection at submit time (Task 20.3,
+   * Req 13.7, 13.8). Defaults to `0.7` matching
+   * `AI_LIKELIHOOD_FLAG_THRESHOLD`. Out-of-range values fall back to
+   * the default at runtime.
+   */
+  AI_TEXT_DETECT_THRESHOLD: z.coerce.number().min(0).max(1).default(0.7),
+
+  /**
+   * When `true`, `SpeakingModule` binds the speaking-scoring port to the
+   * real provider adapter (`TbdSpeakingScoringAdapter`) instead of the
+   * deterministic `MockSpeakingScoringAdapter`. Default is `false` so
+   * unit tests and local dev stay offline and never depend on an external
+   * pronunciation/fluency scoring engine. The TBD adapter throws until a
+   * real provider is wired (refocus Open Questions 6/7), so a score is
+   * never silently faked when this flag is on without an implementation.
+   */
+  SPEAKING_SCORING_REAL: z
+    .preprocess(
+      (value) =>
+        typeof value === 'string'
+          ? value === 'true' || value === '1'
+          : value,
+      z.boolean(),
+    )
+    .default(false),
+
+  // Email (SMTP)
+  SMTP_HOST: z.string().default('localhost'),
+  SMTP_PORT: z.coerce.number().default(1025),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  EMAIL_FROM: z.string().default('noreply@bilgim.uz'),
+
+  /**
+   * Dev/test toggle — when `true`, newly registered users are created
+   * with status=ACTIVE and skip the email-verification gate entirely
+   * (no token, no `user.registered` outbox event). Production MUST keep
+   * this `false` so the verification flow is enforced.
+   */
+  AUTH_SKIP_EMAIL_VERIFICATION: z
+    .union([z.boolean(), z.string()])
+    .transform((v) => v === true || v === 'true' || v === '1')
+    .default(false),
+
+  // Telegram
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+
+  // Eskiz SMS Gateway
+  ESKIZ_EMAIL: z.string().optional(),
+  ESKIZ_PASSWORD: z.string().optional(),
+  ESKIZ_FROM_NAME: z.string().optional(),
+
+  // mediasoup SFU
+  SFU_LISTEN_IP: z.string().default('0.0.0.0'),
+  SFU_ANNOUNCED_IP: z.string().default('127.0.0.1'),
+  SFU_MIN_PORT: z.coerce.number().default(40000),
+  SFU_MAX_PORT: z.coerce.number().default(40100),
+
+  // ---- Content protection (Task 1.3, Req 7.1, 7.4) ----
+  // All keys below are SERVER-SIDE ONLY. They configure DRM credentials,
+  // playback-ticket lifetime, session-log retention, and watermark format
+  // for the `modules/protection` content-protection pipeline. They live in
+  // the API env schema, which is never shipped to the browser — DRM
+  // credentials and keys MUST never appear in any client-facing response
+  // (Req 7.1). Protection settings (ticket TTL, retention, watermark
+  // format) are configurable here without a code change (Req 7.4).
+  /**
+   * Selects the active `ProtectionProvider` adapter bound by the
+   * content-protection module.
+   *
+   *   - `dev-fallback` — the clearly-flagged development path (existing
+   *                      HLS proxy hiding R2 URLs + client deterrence).
+   *                      NOT production-grade protection; logged/labelled
+   *                      as such (Req 7.2). This is the default so local
+   *                      dev and tests boot without a vendor account.
+   *   - `vdocipher` / `gumlet` / `mux` — managed multi-DRM + watermarking
+   *                      vendors. Selecting one of these REQUIRES the
+   *                      matching `DRM_API_KEY` / `DRM_API_SECRET` (and
+   *                      `DRM_FAIRPLAY_CERT` for Safari/iOS FairPlay) to
+   *                      be present; otherwise protected playback fails
+   *                      closed in production (Req 7.3).
+   *
+   * Production deployments select a real vendor; never ship
+   * `dev-fallback` as production protection.
+   */
+  DRM_PROVIDER: z
+    .enum(['dev-fallback', 'vdocipher', 'gumlet', 'mux'])
+    .default('dev-fallback'),
+  /**
+   * DRM_Provider API key (public-side credential of the vendor key pair).
+   * Held server-side only and used by the `License_Proxy` /
+   * `PlaybackTicketService` when brokering license challenges and signing
+   * manifests. Never returned to the client (Req 2.2, 7.1).
+   *
+   * Optional in the schema so dev / test boot against `dev-fallback`
+   * without a vendor account. REQUIRED IN PRODUCTION when `DRM_PROVIDER`
+   * is set to a real vendor — the protection module fails closed without
+   * it rather than serving unprotected media (Req 7.3).
+   */
+  DRM_API_KEY: z.string().optional(),
+  /**
+   * DRM_Provider API secret (private-side credential of the vendor key
+   * pair). Held server-side only; never client-exposed (Req 2.2, 7.1).
+   *
+   * Optional in dev / test (see `DRM_API_KEY`). REQUIRED IN PRODUCTION
+   * when a real `DRM_PROVIDER` is selected.
+   */
+  DRM_API_SECRET: z.string().optional(),
+  /**
+   * Reference to the FairPlay Streaming certificate used for
+   * Safari/iOS web playback (Apple developer asset). This is the
+   * certificate material (or a path / secret-store reference to it),
+   * held server-side and brokered through the `License_Proxy`; never
+   * exposed to the client (Req 7.1).
+   *
+   * Optional in dev / test. REQUIRED IN PRODUCTION for FairPlay support
+   * when a real `DRM_PROVIDER` is selected — without it, FairPlay license
+   * brokering fails closed (Req 7.3).
+   */
+  DRM_FAIRPLAY_CERT: z.string().optional(),
+  /**
+   * Dedicated signing secret for Playback_Ticket issuance / verification
+   * (Req 7.1). Held server-side only; never client-exposed. Kept SEPARATE
+   * from `JWT_SECRET` so the blast radius of a leaked ticket key is bounded
+   * to media playback and the two can be rotated independently.
+   *
+   * Optional in the schema: when unset, the `PlaybackTicketService` falls
+   * back to `JWT_SECRET` so local dev / test boot without extra ceremony.
+   * PRODUCTION SHOULD set a dedicated high-entropy value (≥32 bytes).
+   *
+   * Generate / rotate with: `openssl rand -hex 32`
+   */
+  PLAYBACK_TICKET_SIGNING_SECRET: z.string().optional(),
+  /**
+   * Lifetime (seconds) of a signed Playback_Ticket / short-lived manifest
+   * reference (Req 1.1, 1.3). Kept deliberately short so a leaked ticket
+   * is useless within seconds and the client must re-authorize after
+   * expiry. Configurable without a code change (Req 7.4). Defaults to
+   * 120s (2 minutes).
+   */
+  PLAYBACK_TICKET_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(120),
+  /**
+   * Retention window (days) for the `PlaybackSession` viewer↔session↔asset
+   * mapping used for leak tracing (Req 6.2). Balances investigation needs
+   * against privacy — rows older than this are pruned. Configurable
+   * without a code change (Req 7.4). Defaults to 90 days.
+   */
+  PLAYBACK_SESSION_RETENTION_DAYS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(90),
+  /**
+   * Template for the per-viewer forensic watermark label rendered in the
+   * client overlay and bound to the playback session (Req 3.3, 7.4). The
+   * `WatermarkIdentityService` derives the substituted values from the
+   * authenticated session (never client input), then interpolates the
+   * supported placeholders:
+   *
+   *   - `{maskedEmail}` — masked viewer email (e.g. `a***@example.com`)
+   *   - `{sessionId}`   — playback session identifier
+   *   - `{userId}`      — viewer user id
+   *   - `{enrollmentId}`— APPROVED enrollment id
+   *
+   * Configurable without a code change (Req 7.4). Defaults to
+   * `'{maskedEmail} • {sessionId}'`.
+   */
+  WATERMARK_FORMAT: z.string().default('{maskedEmail} • {sessionId}'),
+})
+  /**
+   * Production fail-closed guard for content protection (Task 1.3,
+   * Req 7.1 / 7.3). When `NODE_ENV=production` and a real `DRM_PROVIDER`
+   * (anything other than the `dev-fallback`) is selected, the matching
+   * vendor credentials (`DRM_API_KEY` + `DRM_API_SECRET`) MUST be present.
+   *
+   * This refuses to boot rather than silently selecting a real provider
+   * without the server-side keys it needs — mirroring the rest of this
+   * schema's posture of failing closed on missing/weak secrets. In
+   * development / test the `dev-fallback` provider keeps local workflows
+   * running without a vendor account (Req 7.2).
+   */
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV !== 'production') return;
+    if (env.DRM_PROVIDER === 'dev-fallback') return;
+
+    if (!env.DRM_API_KEY || env.DRM_API_KEY.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['DRM_API_KEY'],
+        message: `DRM_API_KEY is required in production when DRM_PROVIDER="${env.DRM_PROVIDER}" (real vendor selected). Set the vendor credential or fall back to DRM_PROVIDER=dev-fallback.`,
+      });
+    }
+    if (!env.DRM_API_SECRET || env.DRM_API_SECRET.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['DRM_API_SECRET'],
+        message: `DRM_API_SECRET is required in production when DRM_PROVIDER="${env.DRM_PROVIDER}" (real vendor selected). Set the vendor credential or fall back to DRM_PROVIDER=dev-fallback.`,
+      });
+    }
+  });
+
+export type EnvConfig = z.infer<typeof envSchema>;

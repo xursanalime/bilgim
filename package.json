@@ -1,0 +1,37 @@
+{
+  "name": "bilgim",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.6.0",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "pnpm --filter @bilgim/db prisma:generate",
+    "db:migrate": "pnpm --filter @bilgim/db prisma:migrate",
+    "db:seed": "pnpm --filter @bilgim/db prisma:seed",
+    "db:studio": "pnpm --filter @bilgim/db prisma:studio",
+    "openapi:gen": "pnpm --filter @bilgim/api openapi:gen && pnpm --filter @bilgim/api-client gen",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "docker:up": "docker compose -f infra/docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f infra/docker/docker-compose.yml down"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "turbo": "^2.0.6",
+    "typescript": "^5.5.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "18.3.1",
+      "react-dom": "18.3.1",
+      "@types/react": "18.3.3",
+      "@types/react-dom": "18.3.0"
+    }
+  }
+}

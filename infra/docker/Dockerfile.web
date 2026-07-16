@@ -1,0 +1,96 @@
+# Production Dockerfile for EduBridge Web (Next.js 14)
+# Validates: Requirement 31.8
+#
+# Base image: Node 20 Alpine with pinned sha256 digest for reproducibility.
+# Final stage: Alpine-based minimal runtime (Next.js needs libc for sharp/image optimization).
+#
+# Multi-stage build:
+#   1. deps    — install dependencies
+#   2. builder — build Next.js standalone output
+#   3. runner  — minimal Alpine runtime
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 1: Dependencies
+# ─────────────────────────────────────────────────────────────────
+# Node 20 Alpine pinned by sha256 digest (Req 31.8)
+FROM node:20-alpine@sha256:2f46fd49c767554c089a5eb219115313b72748d0f3f4b1c608f5c1466a5ec8c1 AS deps
+
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@9.6.0 --activate
+
+# Copy workspace configuration
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/ ./packages/
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile --filter @edubridge/web...
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 2: Builder
+# ─────────────────────────────────────────────────────────────────
+FROM node:20-alpine@sha256:2f46fd49c767554c089a5eb219115313b72748d0f3f4b1c608f5c1466a5ec8c1 AS builder
+
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@9.6.0 --activate
+
+# Copy full source for build
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
+COPY apps/web/ ./apps/web/
+COPY packages/ ./packages/
+
+# Install all dependencies (including devDependencies for build)
+RUN pnpm install --frozen-lockfile
+
+# Build Next.js with standalone output
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN pnpm --filter @edubridge/web build
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 3: Runner (Alpine minimal)
+# ─────────────────────────────────────────────────────────────────
+# Alpine pinned by sha256 digest — Next.js needs libc for sharp/image optimization
+# so we use Alpine instead of distroless (Req 31.8)
+FROM node:20-alpine@sha256:2f46fd49c767554c089a5eb219115313b72748d0f3f4b1c608f5c1466a5ec8c1 AS runner
+
+# Remove unnecessary packages for minimal attack surface
+RUN apk add --no-cache libc6-compat \
+    && rm -rf /var/cache/apk/* \
+    && rm -rf /tmp/*
+
+WORKDIR /app
+
+# OCI image labels
+LABEL org.opencontainers.image.source="https://github.com/xursanalime/bilgimAI"
+LABEL org.opencontainers.image.description="EduBridge Web - Next.js 14 production build"
+LABEL org.opencontainers.image.licenses="UNLICENSED"
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs
+
+# Copy Next.js standalone output
+COPY --from=builder /app/apps/web/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./.next/static
+
+# Switch to non-root user
+USER nextjs:nodejs
+
+# Expose web port
+EXPOSE 3000
+
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Start Next.js standalone server
+CMD ["node", "apps/web/server.js"]

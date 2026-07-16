@@ -1,0 +1,29 @@
+{
+  "extends": ["expo/tsconfig.base", "../../tsconfig.base.json"],
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "jsx": "react-native",
+    "allowJs": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@/*": ["./*"],
+      "@bilgim/api-client": ["../../packages/api-client/src/index.ts"],
+      "@bilgim/i18n": ["../../packages/i18n/src/index.ts"],
+      "@bilgim/i18n/*": ["../../packages/i18n/*"],
+      "@bilgim/shared-types": ["../../packages/shared-types/src/index.ts"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts",
+    "app.config.ts"
+  ],
+  "exclude": ["node_modules", ".expo"]
+}

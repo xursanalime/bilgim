@@ -1,0 +1,82 @@
+{
+  "app_name": "Bilgim",
+  "welcome": "Welcome",
+  "login": "Login",
+  "register": "Register",
+  "logout": "Logout",
+  "dashboard": "Dashboard",
+  "courses": "Courses",
+  "groups": "Groups",
+  "lessons": "Lessons",
+  "students": "Students",
+  "teachers": "Teachers",
+  "settings": "Settings",
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "publish": "Publish",
+    "back": "Back",
+    "next": "Next",
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "error_generic": "Error communicating with the server"
+  },
+  "dashboard_page": {
+    "title": "Dashboard",
+    "active_students": "Active students",
+    "upcoming_lessons": "Upcoming lessons",
+    "pending_homework": "Pending homework",
+    "month_revenue": "Revenue this month",
+    "recent_courses": "Recent courses",
+    "view_all": "View all",
+    "create_first_course": "Create your first course"
+  },
+  "onboarding": {
+    "title": "Let's find the right track for you",
+    "subtitle": "Answer a few questions and the platform will tailor your dashboard.",
+    "finish": "Finish",
+    "loading": "Loading questions..."
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your personal profile, security, and platform settings.",
+    "tabs": {
+      "profile": "Personal profile",
+      "notifications": "Notifications",
+      "security": "Security",
+      "subscription": "Subscription",
+      "billing": "Billing"
+    }
+  },
+  "locale_switcher": {
+    "label": "Interface language",
+    "description": "Platform text will be shown in this language."
+  },
+  "auth": {
+    "errors": {
+      "EMAIL_ALREADY_EXISTS": "This email is already registered. Try logging in.",
+      "USERNAME_ALREADY_EXISTS": "This username is taken. Choose another one.",
+      "WEAK_PASSWORD": "Password is too weak. Use at least 8 characters with letters and numbers.",
+      "VALIDATION_FAILED": "The data is not in the right format. Check the fields.",
+      "EMAIL_NOT_VERIFIED": "Email is not verified. Click the link in your inbox.",
+      "ACCOUNT_NOT_VERIFIED": "Email is not verified. Click the link in your inbox.",
+      "INVALID_CREDENTIALS": "Incorrect email or password.",
+      "UNAUTHENTICATED": "Incorrect email or password.",
+      "ACCOUNT_LOCKED": "Account temporarily locked. Try again in 15 minutes.",
+      "TOKEN_EXPIRED": "The link has expired. Request a new one.",
+      "TOKEN_INVALID": "The link is invalid. Request a new one.",
+      "INVALID_OR_EXPIRED_TOKEN": "The link is invalid or expired. Request a new one.",
+      "INVALID_REFRESH_TOKEN": "Your session has expired. Please log in again.",
+      "TOKEN_FAMILY_COMPROMISED": "Security measure: signed out from all devices. Please log in again.",
+      "RATE_LIMITED": "Too many requests. Wait a moment and try again.",
+      "TOO_MANY_REQUESTS": "Too many requests. Wait a moment and try again.",
+      "NETWORK_ERROR": "Internet connection problem. Check your connection.",
+      "INTERNAL_ERROR": "Server error. Wait a moment and try again.",
+      "UPSTREAM_ERROR": "Error communicating with an external service. Wait a moment and try again.",
+      "UNKNOWN_ERROR": "An unexpected error occurred. Please try again."
+    }
+  }
+}

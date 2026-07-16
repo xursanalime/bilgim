@@ -1,0 +1,782 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════
+   EduBridge Design System v2.0 — Apple Liquid Glass Light
+   Toza, premium, optimistik. Apple ekosistemasi tilida.
+   ═══════════════════════════════════════════════════════════════ */
+
+@layer base {
+  :root {
+    /* ── Surfaces ──────────────────────────────────── */
+    --bg-base: 245 245 247; /* #F5F5F7 — Apple gray */
+    --bg-canvas: 255 255 255; /* pure white panels */
+    --bg-tint: 250 250 252; /* subtle tint */
+    --bg-soft: 232 232 237; /* #E8E8ED — section divider */
+
+    /* ── Hairline rim borders (full color w/ baked opacity) ── */
+    --rim: rgb(0 0 0 / 0.07);
+    --rim-2: rgb(0 0 0 / 0.12);
+
+    /* ── Brand colors (Apple Blue & Green) ───────────── */
+    --blue: 0 113 227; /* #0071E3 — primary, link, CTA */
+    --blue-tint: 230 242 255; /* light blue */
+    --green: 16 185 129; /* #10B981 — success, emerald green */
+    --green-tint: 235 252 245; /* #EBFDF5 — light green */
+    --orange: 255 159 10; /* #FF9F0A — premium, star */
+    --orange-tint: 255 245 230; /* light orange */
+    --red: 255 59 48; /* #FF3B30 — error, xato */
+    --red-tint: 255 235 233; /* light red */
+    --purple: 175 82 222; /* #AF52DE — AI tutor */
+    --purple-tint: 245 235 252; /* light purple */
+    --teal: 50 173 230; /* #32ADE6 — info */
+
+    /* ── Ink (text) ────────────────────────────────── */
+    --ink-strong: 29 29 31; /* #1D1D1F — primary text */
+    --ink: 51 51 56; /* secondary heading */
+    --ink-soft: 110 110 115; /* #6E6E73 — body */
+    --ink-faint: 174 174 178; /* #AEAEB2 — placeholder */
+    --ink-ghost: 209 209 214; /* #D1D1D6 — disabled */
+
+    /* ── Hero gradient ─────────────────────────────── */
+    --grad-hero-start: 102 126 234; /* #667EEA */
+    --grad-hero-end: 118 75 162; /* #764BA2 */
+
+    /* ── Shadcn-compatible HSL tokens ─────────────── */
+    --background: 240 11% 96%;
+    --foreground: 240 6% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 12%;
+    --primary: 211 100% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 6% 95%;
+    --secondary-foreground: 240 6% 12%;
+    --muted: 240 6% 92%;
+    --muted-foreground: 240 4% 45%;
+    --accent: 142 70% 49%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 4 100% 59%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 211 100% 45%;
+    --radius: 1rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Dark mode — toggled via the `dark` class on <html> (R5.6).
+     Surfaces invert to a near-black base with elevated panels; ink
+     inverts to light; brand hues shift to Apple's dark-mode system
+     colors so they keep AA contrast on dark surfaces. Only the
+     semantic tokens flip — components consuming them adapt for free.
+     ═══════════════════════════════════════════════════════════════ */
+  .dark {
+    /* ── Surfaces — modern layered dark (zinc-tinted, not pure black) ── */
+    --bg-base: 9 9 11; /* #09090B — true base */
+    --bg-canvas: 24 24 27; /* #18181B — elevated panel (zinc-900) */
+    --bg-tint: 32 32 36; /* #202024 — subtle tint */
+    --bg-soft: 42 42 47; /* #2A2A2F — section divider (zinc-800) */
+
+    /* ── Hairline rim borders — flip to a light, low-opacity rim ── */
+    --rim: rgb(255 255 255 / 0.08);
+    --rim-2: rgb(255 255 255 / 0.14);
+
+    /* ── Brand colors (Apple dark-mode system palette) ── */
+    --blue: 10 132 255; /* #0A84FF */
+    --blue-tint: 12 38 66; /* deep blue wash */
+    --green: 48 209 88; /* #30D158 */
+    --green-tint: 12 48 28; /* deep green wash */
+    --orange: 255 159 10; /* #FF9F0A */
+    --orange-tint: 56 38 8; /* deep orange wash */
+    --red: 255 69 58; /* #FF453A */
+    --red-tint: 56 20 18; /* deep red wash */
+    --purple: 191 90 242; /* #BF5AF2 */
+    --purple-tint: 44 20 58; /* deep purple wash */
+    --teal: 100 210 255; /* #64D2FF */
+
+    /* ── Ink (text) — inverted hierarchy ───────────── */
+    --ink-strong: 245 245 247; /* #F5F5F7 — primary text */
+    --ink: 229 229 234; /* secondary heading */
+    --ink-soft: 174 174 178; /* #AEAEB2 — body */
+    --ink-faint: 110 110 115; /* #6E6E73 — placeholder */
+    --ink-ghost: 72 72 74; /* #48484A — disabled */
+
+    /* ── Shadcn-compatible HSL tokens ─────────────── */
+    --background: 240 17% 5%;
+    --foreground: 240 11% 96%;
+    --card: 240 13% 10%;
+    --card-foreground: 240 11% 96%;
+    --popover: 240 13% 10%;
+    --popover-foreground: 240 11% 96%;
+    --primary: 211 100% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 9% 16%;
+    --secondary-foreground: 240 11% 96%;
+    --muted: 240 9% 16%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 142 64% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 4 100% 61%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 22%;
+    --input: 240 6% 22%;
+    --ring: 211 100% 52%;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+
+  /* Default 1px hairline borders flip to a light, low-opacity rim. */
+  .dark * {
+    border-color: rgb(255 255 255 / 0.1);
+  }
+
+  * {
+    border-color: rgb(0 0 0 / 0.07);
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: rgb(var(--bg-base));
+    color: rgb(var(--ink-strong));
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+      'SF Pro Text', system-ui, sans-serif;
+    font-feature-settings: 'ss01', 'ss02', 'cv01', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: rgb(var(--blue) / 0.2);
+    color: rgb(var(--ink-strong));
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Global visible focus indicator (a11y — keyboard operability).
+     Every focusable element shows a clear ring when reached via the
+     keyboard (`:focus-visible` only — never on mouse/touch). Uses the
+     shared `--ring` token so it adapts to light/dark. Living in the
+     base layer means component utilities (Tailwind `focus-visible:ring-*`
+     or `focus-visible:outline-none`) in the later utilities layer still
+     win, so component-specific focus styles are preserved.
+     ═══════════════════════════════════════════════════════════════ */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Syne', 'Inter', -apple-system, BlinkMacSystemFont,
+      system-ui, sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    color: rgb(var(--ink-strong));
+  }
+
+  h1 {
+    letter-spacing: -0.04em;
+  }
+
+  code,
+  kbd,
+  pre,
+  samp {
+    font-family: 'SF Mono', 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  /* Scrollbar — Apple style */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(0 0 0 / 0.18);
+    border-radius: 6px;
+    border: 3px solid rgb(var(--bg-base));
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(0 0 0 / 0.3);
+    background-clip: padding-box;
+    border: 3px solid rgb(var(--bg-base));
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgb(255 255 255 / 0.18);
+    border: 3px solid rgb(var(--bg-base));
+    background-clip: padding-box;
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgb(255 255 255 / 0.3);
+    background-clip: padding-box;
+    border: 3px solid rgb(var(--bg-base));
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Custom utilities
+   ═══════════════════════════════════════════════════════════════ */
+
+@layer utilities {
+  /* Borders / surfaces */
+  .border-rim {
+    border-color: rgb(0 0 0 / 0.07);
+  }
+  .border-rim-2 {
+    border-color: rgb(0 0 0 / 0.12);
+  }
+  .dark .border-rim {
+    border-color: rgb(255 255 255 / 0.1);
+  }
+  .dark .border-rim-2 {
+    border-color: rgb(255 255 255 / 0.16);
+  }
+  .bg-canvas {
+    background-color: rgb(var(--bg-canvas));
+  }
+  .bg-tint {
+    background-color: rgb(var(--bg-tint));
+  }
+  .bg-soft {
+    background-color: rgb(var(--bg-soft));
+  }
+
+  /* Apple brand colors */
+  .text-blue {
+    color: rgb(var(--blue));
+  }
+  .text-green {
+    color: rgb(var(--green));
+  }
+  .text-orange {
+    color: rgb(var(--orange));
+  }
+  .text-red {
+    color: rgb(var(--red));
+  }
+  .text-purple {
+    color: rgb(var(--purple));
+  }
+  .text-teal {
+    color: rgb(var(--teal));
+  }
+
+  .text-ink {
+    color: rgb(var(--ink));
+  }
+  .text-ink-strong {
+    color: rgb(var(--ink-strong));
+  }
+  .text-ink-soft {
+    color: rgb(var(--ink-soft));
+  }
+  .text-ink-faint {
+    color: rgb(var(--ink-faint));
+  }
+
+  .bg-blue {
+    background-color: rgb(var(--blue));
+  }
+  .bg-green {
+    background-color: rgb(var(--green));
+  }
+  .bg-orange {
+    background-color: rgb(var(--orange));
+  }
+  .bg-red {
+    background-color: rgb(var(--red));
+  }
+  .bg-purple {
+    background-color: rgb(var(--purple));
+  }
+
+  .bg-blue-tint {
+    background-color: rgb(var(--blue-tint));
+  }
+  .bg-green-tint {
+    background-color: rgb(var(--green-tint));
+  }
+  .bg-orange-tint {
+    background-color: rgb(var(--orange-tint));
+  }
+  .bg-red-tint {
+    background-color: rgb(var(--red-tint));
+  }
+  .bg-purple-tint {
+    background-color: rgb(var(--purple-tint));
+  }
+
+  /* Hero gradient (the signature) */
+  .text-hero-gradient {
+    background-image: linear-gradient(
+      135deg,
+      rgb(var(--grad-hero-start)) 0%,
+      rgb(var(--grad-hero-end)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    /* Italic + clip-path text overflow fix — the right edge of italic glyphs
+       (like "g", "l") gets cut off without breathing room. */
+    display: inline-block;
+    padding-right: 0.12em;
+    padding-bottom: 0.05em;
+  }
+  .bg-hero-gradient {
+    background-image: linear-gradient(
+      135deg,
+      rgb(var(--grad-hero-start)) 0%,
+      rgb(var(--grad-hero-end)) 100%
+    );
+  }
+  .text-blue-green-gradient {
+    background-image: linear-gradient(
+      135deg,
+      rgb(var(--blue)) 0%,
+      rgb(var(--green)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Liquid Glass — signature Apple effect */
+  .liquid-glass {
+    background-color: rgb(255 255 255 / 0.72);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border: 1px solid rgb(255 255 255 / 0.9);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.6) inset,
+      0 0 0 1px rgb(0 0 0 / 0.04),
+      0 8px 32px -8px rgb(0 0 0 / 0.08);
+  }
+
+  .liquid-glass-strong {
+    background-color: rgb(255 255 255 / 0.85);
+    backdrop-filter: blur(32px) saturate(200%);
+    -webkit-backdrop-filter: blur(32px) saturate(200%);
+    border: 1px solid rgb(255 255 255 / 0.95);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.8) inset,
+      0 0 0 1px rgb(0 0 0 / 0.05),
+      0 16px 48px -12px rgb(0 0 0 / 0.12);
+  }
+
+  .liquid-glass-blue {
+    background-color: rgb(var(--blue) / 0.08);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgb(var(--blue) / 0.15);
+    color: rgb(var(--blue));
+  }
+
+  .nav-glass {
+    background-color: rgb(245 245 247 / 0.8);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.7) inset,
+      0 1px 0 rgb(0 0 0 / 0.06);
+  }
+
+  /* Liquid Glass — dark-mode variants (R5.6) */
+  .dark .liquid-glass {
+    background-color: rgb(22 22 28 / 0.72);
+    border: 1px solid rgb(255 255 255 / 0.08);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.06) inset,
+      0 0 0 1px rgb(0 0 0 / 0.4),
+      0 8px 32px -8px rgb(0 0 0 / 0.6);
+  }
+  .dark .liquid-glass-strong {
+    background-color: rgb(22 22 28 / 0.85);
+    border: 1px solid rgb(255 255 255 / 0.1);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.08) inset,
+      0 0 0 1px rgb(0 0 0 / 0.5),
+      0 16px 48px -12px rgb(0 0 0 / 0.7);
+  }
+  .dark .nav-glass {
+    background-color: rgb(11 11 15 / 0.8);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.05) inset,
+      0 1px 0 rgb(0 0 0 / 0.4);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Dark-mode remap of literal white surfaces (R5.6).
+
+     A large amount of UI uses Tailwind's literal `bg-white` /
+     `border-white` (which are FIXED to #FFFFFF and never flip). On a
+     near-black dark canvas those render as glaring bright panels. We
+     remap the *static* white surfaces to the theme's elevated panel /
+     rim tokens so they adapt automatically — without touching hundreds
+     of component files. (`text-white` is intentionally left alone: white
+     text on colored fills is correct in both themes. `hover:bg-white`
+     is also untouched — these selectors only match the static token.)
+
+     High-opacity translucent whites (≥ 40%) would also read as bright
+     panels, so they map onto the elevated canvas at the same opacity.
+     Low-opacity whites (≤ 25%) already read as a subtle light film on
+     dark and are left as-is (the intended frosted-glass look).
+     ═══════════════════════════════════════════════════════════════ */
+  .dark .bg-white {
+    background-color: rgb(var(--bg-canvas));
+  }
+  .dark .bg-white\/95 {
+    background-color: rgb(var(--bg-canvas) / 0.95);
+  }
+  .dark .bg-white\/90 {
+    background-color: rgb(var(--bg-canvas) / 0.9);
+  }
+  .dark .bg-white\/80 {
+    background-color: rgb(var(--bg-canvas) / 0.8);
+  }
+  .dark .bg-white\/70 {
+    background-color: rgb(var(--bg-canvas) / 0.7);
+  }
+  .dark .bg-white\/60 {
+    background-color: rgb(var(--bg-canvas) / 0.6);
+  }
+  .dark .bg-white\/50 {
+    background-color: rgb(var(--bg-canvas) / 0.5);
+  }
+  .dark .bg-white\/40 {
+    background-color: rgb(var(--bg-canvas) / 0.4);
+  }
+
+  /* Solid + higher-opacity white borders become a subtle light rim. */
+  .dark .border-white {
+    border-color: rgb(255 255 255 / 0.12);
+  }
+  .dark .border-white\/80 {
+    border-color: rgb(255 255 255 / 0.16);
+  }
+  .dark .border-white\/60 {
+    border-color: rgb(255 255 255 / 0.14);
+  }
+  .dark .border-white\/50 {
+    border-color: rgb(255 255 255 / 0.12);
+  }
+  .dark .border-white\/30 {
+    border-color: rgb(255 255 255 / 0.12);
+  }
+  .dark .border-white\/20 {
+    border-color: rgb(255 255 255 / 0.1);
+  }
+
+  /* Background patterns */
+  .bg-dotgrid {
+    background-image: radial-gradient(
+      rgb(0 0 0 / 0.06) 1px,
+      transparent 1px
+    );
+    background-size: 24px 24px;
+  }
+  .bg-linegrid {
+    background-image:
+      linear-gradient(rgb(0 0 0 / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(0 0 0 / 0.04) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+
+  /* Shadows — soft elevation */
+  .shadow-soft {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.04),
+      0 4px 12px rgb(0 0 0 / 0.04);
+  }
+  .shadow-medium {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.04),
+      0 12px 32px -8px rgb(0 0 0 / 0.08);
+  }
+  .shadow-large {
+    box-shadow:
+      0 2px 4px rgb(0 0 0 / 0.04),
+      0 24px 64px -16px rgb(0 0 0 / 0.12);
+  }
+  .shadow-blue {
+    box-shadow:
+      0 0 0 1px rgb(var(--blue) / 0.4),
+      0 12px 32px -8px rgb(var(--blue) / 0.4);
+  }
+  .shadow-blue-soft {
+    box-shadow:
+      0 8px 24px -8px rgb(var(--blue) / 0.3),
+      0 0 0 1px rgb(var(--blue) / 0.15);
+  }
+
+  /* Text balance */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Container */
+  .container-aurora {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 80rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+  @media (min-width: 640px) {
+    .container-aurora {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .container-aurora {
+      padding-left: 2.5rem;
+      padding-right: 2.5rem;
+    }
+  }
+
+  .section {
+    padding-top: 6rem;
+    padding-bottom: 6rem;
+  }
+  @media (min-width: 768px) {
+    .section {
+      padding-top: 8rem;
+      padding-bottom: 8rem;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Animations
+   ═══════════════════════════════════════════════════════════════ */
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+.animate-float-slow {
+  animation: float-slow 6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes float-medium {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-16px); }
+}
+.animate-float-medium {
+  animation: float-medium 5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes shine-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(200%); }
+}
+.animate-shine {
+  animation: shine-sweep 2.5s ease-in-out infinite;
+}
+
+@keyframes pulse-blue {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--blue) / 0.4); }
+  50% { box-shadow: 0 0 0 14px rgb(var(--blue) / 0); }
+}
+.animate-pulse-blue {
+  animation: pulse-blue 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
+}
+
+@keyframes marquee-x {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee-x 40s linear infinite;
+}
+
+@keyframes ripple {
+  0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+  20% { opacity: 0.5; }
+  100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+}
+.animate-ripple {
+animation: ripple 3s ease-out infinite;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+display: none;
+}
+.scrollbar-hide {
+-ms-overflow-style: none;
+scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LiveKit Components — Dark room override
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Participant tile */
+.lk-participant-tile {
+  background: #111118 !important;
+  border-radius: 1rem !important;
+  overflow: hidden !important;
+}
+
+.lk-participant-tile video {
+  border-radius: 0 !important;
+}
+
+/* Placeholder (kamera o'chiq) */
+.lk-participant-placeholder {
+  background: linear-gradient(135deg, #111118 0%, #1a1a24 100%) !important;
+}
+
+.lk-participant-placeholder svg {
+  opacity: 0.15 !important;
+  width: 48px !important;
+  height: 48px !important;
+}
+
+/* Participant name + status bar */
+.lk-participant-metadata {
+  background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%) !important;
+  padding: 0.75rem !important;
+}
+
+.lk-participant-metadata-item {
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  color: rgba(255,255,255,0.9) !important;
+}
+
+/* Speaking indicator */
+.lk-participant-tile[data-lk-speaking="true"] {
+  box-shadow: 0 0 0 2px #0071E3, 0 0 20px rgba(0,113,227,0.3) !important;
+}
+
+/* Grid layout */
+.lk-grid-layout {
+  background: transparent !important;
+  gap: 0.5rem !important;
+  padding: 0.5rem !important;
+}
+
+/* Focus layout */
+.lk-focus-layout {
+  background: transparent !important;
+  gap: 0.5rem !important;
+}
+
+/* Carousel */
+.lk-carousel {
+  background: transparent !important;
+  gap: 0.5rem !important;
+}
+
+/* Audio / mic indicator */
+.lk-audio-muted-indicator {
+  color: #FF3B30 !important;
+  background: rgba(255,59,48,0.15) !important;
+  border-radius: 0.5rem !important;
+  padding: 0.25rem !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Kontent himoyasi — dars va jonli efir sahifalarida
+   matnni tanlash va nusxa olish o'chiriladi
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Dars sahifasi */
+[data-content-protected] {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Video elementlari hech qachon ko'rsatilmaydi */
+[data-content-protected] video::-webkit-media-controls-enclosure {
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Suzuvchi "blob" orblar — dashboard bo'sh holati va landing uchun
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes blob {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -40px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
+}
+
+.animate-blob {
+  animation: blob 14s ease-in-out infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* ── Raketa, yulduz va alanga animatsiyalari (dashboard hero) ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-14px) rotate(4deg); }
+}
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+.animate-twinkle {
+  animation: twinkle 2.4s ease-in-out infinite;
+}
+
+@keyframes flame {
+  0%, 100% { transform: scaleY(0.85) scaleX(1); opacity: 0.85; }
+  50% { transform: scaleY(1.25) scaleX(0.9); opacity: 1; }
+}
+.animate-flame {
+  animation: flame 0.5s ease-in-out infinite;
+}

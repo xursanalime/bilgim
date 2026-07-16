@@ -1,0 +1,2 @@
+#!/bin/sh
+/home/xursanalime/Downloads/bilgim-main\ \(1\)/bilgim-main/node-v20.12.2-linux-x64/bin/node /home/xursanalime/Downloads/bilgim-main\ \(1\)/bilgim-main/pnpm8.js "$@"

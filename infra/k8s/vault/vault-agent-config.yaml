@@ -1,0 +1,238 @@
+# HashiCorp Vault Agent Injector Configuration
+# Requirement 31.6: Barcha secretlarni faqat HashiCorp Vault orqali boshqarish
+#                   Source code, Docker image yoki env file da hardcoded secret yo'q
+---
+# Vault ServiceAccount for Kubernetes auth
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-auth
+  namespace: bilgim-production
+  labels:
+    app.kubernetes.io/part-of: bilgim
+    app.kubernetes.io/component: vault-auth
+  annotations:
+    # Vault Kubernetes auth method uchun
+    vault.hashicorp.com/agent-inject: "true"
+---
+# ConfigMap: Vault Agent sidecar template configuration
+# Bu template lar pod larga inject qilinadi va secretlarni
+# fayl sifatida yoki env variable sifatida yetkazadi
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-agent-config
+  namespace: bilgim-production
+  labels:
+    app.kubernetes.io/part-of: bilgim
+    app.kubernetes.io/component: vault-config
+data:
+  # Vault agent configuration template
+  vault-agent-config.hcl: |
+    exit_after_auth = false
+    pid_file = "/home/vault/pidfile"
+
+    auto_auth {
+      method "kubernetes" {
+        mount_path = "auth/kubernetes"
+        config = {
+          role = "bilgim-app"
+        }
+      }
+
+      sink "file" {
+        config = {
+          path = "/home/vault/.vault-token"
+        }
+      }
+    }
+
+    cache {
+      use_auto_auth_token = true
+    }
+
+    listener "tcp" {
+      address = "127.0.0.1:8200"
+      tls_disable = true
+    }
+
+    template_config {
+      static_secret_render_interval = "5m"
+      exit_on_retry_failure = true
+    }
+
+    # Database credentials template
+    template {
+      destination = "/vault/secrets/db-credentials.env"
+      contents = <<EOT
+    {{- with secret "database/creds/bilgim-app" }}
+    DATABASE_URL=postgresql://{{ .Data.username }}:{{ .Data.password }}@postgres-primary.bilgim-production.svc:5432/bilgim?sslmode=require
+    DB_USERNAME={{ .Data.username }}
+    DB_PASSWORD={{ .Data.password }}
+    {{- end }}
+    EOT
+      perms = "0400"
+      error_on_missing_key = true
+    }
+
+    # Redis credentials template
+    template {
+      destination = "/vault/secrets/redis-credentials.env"
+      contents = <<EOT
+    {{- with secret "secret/data/bilgim/redis" }}
+    REDIS_URL=redis://:{{ .Data.data.password }}@redis-cluster.bilgim-production.svc:6379
+    REDIS_PASSWORD={{ .Data.data.password }}
+    {{- end }}
+    EOT
+      perms = "0400"
+      error_on_missing_key = true
+    }
+
+    # Application secrets template
+    template {
+      destination = "/vault/secrets/app-secrets.env"
+      contents = <<EOT
+    {{- with secret "secret/data/bilgim/app" }}
+    JWT_SECRET={{ .Data.data.jwt_secret }}
+    JWT_REFRESH_SECRET={{ .Data.data.jwt_refresh_secret }}
+    MASTER_KEY={{ .Data.data.master_key }}
+    PAYME_MERCHANT_KEY={{ .Data.data.payme_merchant_key }}
+    PAYME_MERCHANT_ID={{ .Data.data.payme_merchant_id }}
+    CLAUDE_API_KEY={{ .Data.data.claude_api_key }}
+    R2_ACCESS_KEY_ID={{ .Data.data.r2_access_key_id }}
+    R2_SECRET_ACCESS_KEY={{ .Data.data.r2_secret_access_key }}
+    BACKUP_ENCRYPTION_KEY={{ .Data.data.backup_encryption_key }}
+    HCAPTCHA_SECRET={{ .Data.data.hcaptcha_secret }}
+    {{- end }}
+    EOT
+      perms = "0400"
+      error_on_missing_key = true
+    }
+
+    # TLS certificates template
+    template {
+      destination = "/vault/secrets/tls.crt"
+      contents = <<EOT
+    {{- with secret "pki/issue/bilgim" "common_name=api.bilgim.uz" "ttl=720h" }}
+    {{ .Data.certificate }}
+    {{ .Data.issuing_ca }}
+    {{- end }}
+    EOT
+      perms = "0444"
+    }
+
+    template {
+      destination = "/vault/secrets/tls.key"
+      contents = <<EOT
+    {{- with secret "pki/issue/bilgim" "common_name=api.bilgim.uz" "ttl=720h" }}
+    {{ .Data.private_key }}
+    {{- end }}
+    EOT
+      perms = "0400"
+    }
+---
+# Vault Policy — defines what secrets the app can access
+# Apply via: vault policy write bilgim-app /path/to/this/policy.hcl
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-policy-bilgim
+  namespace: bilgim-vault
+  labels:
+    app.kubernetes.io/part-of: bilgim
+    app.kubernetes.io/component: vault-policy
+data:
+  bilgim-app-policy.hcl: |
+    # Database dynamic credentials
+    path "database/creds/bilgim-app" {
+      capabilities = ["read"]
+    }
+
+    # Application secrets (KV v2)
+    path "secret/data/bilgim/*" {
+      capabilities = ["read", "list"]
+    }
+
+    # Redis credentials
+    path "secret/data/bilgim/redis" {
+      capabilities = ["read"]
+    }
+
+    # Transit engine for envelope encryption (KMS)
+    path "transit/encrypt/bilgim-dek" {
+      capabilities = ["update"]
+    }
+
+    path "transit/decrypt/bilgim-dek" {
+      capabilities = ["update"]
+    }
+
+    path "transit/keys/bilgim-dek" {
+      capabilities = ["read"]
+    }
+
+    # PKI — TLS certificate issuance
+    path "pki/issue/bilgim" {
+      capabilities = ["create", "update"]
+    }
+
+    # Token self-renewal
+    path "auth/token/renew-self" {
+      capabilities = ["update"]
+    }
+
+    # Deny all other paths explicitly
+    path "sys/*" {
+      capabilities = ["deny"]
+    }
+
+  # Read-only policy for monitoring/audit
+  bilgim-readonly-policy.hcl: |
+    path "secret/metadata/bilgim/*" {
+      capabilities = ["read", "list"]
+    }
+
+    path "sys/health" {
+      capabilities = ["read"]
+    }
+---
+# Example pod annotation patch for Vault Agent injection
+# Apply these annotations to Deployment pods that need secrets
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-injection-examples
+  namespace: bilgim-production
+  labels:
+    app.kubernetes.io/part-of: bilgim
+    app.kubernetes.io/component: vault-examples
+data:
+  api-deployment-patch.yaml: |
+    # Add these annotations to pod template metadata
+    # in your Deployment spec:
+    spec:
+      template:
+        metadata:
+          annotations:
+            vault.hashicorp.com/agent-inject: "true"
+            vault.hashicorp.com/role: "bilgim-app"
+            vault.hashicorp.com/agent-inject-status: "update"
+            # Database credentials (dynamic — rotated automatically)
+            vault.hashicorp.com/agent-inject-secret-db: "database/creds/bilgim-app"
+            vault.hashicorp.com/agent-inject-template-db: |
+              {{- with secret "database/creds/bilgim-app" -}}
+              DATABASE_URL=postgresql://{{ .Data.username }}:{{ .Data.password }}@postgres-primary:5432/bilgim
+              {{- end -}}
+            # Application secrets (static KV)
+            vault.hashicorp.com/agent-inject-secret-app: "secret/data/bilgim/app"
+            vault.hashicorp.com/agent-inject-template-app: |
+              {{- with secret "secret/data/bilgim/app" -}}
+              JWT_SECRET={{ .Data.data.jwt_secret }}
+              MASTER_KEY={{ .Data.data.master_key }}
+              {{- end -}}
+            # Secret file permissions
+            vault.hashicorp.com/agent-inject-perms-db: "0400"
+            vault.hashicorp.com/agent-inject-perms-app: "0400"
+            # Memory limit for vault agent sidecar
+            vault.hashicorp.com/agent-limits-mem: "64Mi"
+            vault.hashicorp.com/agent-requests-mem: "32Mi"

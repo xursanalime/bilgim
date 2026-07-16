@@ -1,0 +1,99 @@
+# Kubernetes Admission Controller — Image Signature Verification
+# Validates: Requirement 31.3
+#
+# This ClusterImagePolicy enforces that only cosign-signed images
+# from our GitHub Container Registry can be deployed to the cluster.
+# Unsigned images are rejected at admission time.
+#
+# Prerequisites:
+#   - Sigstore Policy Controller installed:
+#     helm install policy-controller sigstore/policy-controller \
+#       --namespace cosign-system --create-namespace
+#   - Namespace labeled: kubectl label ns bilgim policy.sigstore.dev/include=true
+#
+# Verification uses Sigstore keyless signing with GitHub Actions OIDC identity.
+---
+apiVersion: policy.sigstore.dev/v1beta1
+kind: ClusterImagePolicy
+metadata:
+  name: bilgim-image-policy
+  labels:
+    app.kubernetes.io/name: bilgim
+    app.kubernetes.io/component: admission-policy
+    app.kubernetes.io/part-of: supply-chain-security
+spec:
+  # Match all images from our registry
+  images:
+    - glob: "ghcr.io/xursanalime/bilgimai/**"
+  # Require cosign keyless signature verification
+  authorities:
+    - name: github-actions-keyless
+      keyless:
+        # Verify against Sigstore's public Fulcio CA
+        url: https://fulcio.sigstore.dev
+        identities:
+          # Only trust signatures from our GitHub Actions workflows
+          - issuer: https://token.actions.githubusercontent.com
+            subjectRegExp: "https://github.com/xursanalime/bilgimAI/.github/workflows/.*"
+      ctlog:
+        # Verify transparency log entry in Rekor
+        url: https://rekor.sigstore.dev
+  # Policy mode: enforce (reject unsigned images)
+  # Change to "warn" for initial rollout, then switch to "enforce"
+  mode: enforce
+---
+# Namespace configuration — apply policy to the bilgim namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bilgim
+  labels:
+    policy.sigstore.dev/include: "true"
+    app.kubernetes.io/name: bilgim
+---
+# ValidatingWebhookConfiguration backup — in case Sigstore Policy Controller
+# is not available, this native Kubernetes admission webhook provides
+# a fallback image restriction (allowlist-based).
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: bilgim-image-allowlist
+  labels:
+    app.kubernetes.io/name: bilgim
+    app.kubernetes.io/component: admission-policy
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["deployments", "statefulsets", "daemonsets"]
+    namespaceSelector:
+      matchLabels:
+        policy.sigstore.dev/include: "true"
+  validations:
+    - expression: >-
+        object.spec.containers.all(c,
+          c.image.startsWith('ghcr.io/xursanalime/bilgimai/'))
+      message: "Only signed images from ghcr.io/xursanalime/bilgimai/ are allowed"
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: bilgim-image-allowlist-binding
+  labels:
+    app.kubernetes.io/name: bilgim
+spec:
+  policyName: bilgim-image-allowlist
+  validationActions:
+    - Deny
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        policy.sigstore.dev/include: "true"
