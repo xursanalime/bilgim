@@ -14,7 +14,7 @@ import {
   type AssignmentModule,
   type AssignmentWithModules,
   type Submission,
-} from '../../lib/homework-api';
+} from '../../lib/api/homework';
 import {
   ModuleRunnerWriting,
   type ModuleRunnerWritingAnswer,

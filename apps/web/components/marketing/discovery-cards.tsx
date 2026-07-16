@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type {
   DiscoveryCourseSummary,
   DiscoveryTeacherSummary,
-} from '../../lib/discovery-api';
+} from '../../lib/api/discovery';
 import { cefrLabel, examTrackLabel } from '../discovery/facets';
 
 /**

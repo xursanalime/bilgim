@@ -1,16 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import useSWR from 'swr';
+import { useQuery } from '@tanstack/react-query';
 
 import { useContentProtection } from '../../hooks/use-content-protection';
 import { ApiClientError } from '../../lib/api-client';
 import {
-  homeworkFetchers,
+  homeworkApi,
   type AssignmentModule,
   type AssignmentWithModules,
   type Submission,
-} from '../../lib/homework-api';
+} from '../../lib/api/homework';
+import { homeworkQueryKeys } from './grading-query-keys';
 import { MODULE_TYPE_LABELS } from './module-runtimes';
 import { SubmissionResult } from './submission-result';
 import { SubmissionStatusBadge } from './submission-status-badge';
@@ -34,24 +35,22 @@ export function HomeworkAssignmentView({
   assignmentId,
 }: HomeworkAssignmentViewProps) {
   useContentProtection();
-  const assignmentSwr = useSWR(
-    ['homework:assignment', assignmentId],
-    () => homeworkFetchers.assignment(assignmentId),
-  );
+  const assignmentSwr = useQuery({
+    queryKey: homeworkQueryKeys.assignment(assignmentId),
+    queryFn: () => homeworkApi.getAssignment(assignmentId),
+  });
 
-  const studentSubmissionSwr = useSWR(
-    role === 'STUDENT'
-      ? ['homework:my-submission', assignmentId]
-      : null,
-    () => homeworkFetchers.mySubmission(assignmentId),
-  );
+  const studentSubmissionSwr = useQuery({
+    queryKey: homeworkQueryKeys.mySubmission(assignmentId),
+    queryFn: () => homeworkApi.getMyForAssignment(assignmentId),
+    enabled: role === 'STUDENT',
+  });
 
-  const teacherSubmissionsSwr = useSWR(
-    role === 'STUDENT'
-      ? null
-      : ['homework:assignment-submissions', assignmentId],
-    () => homeworkFetchers.assignmentSubmissions(assignmentId),
-  );
+  const teacherSubmissionsSwr = useQuery({
+    queryKey: homeworkQueryKeys.assignmentSubmissions(assignmentId),
+    queryFn: () => homeworkApi.listForAssignment(assignmentId),
+    enabled: role !== 'STUDENT',
+  });
 
   if (assignmentSwr.isLoading) return <DetailSkeleton />;
   if (assignmentSwr.error || !assignmentSwr.data) {

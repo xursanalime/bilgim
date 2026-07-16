@@ -6,16 +6,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import useSWR from 'swr';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { ApiClientError } from '../../lib/api-client';
 import {
-  homeworkFetchers,
-  homeworkMutations,
+  homeworkApi,
   type AssignmentModule,
   type AssignmentWithModules,
   type Submission,
-} from '../../lib/homework-api';
+} from '../../lib/api/homework';
+import { homeworkQueryKeys } from './grading-query-keys';
 import {
   ModuleRunnerWriting,
   type ModuleRunnerWritingAnswer,
@@ -51,16 +51,17 @@ export function HomeworkSubmissionForm({
   assignmentId,
 }: HomeworkSubmissionFormProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   // ── Data: assignment + my submission ──────────────────────────
-  const assignmentSwr = useSWR(
-    ['homework:assignment', assignmentId],
-    () => homeworkFetchers.assignment(assignmentId),
-  );
-  const submissionSwr = useSWR(
-    ['homework:my-submission', assignmentId],
-    () => homeworkFetchers.mySubmission(assignmentId),
-  );
+  const assignmentSwr = useQuery({
+    queryKey: homeworkQueryKeys.assignment(assignmentId),
+    queryFn: () => homeworkApi.getAssignment(assignmentId),
+  });
+  const submissionSwr = useQuery({
+    queryKey: homeworkQueryKeys.mySubmission(assignmentId),
+    queryFn: () => homeworkApi.getMyForAssignment(assignmentId),
+  });
 
   const assignment: AssignmentWithModules | undefined = assignmentSwr.data;
   const submission: Submission | null | undefined = submissionSwr.data;
@@ -120,20 +121,20 @@ export function HomeworkSubmissionForm({
 
   const ensureDraftId = useCallback(async (): Promise<string> => {
     if (submissionIdRef.current) return submissionIdRef.current;
-    const created = await homeworkMutations.createDraft(assignmentId);
+    const created = await homeworkApi.createDraft(assignmentId);
     submissionIdRef.current = created.id;
-    submissionSwr.mutate(created, false);
+    queryClient.setQueryData(homeworkQueryKeys.mySubmission(assignmentId), created);
     return created.id;
-  }, [assignmentId, submissionSwr]);
+  }, [assignmentId, queryClient]);
 
   const persistAnswers = useCallback(
     async (answers: Record<string, unknown>) => {
       const id = await ensureDraftId();
-      const updated = await homeworkMutations.updateAnswers(id, answers);
-      submissionSwr.mutate(updated, false);
+      const updated = await homeworkApi.updateAnswers(id, answers);
+      queryClient.setQueryData(homeworkQueryKeys.mySubmission(assignmentId), updated);
       return updated;
     },
-    [ensureDraftId, submissionSwr],
+    [ensureDraftId, assignmentId, queryClient],
   );
 
   useEffect(() => {
@@ -177,8 +178,8 @@ export function HomeworkSubmissionForm({
     setSubmitting(true);
     try {
       const id = await ensureDraftId();
-      const updated = await homeworkMutations.submit(id, values.answers);
-      submissionSwr.mutate(updated, false);
+      const updated = await homeworkApi.submit(id, values.answers);
+      queryClient.setQueryData(homeworkQueryKeys.mySubmission(assignmentId), updated);
       router.push(`/${locale}/homework/${assignmentId}`);
     } catch (error) {
       setSubmitError(

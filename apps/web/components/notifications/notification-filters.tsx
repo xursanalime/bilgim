@@ -4,7 +4,7 @@ import {
   NOTIFICATION_KINDS,
   NOTIFICATION_KIND_LABELS_UZ,
   type NotificationKind,
-} from '../../lib/notifications-api';
+} from '../../lib/api/notifications';
 
 interface NotificationFiltersProps {
   /** Currently active kind filter, or `null` for "all". */

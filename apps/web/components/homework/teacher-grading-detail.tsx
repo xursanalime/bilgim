@@ -1,16 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import useSWR, { useSWRConfig } from 'swr';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
 import { ApiClientError } from '../../lib/api-client';
 import {
-  homeworkFetchers,
-  homeworkMutations,
+  homeworkApi,
   type AssignmentModule,
   type FeedbackEntry,
-} from '../../lib/homework-api';
+} from '../../lib/api/homework';
+import { homeworkQueryKeys } from './grading-query-keys';
 import { ModuleRenderer, MODULE_TYPE_LABELS } from './module-runtimes';
 import { SubmissionStatusBadge } from './submission-status-badge';
 import { AiGradingPanel } from '../ai/ai-grading-panel';
@@ -32,28 +32,30 @@ interface TeacherGradingDetailProps {
  * student sees the same component in `editable=false` mode whenever
  * they navigate to a graded / returned submission directly.
  *
- * Network layer: SWR keys mirror `homeworkFetchers` so `homework-api`
- * remains the single source of truth for cache identity.
+ * Network layer: query keys are the shared `homeworkQueryKeys` helpers so
+ * this view, the grading queue, and the submission editor all invalidate
+ * the exact same cache entries.
  */
 export function TeacherGradingDetail({
   locale,
   submissionId,
   assignmentId,
 }: TeacherGradingDetailProps) {
-  const { mutate } = useSWRConfig();
+  const queryClient = useQueryClient();
 
-  const submissionSwr = useSWR(
-    ['homework:submission', submissionId],
-    () => homeworkFetchers.submission(submissionId),
-  );
+  const submissionSwr = useQuery({
+    queryKey: homeworkQueryKeys.submission(submissionId),
+    queryFn: () => homeworkApi.getSubmission(submissionId),
+  });
 
   const submission = submissionSwr.data;
   const effectiveAssignmentId = assignmentId ?? submission?.assignmentId;
 
-  const assignmentSwr = useSWR(
-    effectiveAssignmentId ? ['homework:assignment', effectiveAssignmentId] : null,
-    () => homeworkFetchers.assignment(effectiveAssignmentId as string),
-  );
+  const assignmentSwr = useQuery({
+    queryKey: homeworkQueryKeys.assignment(effectiveAssignmentId ?? ''),
+    queryFn: () => homeworkApi.getAssignment(effectiveAssignmentId as string),
+    enabled: Boolean(effectiveAssignmentId),
+  });
   const assignment = assignmentSwr.data;
 
   const [score, setScore] = useState<string>('');
@@ -110,11 +112,13 @@ export function TeacherGradingDetail({
       if (feedback.trim()) {
         payload.feedback = [{ comment: feedback.trim() }];
       }
-      const updated = await homeworkMutations.grade(submissionId, payload);
-      submissionSwr.mutate(updated, false);
+      const updated = await homeworkApi.grade(submissionId, payload);
+      queryClient.setQueryData(homeworkQueryKeys.submission(submissionId), updated);
       // Invalidate any list-level caches that reference this submission.
-      void mutate(['homework:assignment-submissions', updated.assignmentId]);
-      void mutate('homework:grading-queue');
+      void queryClient.invalidateQueries({
+        queryKey: homeworkQueryKeys.assignmentSubmissions(updated.assignmentId),
+      });
+      void queryClient.invalidateQueries({ queryKey: ['homework', 'grading-queue'] });
     } catch (err) {
       setGradeError(
         err instanceof ApiClientError
@@ -131,15 +135,17 @@ export function TeacherGradingDetail({
     setReturnError(null);
     setIsReturning(true);
     try {
-      const updated = await homeworkMutations.returnToStudent(
+      const updated = await homeworkApi.returnToStudent(
         submissionId,
         returnComment.trim()
           ? { comment: returnComment.trim() }
           : {},
       );
-      submissionSwr.mutate(updated, false);
-      void mutate(['homework:assignment-submissions', updated.assignmentId]);
-      void mutate('homework:grading-queue');
+      queryClient.setQueryData(homeworkQueryKeys.submission(submissionId), updated);
+      void queryClient.invalidateQueries({
+        queryKey: homeworkQueryKeys.assignmentSubmissions(updated.assignmentId),
+      });
+      void queryClient.invalidateQueries({ queryKey: ['homework', 'grading-queue'] });
     } catch (err) {
       setReturnError(
         err instanceof ApiClientError

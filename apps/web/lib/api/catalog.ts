@@ -7,7 +7,7 @@
  */
 
 import { apiClient } from '../api-client';
-import type { CefrLevel } from '../discovery-api';
+import type { CefrLevel } from './discovery';
 
 // ── Types (mirror the Prisma + DTO shapes) ─────────────────────────────
 

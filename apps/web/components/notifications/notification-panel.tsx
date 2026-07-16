@@ -18,7 +18,7 @@ import {
   type NotificationItem,
   type NotificationKind,
   type NotificationListResponse,
-} from '../../lib/notifications-api';
+} from '../../lib/api/notifications';
 import {
   getNotificationKindMeta,
   resolveNotificationDeeplink,

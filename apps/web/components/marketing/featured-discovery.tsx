@@ -3,9 +3,11 @@ import Link from 'next/link';
 import {
   ServerDiscoveryError,
   serverDiscovery,
-  type DiscoveryCourseSummary,
-  type DiscoveryTeacherSummary,
-} from '../../lib/discovery-api';
+} from '../../lib/server-discovery';
+import type {
+  DiscoveryCourseSummary,
+  DiscoveryTeacherSummary,
+} from '../../lib/api/discovery';
 import { CourseCard, TeacherCard } from './discovery-cards';
 
 interface FeaturedDiscoveryProps {

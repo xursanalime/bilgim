@@ -15,10 +15,9 @@ import {
   GraduationCap
 } from 'lucide-react';
 
-import { dmApi } from '../../lib/api/dm';
+import { dmApi, describeDmError } from '../../lib/api/dm';
 import { usersApi, type UserSearchResult } from '../../lib/api/users';
 import { ApiClientError } from '../../lib/api-client';
-import { describeDmError } from '../../lib/dm-api';
 import { cn } from '../../lib/utils';
 import { useFocusTrap } from '../../lib/a11y/use-focus-trap';
 

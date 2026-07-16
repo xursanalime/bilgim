@@ -4,7 +4,7 @@ import { Bell } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { notificationsApi } from '../../lib/notifications-api';
+import { notificationsApi } from '../../lib/api/notifications';
 import { NotificationPanel } from './notification-panel';
 
 interface NotificationBellProps {

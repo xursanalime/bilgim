@@ -10,4 +10,7 @@ export const homeworkQueryKeys = {
     ['homework', 'assignment-submissions', assignmentId] as const,
   submission: (submissionId: string) =>
     ['homework', 'submission', submissionId] as const,
+  /** Calling student's own submission for a given assignment (or null). */
+  mySubmission: (assignmentId: string) =>
+    ['homework', 'submission', 'me', assignmentId] as const,
 };

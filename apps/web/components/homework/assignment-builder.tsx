@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { forwardRef, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import useSWR from 'swr';
+import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 import { ApiClientError } from '../../lib/api-client';
@@ -16,7 +16,7 @@ import {
   type AssignmentModuleInput,
   type CreateAssignmentPayload,
   type LanguageSkillModuleType,
-} from '../../lib/homework-api';
+} from '../../lib/api/homework';
 import {
   BuilderSchema,
   buildModuleConfig,
@@ -106,19 +106,25 @@ export function AssignmentBuilder({ locale }: AssignmentBuilderProps) {
   const moduleType = watch('moduleType');
 
   // ── Catalog reads (cascading) ──
-  const coursesSwr = useSWR('builder:courses', () => coursesApi.list());
-  const groupsSwr = useSWR(
-    courseId ? ['builder:groups', courseId] : null,
-    () => groupsApi.listForCourse(courseId),
-  );
-  const lessonsSwr = useSWR(
-    groupId ? ['builder:lessons', groupId] : null,
-    () => lessonsApi.listForGroup(groupId),
-  );
-  const modulesSwr = useSWR(
-    groupId ? ['builder:group-modules', groupId] : null,
-    () => groupsApi.listModules(groupId),
-  );
+  const coursesSwr = useQuery({
+    queryKey: ['catalog', 'courses'],
+    queryFn: () => coursesApi.list(),
+  });
+  const groupsSwr = useQuery({
+    queryKey: ['catalog', 'course', courseId, 'groups'],
+    queryFn: () => groupsApi.listForCourse(courseId),
+    enabled: Boolean(courseId),
+  });
+  const lessonsSwr = useQuery({
+    queryKey: ['catalog', 'group', groupId, 'lessons'],
+    queryFn: () => lessonsApi.listForGroup(groupId),
+    enabled: Boolean(groupId),
+  });
+  const modulesSwr = useQuery({
+    queryKey: ['catalog', 'group', groupId, 'modules'],
+    queryFn: () => groupsApi.listModules(groupId),
+    enabled: Boolean(groupId),
+  });
 
   // Reset dependent selections when a parent changes.
   useEffect(() => {
@@ -192,7 +198,7 @@ export function AssignmentBuilder({ locale }: AssignmentBuilderProps) {
         <ErrorState
           title="Kurslarni yuklab bo\u2018lmadi"
           message="Iltimos, sahifani yangilang yoki keyinroq urinib ko\u2018ring."
-          onRetry={() => void coursesSwr.mutate()}
+          onRetry={() => void coursesSwr.refetch()}
         />
       </div>
     );
@@ -382,7 +388,7 @@ export function AssignmentBuilder({ locale }: AssignmentBuilderProps) {
           ) : modulesSwr.error ? (
             <ErrorState
               title="Modullarni yuklab bo\u2018lmadi"
-              onRetry={() => void modulesSwr.mutate()}
+              onRetry={() => void modulesSwr.refetch()}
             />
           ) : noModulesEnabled ? (
             <div

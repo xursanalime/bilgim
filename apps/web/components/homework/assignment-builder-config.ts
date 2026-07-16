@@ -13,7 +13,7 @@ import { z } from 'zod';
 import {
   isLanguageSkillModuleType,
   type LanguageSkillModuleType,
-} from '../../lib/homework-api';
+} from '../../lib/api/homework';
 
 // ── Schema ─────────────────────────────────────────────────────────────
 

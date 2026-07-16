@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import useSWR from 'swr';
-import { 
+import { useQuery } from '@tanstack/react-query';
+import {
   BookOpen, 
   Layers, 
   Clock, 
@@ -18,10 +18,10 @@ import {
 
 import { ApiClientError } from '../../lib/api-client';
 import {
-  homeworkFetchers,
+  homeworkApi,
   type AssignmentWithModules,
   type Submission,
-} from '../../lib/homework-api';
+} from '../../lib/api/homework';
 import { coursesApi, groupsApi, lessonsApi } from '../../lib/api/catalog';
 import {
   studentApi,
@@ -73,16 +73,16 @@ async function fetchStudentHomework(): Promise<StudentRow[]> {
   await Promise.all(
     groupAndLessonPairs.flatMap(({ enr, groupName, lessons }) =>
       lessons.map(async (lesson) => {
-        const assignments = await homeworkFetchers
-          .lessonAssignments(lesson.id)
+        const assignments = await homeworkApi
+          .listForLesson(lesson.id)
           .catch(() => [] as AssignmentWithModules[]);
 
         const published = assignments.filter((a) => a.isPublished);
         const submissionPairs = await Promise.all(
           published.map(async (assignment) => ({
             assignment,
-            submission: await homeworkFetchers
-              .mySubmission(assignment.id)
+            submission: await homeworkApi
+              .getMyForAssignment(assignment.id)
               .catch(() => null),
           })),
         );
@@ -103,7 +103,10 @@ async function fetchStudentHomework(): Promise<StudentRow[]> {
 }
 
 function StudentHomework({ locale }: { locale: string }) {
-  const { data, error, isLoading } = useSWR('homework:student-overview', fetchStudentHomework);
+  const { data, error, isLoading } = useQuery({
+    queryKey: ['homework', 'student-overview'],
+    queryFn: fetchStudentHomework,
+  });
 
   if (isLoading) return <ListSkeleton />;
   if (error) {
@@ -254,10 +257,10 @@ async function fetchTeacherHomework(): Promise<TeacherRow[]> {
         const lessons = await lessonsApi.listForGroup(group.id).catch(() => [] as LessonSummary[]);
         await Promise.all(
           lessons.map(async (lesson) => {
-            const assignments = await homeworkFetchers.lessonAssignments(lesson.id).catch(() => [] as AssignmentWithModules[]);
+            const assignments = await homeworkApi.listForLesson(lesson.id).catch(() => [] as AssignmentWithModules[]);
             await Promise.all(
               assignments.map(async (assignment) => {
-                const submissions = await homeworkFetchers.assignmentSubmissions(assignment.id).catch(() => [] as Submission[]);
+                const submissions = await homeworkApi.listForAssignment(assignment.id).catch(() => [] as Submission[]);
                 rows.push({
                   groupId: group.id,
                   groupName: group.name,
@@ -288,7 +291,10 @@ function countPending(subs: Submission[]): number {
 }
 
 function TeacherHomework({ locale }: { locale: string }) {
-  const { data, error, isLoading } = useSWR('homework:teacher-overview', fetchTeacherHomework);
+  const { data, error, isLoading } = useQuery({
+    queryKey: ['homework', 'teacher-overview'],
+    queryFn: fetchTeacherHomework,
+  });
 
   if (isLoading) return <ListSkeleton />;
   if (error) {

@@ -12,7 +12,7 @@
  * provide the option lists + labels the filter UI renders.
  */
 
-import { CEFR_LEVELS, parseCefrLevel, type CefrLevel } from '../../lib/discovery-api';
+import { CEFR_LEVELS, parseCefrLevel, type CefrLevel } from '../../lib/api/discovery';
 
 export { CEFR_LEVELS, type CefrLevel };
 

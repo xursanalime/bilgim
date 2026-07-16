@@ -3,7 +3,7 @@ import {
   resolveNotificationDeeplink,
   toLocaleHref,
 } from './notification-kinds';
-import type { NotificationItem } from '../../lib/notifications-api';
+import type { NotificationItem } from '../../lib/api/notifications';
 
 function makeNotification(
   partial: Partial<NotificationItem> & Pick<NotificationItem, 'kind'>,

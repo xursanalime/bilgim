@@ -13,7 +13,7 @@ import {
   notificationsApi,
   type NotificationItem as NotificationItemModel,
   type NotificationKind,
-} from '../../lib/notifications-api';
+} from '../../lib/api/notifications';
 import {
   NotificationItem,
   pickNotificationDeeplink,

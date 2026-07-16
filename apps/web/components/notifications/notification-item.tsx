@@ -4,7 +4,7 @@ import {
   NOTIFICATION_KIND_LABELS_UZ,
   type NotificationItem as NotificationItemModel,
   type NotificationKind,
-} from '../../lib/notifications-api';
+} from '../../lib/api/notifications';
 
 interface NotificationItemProps {
   notification: NotificationItemModel;

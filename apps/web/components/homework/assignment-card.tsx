@@ -6,7 +6,7 @@ import type {
   Assignment,
   Submission,
   SubmissionStatus,
-} from '../../lib/homework-api';
+} from '../../lib/api/homework';
 import { SubmissionStatusBadge } from './submission-status-badge';
 
 /**

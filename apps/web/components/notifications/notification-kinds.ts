@@ -34,7 +34,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import type { NotificationItem } from '../../lib/notifications-api';
+import type { NotificationItem } from '../../lib/api/notifications';
 
 /** Visual tone for a kind badge — maps to the redesign color tokens. */
 export type NotificationTone = 'blue' | 'green' | 'red' | 'orange' | 'purple';

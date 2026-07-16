@@ -3,15 +3,15 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import useSWR from 'swr';
-import { 
-  BarChart3, 
-  ArrowLeft, 
-  Filter, 
-  Search, 
-  Clock, 
-  CheckCircle2, 
-  XCircle, 
+import { useQuery } from '@tanstack/react-query';
+import {
+  BarChart3,
+  ArrowLeft,
+  Filter,
+  Search,
+  Clock,
+  CheckCircle2,
+  XCircle,
   AlertTriangle,
   User,
   Layers,
@@ -22,11 +22,11 @@ import {
 
 import { ApiClientError } from '../../lib/api-client';
 import {
-  homeworkFetchers,
+  homeworkApi,
   type AssignmentWithModules,
   type Submission,
   type SubmissionStatus,
-} from '../../lib/homework-api';
+} from '../../lib/api/homework';
 import { coursesApi, groupsApi, lessonsApi } from '../../lib/api/catalog';
 import { SubmissionStatusBadge } from './submission-status-badge';
 import { cn } from '../../lib/utils';
@@ -53,10 +53,10 @@ export function TeacherGradingQueue({ locale }: TeacherGradingQueueProps) {
   const [aiOnly, setAiOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { data, error, isLoading } = useSWR(
-    'homework:grading-queue',
-    fetchTeacherGradingQueue,
-  );
+  const { data, error, isLoading } = useQuery({
+    queryKey: ['homework', 'grading-queue'],
+    queryFn: fetchTeacherGradingQueue,
+  });
 
   const filteredRows = useMemo(() => {
     let list = data ?? [];
@@ -287,14 +287,14 @@ async function fetchTeacherGradingQueue(): Promise<QueueRow[]> {
 
         await Promise.all(
           lessons.map(async (lesson) => {
-            const assignments = await homeworkFetchers
-              .lessonAssignments(lesson.id)
+            const assignments = await homeworkApi
+              .listForLesson(lesson.id)
               .catch(() => [] as AssignmentWithModules[]);
 
             await Promise.all(
               assignments.map(async (assignment) => {
-                const submissions = await homeworkFetchers
-                  .assignmentSubmissions(assignment.id)
+                const submissions = await homeworkApi
+                  .listForAssignment(assignment.id)
                   .catch(() => [] as Submission[]);
 
                 for (const submission of submissions) {
