@@ -8,13 +8,18 @@ import { z } from 'zod';
 
 import { FormField } from '../ui/form-field';
 import { Button } from '../ui/button';
+import { PasswordStrength } from './password-strength';
 import { authApi } from '../../lib/auth-api';
 import { ApiClientError } from '../../lib/api-client';
 import { extractErrorCode, getAuthErrorMessage } from '../../lib/auth-errors';
 
 const ResetPasswordSchema = z
   .object({
-    password: z.string().min(8, 'Parol kamida 8 ta belgi bo\'lishi kerak'),
+    password: z
+      .string()
+      .min(8, 'Parol kamida 8 ta belgi bo\'lishi kerak')
+      .regex(/[A-Za-z]/, 'Parolda kamida bitta harf bo\'lishi kerak')
+      .regex(/[0-9]/, 'Parolda kamida bitta raqam bo\'lishi kerak'),
     confirmPassword: z.string(),
   })
   .refine((d) => d.password === d.confirmPassword, {
@@ -39,10 +44,12 @@ export function ResetPasswordForm({
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<Values>({
     resolver: zodResolver(ResetPasswordSchema),
   });
+  const passwordValue = watch('password');
 
   const onSubmit = async ({ password }: Values) => {
     if (!token) {
@@ -181,6 +188,7 @@ export function ResetPasswordForm({
         }
         {...register('password')}
       />
+      <PasswordStrength password={passwordValue ?? ''} />
 
       <FormField
         id="confirmPassword"

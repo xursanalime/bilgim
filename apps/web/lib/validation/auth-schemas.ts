@@ -17,7 +17,9 @@ const emailSchema = z
 
 const passwordSchema = z
   .string({ required_error: 'Parolni kiriting' })
-  .min(8, 'Parol kamida 8 ta belgidan iborat bo‘lishi kerak');
+  .min(8, 'Parol kamida 8 ta belgidan iborat bo‘lishi kerak')
+  .regex(/[A-Za-z]/, 'Parolda kamida bitta harf bo‘lishi kerak')
+  .regex(/[0-9]/, 'Parolda kamida bitta raqam bo‘lishi kerak');
 
 export const LoginFormSchema = z.object({
   email: emailSchema,

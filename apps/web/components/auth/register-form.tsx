@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FormField } from '../ui/form-field';
 import { Button } from '../ui/button';
 import { HCaptchaWidget } from './hcaptcha-widget';
+import { PasswordStrength } from './password-strength';
 import { authApi } from '../../lib/auth-api';
 import { ApiClientError } from '../../lib/api-client';
 import { extractErrorCode, getAuthErrorMessage } from '../../lib/auth-errors';
@@ -26,7 +27,11 @@ const RegisterSchema = z
         'Faqat kichik harf, raqam va pastki chiziq (_)',
       ),
     email: z.string().email('Email noto\'g\'ri formatda'),
-    password: z.string().min(8, 'Parol kamida 8 ta belgi bo\'lishi kerak'),
+    password: z
+      .string()
+      .min(8, 'Parol kamida 8 ta belgi bo\'lishi kerak')
+      .regex(/[A-Za-z]/, 'Parolda kamida bitta harf bo\'lishi kerak')
+      .regex(/[0-9]/, 'Parolda kamida bitta raqam bo\'lishi kerak'),
     confirmPassword: z.string(),
     role: z.enum(['STUDENT', 'TEACHER']),
     terms: z.literal(true, {
@@ -74,6 +79,7 @@ export function RegisterForm({ locale, initialRole, callbackUrl }: RegisterFormP
   });
 
   const role = watch('role');
+  const passwordValue = watch('password');
 
   const chooseRole = (r: Role) => {
     setValue('role', r);
@@ -331,6 +337,7 @@ export function RegisterForm({ locale, initialRole, callbackUrl }: RegisterFormP
           }
           {...register('password')}
         />
+        <PasswordStrength password={passwordValue ?? ''} />
 
         <FormField
           id="confirmPassword"

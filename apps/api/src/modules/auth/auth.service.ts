@@ -170,6 +170,19 @@ export class AuthService {
       });
     }
 
+    // 1c. Password strength — the DTO only enforces a minimum length; a
+    // string of 8+ digits or letters alone would otherwise pass. Require
+    // at least one letter AND one digit (NIST 800-63B favours length +
+    // basic composition over mandatory-symbol rules that just frustrate
+    // users without materially improving entropy).
+    if (!isPasswordStrongEnough(dto.password)) {
+      throw new BadRequestException({
+        code: 'WEAK_PASSWORD',
+        message:
+          'Password must contain at least one letter and one number',
+      });
+    }
+
     // 2. Hash password with Argon2id
     const passwordHash = await this.hashPassword(dto.password);
 
@@ -848,6 +861,13 @@ export class AuthService {
       });
     }
 
+    if (!isPasswordStrongEnough(dto.newPassword)) {
+      throw new BadRequestException({
+        code: 'WEAK_PASSWORD',
+        message: 'Password must contain at least one letter and one number',
+      });
+    }
+
     // Hash new password with Argon2id
     const passwordHash = await this.hashPassword(dto.newPassword);
 
@@ -1250,10 +1270,27 @@ export class AuthService {
       });
     }
 
+    if (!isPasswordStrongEnough(newPassword)) {
+      throw new BadRequestException({
+        code: 'WEAK_PASSWORD',
+        message: 'Password must contain at least one letter and one number',
+      });
+    }
+
     const newHash = await this.hashPassword(newPassword);
     await this.usersRepository.updatePassword(userId, newHash);
 
     this.logger.log(`Password changed for user: ${userId}`);
     return { message: 'Parol muvaffaqiyatli yangilandi' };
   }
+}
+
+/**
+ * Minimum password complexity: at least one letter and one digit. Length
+ * is already enforced by the Zod DTOs (min 8) — this only rejects
+ * all-digit ("12345678") or all-letter ("password") strings that would
+ * otherwise pass on length alone.
+ */
+export function isPasswordStrongEnough(password: string): boolean {
+  return /[A-Za-z]/.test(password) && /[0-9]/.test(password);
 }
