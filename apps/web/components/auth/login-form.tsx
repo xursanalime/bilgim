@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 import { FormField } from '../ui/form-field';
 import { Button } from '../ui/button';
-import { MathCaptcha } from './math-captcha';
+import { HCaptchaWidget } from './hcaptcha-widget';
 import { authApi } from '../../lib/auth-api';
 import { ApiClientError } from '../../lib/api-client';
 import { extractErrorCode, getAuthErrorMessage } from '../../lib/auth-errors';
@@ -50,7 +50,8 @@ export function LoginForm({ locale }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [challenge, setChallenge] = useState<MfaChallengeRequired | null>(null);
-  const [captchaOk, setCaptchaOk] = useState(false);
+  const [captchaRequired, setCaptchaRequired] = useState(false);
+  const [hCaptchaToken, setHCaptchaToken] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(true);
 
   const REMEMBER_KEY = 'bilgim.remember_email';
@@ -107,8 +108,8 @@ export function LoginForm({ locale }: LoginFormProps) {
 
   const onSubmit = async (values: LoginFormValues) => {
     setServerError(null);
-    if (!captchaOk) {
-      setServerError('Iltimos, robot emasligingizni tasdiqlang.');
+    if (captchaRequired && !hCaptchaToken) {
+      setServerError(getAuthErrorMessage('CAPTCHA_REQUIRED', { locale }));
       return;
     }
     // "Remember me": persist or clear the saved email for next time.
@@ -122,7 +123,10 @@ export function LoginForm({ locale }: LoginFormProps) {
       /* ignore storage errors */
     }
     try {
-      const result = await authApi.login(values);
+      const result = await authApi.login({
+        ...values,
+        ...(hCaptchaToken ? { hCaptchaToken } : {}),
+      });
 
       if (isMfaChallengeRequired(result)) {
         setChallenge(result);
@@ -133,6 +137,10 @@ export function LoginForm({ locale }: LoginFormProps) {
     } catch (error) {
       if (error instanceof ApiClientError) {
         const code = extractErrorCode(error.details);
+        if (code === 'CAPTCHA_REQUIRED') {
+          setCaptchaRequired(true);
+          setHCaptchaToken(null);
+        }
         setServerError(getAuthErrorMessage(code, { locale, fallback: error.message }));
       } else {
         setServerError(getAuthErrorMessage('NETWORK_ERROR', { locale }));
@@ -296,9 +304,17 @@ export function LoginForm({ locale }: LoginFormProps) {
         </Link>
       </div>
 
-      <MathCaptcha onVerifiedChange={setCaptchaOk} />
+      {captchaRequired && (
+        <HCaptchaWidget onVerify={setHCaptchaToken} onExpire={() => setHCaptchaToken(null)} />
+      )}
 
-      <Button type="submit" loading={isSubmitting} disabled={!captchaOk} fullWidth size="lg">
+      <Button
+        type="submit"
+        loading={isSubmitting}
+        disabled={captchaRequired && !hCaptchaToken}
+        fullWidth
+        size="lg"
+      >
         Kirish
       </Button>
     </form>

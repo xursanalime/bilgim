@@ -15,6 +15,7 @@
     "@bilgim/i18n": "workspace:*",
     "@bilgim/shared-types": "workspace:*",
     "@bilgim/ui": "workspace:*",
+    "@hcaptcha/react-hcaptcha": "^2.0.2",
     "@hookform/resolvers": "^5.4.0",
     "@livekit/components-react": "^2.9.21",
     "@livekit/components-styles": "^1.2.0",

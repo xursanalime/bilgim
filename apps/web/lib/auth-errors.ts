@@ -64,9 +64,11 @@ export type AuthErrorCode =
   | 'INVALID_OR_EXPIRED_TOKEN'
   | 'INVALID_REFRESH_TOKEN'
   | 'TOKEN_FAMILY_COMPROMISED'
-  // Rate limit
+  // Rate limit / bot detection
   | 'RATE_LIMITED'
   | 'TOO_MANY_REQUESTS'
+  | 'CAPTCHA_REQUIRED'
+  | 'BOT_DETECTED'
   // Network / generic
   | 'NETWORK_ERROR'
   | 'INTERNAL_ERROR'
@@ -138,6 +140,10 @@ const UZ: Record<AuthErrorCode, string> = {
     "So'rovlar juda tez yuborilmoqda. Bir oz kuting va qayta urinib ko'ring.",
   TOO_MANY_REQUESTS:
     "So'rovlar juda tez yuborilmoqda. Bir oz kuting va qayta urinib ko'ring.",
+  CAPTCHA_REQUIRED:
+    "Xavfsizlik tekshiruvini bajaring va qayta urinib ko'ring.",
+  BOT_DETECTED:
+    "So'rov avtomatik trafik sifatida aniqlandi. Birozdan so'ng qayta urinib ko'ring.",
 
   NETWORK_ERROR: 'Internet bilan aloqa muammosi. Ulanishni tekshiring.',
   INTERNAL_ERROR: 'Server xatoligi. Bir oz kuting va qayta urinib ko\u2019ring.',
@@ -210,6 +216,10 @@ const RU: Record<AuthErrorCode, string> = {
     'Слишком частые запросы. Подождите и повторите попытку.',
   TOO_MANY_REQUESTS:
     'Слишком частые запросы. Подождите и повторите попытку.',
+  CAPTCHA_REQUIRED:
+    'Пройдите проверку безопасности и повторите попытку.',
+  BOT_DETECTED:
+    'Запрос распознан как автоматический трафик. Повторите попытку позже.',
 
   NETWORK_ERROR: 'Проблема с подключением к интернету. Проверьте сеть.',
   INTERNAL_ERROR: 'Ошибка сервера. Подождите и повторите попытку.',
@@ -282,6 +292,10 @@ const EN: Record<AuthErrorCode, string> = {
     'Too many requests. Please wait a moment and try again.',
   TOO_MANY_REQUESTS:
     'Too many requests. Please wait a moment and try again.',
+  CAPTCHA_REQUIRED:
+    'Please complete the security check and try again.',
+  BOT_DETECTED:
+    'This request was flagged as automated traffic. Please try again shortly.',
 
   NETWORK_ERROR: 'Network connection problem. Please check your connection.',
   INTERNAL_ERROR: 'Server error. Please wait a moment and try again.',

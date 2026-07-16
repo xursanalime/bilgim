@@ -19,6 +19,8 @@ export interface RegisterPayload {
   password: string;
   fullName: string;
   role: 'STUDENT' | 'TEACHER';
+  /** Present only after the backend's bot-detection guard demands one. */
+  hCaptchaToken?: string;
 }
 
 export interface RegisterResponse {
@@ -30,6 +32,8 @@ export interface RegisterResponse {
 export interface LoginPayload {
   email: string;
   password: string;
+  /** Present only after the backend's bot-detection guard demands one. */
+  hCaptchaToken?: string;
 }
 
 export interface LoginResponse {

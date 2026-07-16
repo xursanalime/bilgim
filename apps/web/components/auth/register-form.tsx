@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { FormField } from '../ui/form-field';
 import { Button } from '../ui/button';
-import { MathCaptcha } from './math-captcha';
+import { HCaptchaWidget } from './hcaptcha-widget';
 import { authApi } from '../../lib/auth-api';
 import { ApiClientError } from '../../lib/api-client';
 import { extractErrorCode, getAuthErrorMessage } from '../../lib/auth-errors';
@@ -59,7 +59,8 @@ export function RegisterForm({ locale, initialRole, callbackUrl }: RegisterFormP
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ email: string } | null>(null);
-  const [captchaOk, setCaptchaOk] = useState(false);
+  const [captchaRequired, setCaptchaRequired] = useState(false);
+  const [hCaptchaToken, setHCaptchaToken] = useState<string | null>(null);
 
   const {
     register,
@@ -81,8 +82,8 @@ export function RegisterForm({ locale, initialRole, callbackUrl }: RegisterFormP
 
   const onSubmit = async (values: RegisterFormValues) => {
     setServerError(null);
-    if (!captchaOk) {
-      setServerError('Iltimos, robot emasligingizni tasdiqlang.');
+    if (captchaRequired && !hCaptchaToken) {
+      setServerError(getAuthErrorMessage('CAPTCHA_REQUIRED', { locale }));
       return;
     }
     try {
@@ -92,11 +93,16 @@ export function RegisterForm({ locale, initialRole, callbackUrl }: RegisterFormP
         password: values.password,
         fullName: values.fullName,
         role: values.role,
+        ...(hCaptchaToken ? { hCaptchaToken } : {}),
       });
       setSuccess({ email: values.email });
     } catch (error) {
       if (error instanceof ApiClientError) {
         const code = extractErrorCode(error.details);
+        if (code === 'CAPTCHA_REQUIRED') {
+          setCaptchaRequired(true);
+          setHCaptchaToken(null);
+        }
         setServerError(getAuthErrorMessage(code, { locale, fallback: error.message }));
       } else {
         setServerError(getAuthErrorMessage('NETWORK_ERROR', { locale }));
@@ -369,9 +375,21 @@ export function RegisterForm({ locale, initialRole, callbackUrl }: RegisterFormP
           <p className="text-xs text-red">{errors.terms.message}</p>
         )}
 
-        <MathCaptcha onVerifiedChange={setCaptchaOk} id="register-captcha" />
+        {captchaRequired && (
+          <HCaptchaWidget
+            id="register-captcha"
+            onVerify={setHCaptchaToken}
+            onExpire={() => setHCaptchaToken(null)}
+          />
+        )}
 
-        <Button type="submit" loading={isSubmitting} disabled={!captchaOk} fullWidth size="lg">
+        <Button
+          type="submit"
+          loading={isSubmitting}
+          disabled={captchaRequired && !hCaptchaToken}
+          fullWidth
+          size="lg"
+        >
           Hisob yaratish
         </Button>
       </motion.form>
