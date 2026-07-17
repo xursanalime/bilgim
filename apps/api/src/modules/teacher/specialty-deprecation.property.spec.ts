@@ -98,6 +98,8 @@ function makeService() {
     findByUserId: jest.fn().mockResolvedValue(null),
     upsertWithSpecialty: jest.fn().mockResolvedValue({}),
     updateEnglishTeachingAttributes: jest.fn().mockResolvedValue({}),
+    isPublicSlugTaken: jest.fn().mockResolvedValue(false),
+    updatePublicProfile: jest.fn().mockResolvedValue({}),
   } as unknown as jest.Mocked<TeacherProfileRepository>;
 
   const service = new OnboardingService(
@@ -158,6 +160,7 @@ describe('Property 6: specialty deprecation compatibility (Req 2.3)', () => {
         const completeBase = {
           taughtCefrLevels: [CefrLevel.B1],
           examTrackFocus: [],
+          publicSlug: 'legacy-shim-teacher',
         };
 
         const submitWith = SubmitAnswersSchema.safeParse(
@@ -265,7 +268,11 @@ describe('Property 6: specialty deprecation compatibility (Req 2.3)', () => {
         fc.option(fc.string(), { nil: null }),
         fc.array(fc.constantFrom(...CEFR_LEVELS), { maxLength: 6 }),
         async (shape, teacherId, fullName, levels) => {
-          const base = { taughtCefrLevels: levels, examTrackFocus: [] };
+          const base = {
+            taughtCefrLevels: levels,
+            examTrackFocus: [],
+            publicSlug: 'legacy-shim-teacher-2',
+          };
 
           // Run #1: with the (arbitrary) legacy specialtyId attached.
           const withShim = makeService();

@@ -33,6 +33,8 @@ describe('DiscoveryService', () => {
       searchCourses: jest.fn(),
       findPublicCourseById: jest.fn(),
       searchTeachers: jest.fn(),
+      findTeacherBySlug: jest.fn(),
+      listCoursesByTeacherId: jest.fn(),
     } as any;
 
     cacheStore = new Map();
@@ -94,6 +96,8 @@ describe('DiscoveryService', () => {
       createdAt: new Date(`2026-02-01T00:00:00Z`),
       taughtCefrLevels: ['B1', 'B2'],
       examTrackFocus: ['ielts'],
+      schoolName: null,
+      accentColor: 'BLUE',
       specialty: {
         id: 's-1',
         slug: 'ielts',
@@ -284,6 +288,63 @@ describe('DiscoveryService', () => {
       await expect(service.getCourseById('missing')).rejects.toMatchObject({
         response: { code: 'COURSE_NOT_FOUND' },
       });
+    });
+  });
+
+  // ==================================================================
+  // getTeacherBySlug — single teacher public profile ("their website")
+  // ==================================================================
+
+  describe('getTeacherBySlug', () => {
+    it('returns the teacher summary + bio/yearsOfExperience + embedded courses', async () => {
+      const teacherRow = {
+        ...makeTeacher('7'),
+        bio: 'Hello!',
+        yearsOfExperience: 5,
+        schoolName: "Nodira's English Academy",
+        accentColor: 'PURPLE' as const,
+      };
+      repository.findTeacherBySlug.mockResolvedValue(teacherRow);
+      repository.listCoursesByTeacherId.mockResolvedValue([makeCourse('1'), makeCourse('2')]);
+
+      const out = await service.getTeacherBySlug('slug-7');
+
+      expect(repository.findTeacherBySlug).toHaveBeenCalledWith('slug-7');
+      expect(repository.listCoursesByTeacherId).toHaveBeenCalledWith('7');
+      expect(out.id).toBe('7');
+      expect(out.bio).toBe('Hello!');
+      expect(out.yearsOfExperience).toBe(5);
+      expect(out.schoolName).toBe("Nodira's English Academy");
+      expect(out.accentColor).toBe('PURPLE');
+      expect(out.courses).toHaveLength(2);
+      expect(out.courses[0]!.id).toBe('1');
+    });
+
+    it('throws 404 TEACHER_NOT_FOUND when the slug does not resolve', async () => {
+      repository.findTeacherBySlug.mockResolvedValue(null);
+
+      await expect(service.getTeacherBySlug('missing')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      await expect(service.getTeacherBySlug('missing')).rejects.toMatchObject({
+        response: { code: 'TEACHER_NOT_FOUND' },
+      });
+      expect(repository.listCoursesByTeacherId).not.toHaveBeenCalled();
+    });
+
+    it('is not cached (unlike list endpoints) — every call hits the repository', async () => {
+      repository.findTeacherBySlug.mockResolvedValue({
+        ...makeTeacher('9'),
+        bio: null,
+        yearsOfExperience: null,
+      });
+      repository.listCoursesByTeacherId.mockResolvedValue([]);
+
+      await service.getTeacherBySlug('slug-9');
+      await service.getTeacherBySlug('slug-9');
+
+      expect(repository.findTeacherBySlug).toHaveBeenCalledTimes(2);
+      expect(cache.getOrSet).not.toHaveBeenCalled();
     });
   });
 

@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { CefrLevel, Prisma, PrismaClient } from '@prisma/client';
+import {
+  CefrLevel,
+  Prisma,
+  PrismaClient,
+  TeacherAccentColor,
+} from '@prisma/client';
 
 /**
  * Filters used by the public Discovery search endpoints (Req 14.1 — 14.4).
@@ -77,6 +82,10 @@ export interface DiscoveryTeacherRow {
   createdAt: Date;
   taughtCefrLevels: CefrLevel[];
   examTrackFocus: string[];
+  /** Optional brand name shown above `fullName` (e.g. "Nodira's English Academy"). */
+  schoolName: string | null;
+  /** Accent color for pills/buttons/monogram fallback avatar. */
+  accentColor: TeacherAccentColor;
   specialty: {
     id: string;
     slug: string;
@@ -85,6 +94,14 @@ export interface DiscoveryTeacherRow {
     nameEn: string;
   } | null;
   _count: { courses: number };
+}
+
+/** `DiscoveryTeacherRow` plus the fields only the single-teacher detail
+ * lookup needs (bio, years of experience) — omitted from the list query to
+ * keep `/discovery/teachers` payloads small. */
+export interface DiscoveryTeacherDetailRow extends DiscoveryTeacherRow {
+  bio: string | null;
+  yearsOfExperience: number | null;
 }
 
 /**
@@ -335,6 +352,8 @@ export class DiscoveryRepository {
         createdAt: true,
         taughtCefrLevels: true,
         examTrackFocus: true,
+        schoolName: true,
+        accentColor: true,
         specialty: {
           select: {
             id: true,
@@ -348,6 +367,100 @@ export class DiscoveryRepository {
           select: {
             courses: {
               where: { isPublished: true, isDiscoverable: true },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Single teacher by `publicSlug` for the public profile page
+   * (`/teachers/:slug`). Same visibility rule as {@link searchTeachers}:
+   * `publicSlug IS NOT NULL` AND at least one published+discoverable
+   * course, so a teacher who hasn't finished setup or unpublished
+   * everything 404s instead of rendering an empty page.
+   */
+  async findTeacherBySlug(
+    slug: string,
+  ): Promise<DiscoveryTeacherDetailRow | null> {
+    return this.prisma.teacherProfile.findFirst({
+      where: {
+        publicSlug: slug,
+        courses: { some: { isPublished: true, isDiscoverable: true } },
+      },
+      select: {
+        userId: true,
+        publicSlug: true,
+        fullName: true,
+        headline: true,
+        coverUrl: true,
+        bio: true,
+        yearsOfExperience: true,
+        rating: true,
+        studentsCount: true,
+        createdAt: true,
+        taughtCefrLevels: true,
+        examTrackFocus: true,
+        schoolName: true,
+        accentColor: true,
+        specialty: {
+          select: {
+            id: true,
+            slug: true,
+            nameUz: true,
+            nameRu: true,
+            nameEn: true,
+          },
+        },
+        _count: {
+          select: {
+            courses: {
+              where: { isPublished: true, isDiscoverable: true },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Published+discoverable courses owned by one teacher, for the profile
+   * page's course grid. Capped at 100 — no teacher realistically exceeds
+   * that, and pagination isn't worth the complexity here.
+   */
+  async listCoursesByTeacherId(teacherId: string): Promise<DiscoveryCourseRow[]> {
+    return this.prisma.course.findMany({
+      where: { teacherId, isPublished: true, isDiscoverable: true },
+      take: 100,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        level: true,
+        cefrLevel: true,
+        examTrack: true,
+        coverUrl: true,
+        fromPriceUzs: true,
+        createdAt: true,
+        teacher: {
+          select: {
+            userId: true,
+            publicSlug: true,
+            fullName: true,
+            headline: true,
+            coverUrl: true,
+            rating: true,
+            studentsCount: true,
+            specialty: {
+              select: {
+                id: true,
+                slug: true,
+                nameUz: true,
+                nameRu: true,
+                nameEn: true,
+              },
             },
           },
         },

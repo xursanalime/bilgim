@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CefrLevel, OnboardingQuestion } from '@prisma/client';
 
 import { OnboardingService } from './onboarding.service';
@@ -78,6 +82,8 @@ describe('OnboardingService', () => {
       findByUserId: jest.fn(),
       upsertWithSpecialty: jest.fn().mockResolvedValue({}),
       updateEnglishTeachingAttributes: jest.fn().mockResolvedValue({}),
+      isPublicSlugTaken: jest.fn().mockResolvedValue(false),
+      updatePublicProfile: jest.fn().mockResolvedValue({}),
     } as any;
 
     service = new OnboardingService(
@@ -355,6 +361,10 @@ describe('OnboardingService', () => {
       const dto: CompleteOnboardingDto = {
         taughtCefrLevels: [CefrLevel.A1, CefrLevel.B2],
         examTrackFocus: ['ielts'],
+        publicSlug: 'anvar-karimov',
+        headline: 'IELTS mentor',
+        bio: 'Ten years of experience.',
+        yearsOfExperience: 7,
       };
 
       const result = await service.completeOnboarding(
@@ -371,10 +381,28 @@ describe('OnboardingService', () => {
         examTrackFocus: ['ielts'],
       });
 
+      // Public profile (the teacher's "website") is claimed + persisted.
+      expect(teacherProfileRepository.isPublicSlugTaken).toHaveBeenCalledWith(
+        'anvar-karimov',
+        teacherId,
+      );
+      expect(teacherProfileRepository.updatePublicProfile).toHaveBeenCalledWith(
+        teacherId,
+        {
+          publicSlug: 'anvar-karimov',
+          headline: 'IELTS mentor',
+          bio: 'Ten years of experience.',
+          yearsOfExperience: 7,
+          schoolName: null,
+          accentColor: undefined,
+        },
+      );
+
       // Routes to the single English dashboard (Req 10.4), not specialty-specific.
       expect(result.dashboardUrl).toBe('/dashboard');
       expect(result.taughtCefrLevels).toEqual([CefrLevel.A1, CefrLevel.B2]);
       expect(result.examTrackFocus).toEqual(['ielts']);
+      expect(result.publicSlug).toBe('anvar-karimov');
 
       // No specialty quiz/classification was consulted.
       expect(prisma.onboardingQuestion.findMany).not.toHaveBeenCalled();
@@ -386,6 +414,7 @@ describe('OnboardingService', () => {
       await service.completeOnboarding(teacherId, 'Anvar Karimov', {
         taughtCefrLevels: [],
         examTrackFocus: [],
+        publicSlug: 'anvar-karimov',
       });
 
       // ensureDefaultSpecialty upserts the english specialty on the profile.
@@ -396,10 +425,11 @@ describe('OnboardingService', () => {
       });
     });
 
-    it('completes with empty attributes (no preferences declared)', async () => {
+    it('completes with empty attributes and no headline/bio (only publicSlug required)', async () => {
       const result = await service.completeOnboarding(teacherId, null, {
         taughtCefrLevels: [],
         examTrackFocus: [],
+        publicSlug: 'no-frills-teacher',
       });
 
       expect(prisma.examTrack.findMany).not.toHaveBeenCalled();
@@ -409,6 +439,17 @@ describe('OnboardingService', () => {
         taughtCefrLevels: [],
         examTrackFocus: [],
       });
+      expect(teacherProfileRepository.updatePublicProfile).toHaveBeenCalledWith(
+        teacherId,
+        {
+          publicSlug: 'no-frills-teacher',
+          headline: null,
+          bio: null,
+          yearsOfExperience: null,
+          schoolName: null,
+          accentColor: undefined,
+        },
+      );
       expect(result.dashboardUrl).toBe('/dashboard');
     });
 
@@ -418,6 +459,7 @@ describe('OnboardingService', () => {
       await service.completeOnboarding(teacherId, null, {
         taughtCefrLevels: [CefrLevel.A1, CefrLevel.A1, CefrLevel.B1],
         examTrackFocus: ['ielts', 'ielts'],
+        publicSlug: 'dedupe-teacher',
       });
 
       expect(
@@ -436,12 +478,31 @@ describe('OnboardingService', () => {
         service.completeOnboarding(teacherId, null, {
           taughtCefrLevels: [CefrLevel.B1],
           examTrackFocus: ['ielts', 'toefl'],
+          publicSlug: 'rejected-teacher',
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
 
       expect(
         teacherProfileRepository.updateEnglishTeachingAttributes,
       ).not.toHaveBeenCalled();
+      expect(teacherProfileRepository.updatePublicProfile).not.toHaveBeenCalled();
+    });
+
+    it('rejects with 409 when publicSlug is already claimed by another teacher', async () => {
+      teacherProfileRepository.isPublicSlugTaken.mockResolvedValue(true);
+
+      await expect(
+        service.completeOnboarding(teacherId, null, {
+          taughtCefrLevels: [CefrLevel.B1],
+          examTrackFocus: [],
+          publicSlug: 'already-taken',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      expect(
+        teacherProfileRepository.updateEnglishTeachingAttributes,
+      ).not.toHaveBeenCalled();
+      expect(teacherProfileRepository.updatePublicProfile).not.toHaveBeenCalled();
     });
   });
 });

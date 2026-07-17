@@ -72,11 +72,23 @@ export class AuthController {
    * credential: the API never accepts it as proof of identity, only
    * the HttpOnly JWT (or Bearer header, for mobile) is trusted.
    */
+  /**
+   * `Domain` attribute shared by every auth cookie, or `undefined` (old
+   * per-host behaviour) when `COOKIE_DOMAIN` isn't set. Centralised here so
+   * `setAuthCookies` and `logout`'s `clearCookie` calls can never drift —
+   * `clearCookie` only clears a cookie whose `domain` matches exactly what
+   * it was set with.
+   */
+  private get cookieDomain(): string | undefined {
+    return process.env.COOKIE_DOMAIN || undefined;
+  }
+
   private setAuthCookies(
     res: any,
     tokens: { accessToken: string; refreshToken: string },
   ): void {
     const secure = process.env.NODE_ENV === 'production';
+    const domain = this.cookieDomain;
 
     res.cookie('access_token', tokens.accessToken, {
       httpOnly: true,
@@ -84,6 +96,7 @@ export class AuthController {
       sameSite: 'strict',
       maxAge: 15 * 60 * 1000,
       path: '/',
+      ...(domain && { domain }),
     });
 
     res.cookie('refresh_token', tokens.refreshToken, {
@@ -92,6 +105,7 @@ export class AuthController {
       sameSite: 'strict',
       maxAge: 30 * 24 * 60 * 60 * 1000,
       path: '/api/v1/auth',
+      ...(domain && { domain }),
     });
 
     const decoded = this.tokensService.decodeUnsafe(tokens.accessToken);
@@ -111,6 +125,7 @@ export class AuthController {
           sameSite: 'lax',
           maxAge: 15 * 60 * 1000,
           path: '/',
+          ...(domain && { domain }),
         },
       );
     }
@@ -262,9 +277,16 @@ export class AuthController {
     const refreshToken: string | undefined = req.cookies?.refresh_token;
     const result = await this.authService.logout(refreshToken);
 
-    res.clearCookie('access_token', { path: '/' });
-    res.clearCookie('refresh_token', { path: '/api/v1/auth' });
-    res.clearCookie('bilgim_session_hint', { path: '/' });
+    const domain = this.cookieDomain;
+    res.clearCookie('access_token', { path: '/', ...(domain && { domain }) });
+    res.clearCookie('refresh_token', {
+      path: '/api/v1/auth',
+      ...(domain && { domain }),
+    });
+    res.clearCookie('bilgim_session_hint', {
+      path: '/',
+      ...(domain && { domain }),
+    });
 
     return result;
   }

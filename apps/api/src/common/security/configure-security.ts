@@ -113,6 +113,16 @@ export function configureSecurity(
     ? ['http://localhost:3000','http://localhost:3001','http://127.0.0.1:3000','http://127.0.0.1:3001']
     : [];
   const allOrigins = [...new Set([...allowedOrigins, ...devOrigins])];
+  // Teacher subdomains (nodira.bilgim.uz, ...) aren't individually
+  // allow-listable — there's one per teacher. `COOKIE_DOMAIN` is already
+  // the exact trust boundary the session cookie is scoped to
+  // (`.bilgim.uz` prod / `.bilgim.test` local), so any origin on that
+  // domain or a subdomain of it is allowed too. Bare (undefined) leaves
+  // CORS exactly as before — no behaviour change unless subdomain routing
+  // is actually configured.
+  const cookieDomain = (
+    configService.get('COOKIE_DOMAIN', { infer: true }) as string | undefined
+  )?.replace(/^\./, '');
   const credentials = Boolean(
     configService.get('CORS_CREDENTIALS', { infer: true }),
   );
@@ -121,6 +131,9 @@ export function configureSecurity(
       // Same-origin / curl requests have no Origin header.
       if (!origin) return cb(null, true);
       if (allOrigins.includes(origin)) return cb(null, true);
+      if (cookieDomain && isOriginOnDomain(origin, cookieDomain)) {
+        return cb(null, true);
+      }
       return cb(new Error(`Origin ${origin} is not allowed`), false);
     },
     credentials,
@@ -198,6 +211,24 @@ function parseOriginList(raw: string | undefined): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
+}
+
+/**
+ * Whether `origin` (e.g. `https://nodira.bilgim.uz`) is `rootDomain` itself
+ * or any subdomain of it. Used to trust teacher subdomains for CORS
+ * without enumerating each one — mirrors the `Domain=` scope of the shared
+ * session cookie (`COOKIE_DOMAIN`), so "can read the session cookie" and
+ * "can make a credentialed CORS request" stay the same trust boundary.
+ * Malformed origins (no parseable hostname) are rejected, never trusted.
+ */
+function isOriginOnDomain(origin: string, rootDomain: string): boolean {
+  let hostname: string;
+  try {
+    hostname = new URL(origin).hostname;
+  } catch {
+    return false;
+  }
+  return hostname === rootDomain || hostname.endsWith(`.${rootDomain}`);
 }
 
 /**

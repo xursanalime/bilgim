@@ -4,7 +4,8 @@ import type {
   DiscoveryCourseSummary,
   DiscoveryTeacherSummary,
 } from '../../lib/api/discovery';
-import { cefrLabel, examTrackLabel } from '../discovery/facets';
+import { cefrLabel, examTrackLabel, ACCENT_STYLES } from '../discovery/facets';
+import { cn } from '../../lib/utils';
 
 /**
  * Shared discovery cards for the public catalog (Req 15.2, 15.3).
@@ -68,10 +69,18 @@ export function TeacherCard({
   const cefr = teacher.taughtCefrLevels ?? [];
   const tracks = teacher.examTrackFocus ?? [];
 
+  const accent = ACCENT_STYLES[teacher.accentColor];
+
   const card = (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-rim bg-canvas p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-blue/30 hover:shadow-md">
       <div className="flex items-start gap-4">
-        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-blue-tint ring-1 ring-inset ring-blue/20">
+        <div
+          className={cn(
+            'flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl ring-1 ring-inset',
+            accent.tint,
+            accent.ring,
+          )}
+        >
           {teacher.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -80,12 +89,17 @@ export function TeacherCard({
               className="h-full w-full object-cover"
             />
           ) : (
-            <span className="text-base font-extrabold tracking-tight text-blue">
+            <span className={cn('text-base font-extrabold tracking-tight', accent.solid)}>
               {initials}
             </span>
           )}
         </div>
         <div className="min-w-0 flex-1">
+          {teacher.schoolName && (
+            <p className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+              {teacher.schoolName}
+            </p>
+          )}
           <h3 className="truncate text-base font-bold tracking-tight text-ink-strong">
             {fullName}
           </h3>
@@ -213,12 +227,13 @@ function Stat({ label, value }: { label: string; value: string }) {
 // ──────────────────────────────────────────────────────────────────────
 
 /**
- * Pad teacher rating to three decimals so the column is visually
- * stable in the cards (e.g. 4.5 → "4.500"). Returns "—" when null.
+ * Format teacher rating to one decimal (e.g. 4.5 → "4.5"). Returns "—" when
+ * null. Deliberately not `toLocaleString('uz-UZ')` — that formatter's
+ * thousands separator is also `.`, which would make "4.8" read like "48".
  */
 export function formatRating(value: number | null): string {
   if (value === null || Number.isNaN(value)) return '—';
-  return value.toFixed(3);
+  return value.toFixed(1);
 }
 
 export function formatUzs(value: number): string {

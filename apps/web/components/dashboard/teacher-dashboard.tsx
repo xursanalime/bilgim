@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useEffect, useState } from 'react';
 import { 
@@ -37,6 +38,7 @@ import {
 } from '../../lib/api/teacher-analytics';
 import { ApiClientError } from '../../lib/api-client';
 import { getCurrentUser, type DecodedToken } from '../../lib/auth';
+import { teacherApi } from '../../lib/api/teacher';
 import { tokens } from '../../lib/design/tokens';
 
 interface TeacherDashboardProps {
@@ -44,11 +46,37 @@ interface TeacherDashboardProps {
 }
 
 export function TeacherDashboard({ locale }: TeacherDashboardProps) {
+  const router = useRouter();
   const [user, setUser] = useState<DecodedToken | null>(null);
 
   useEffect(() => {
     setUser(getCurrentUser());
   }, []);
+
+  // ADMIN also renders this dashboard but has no TeacherProfile — the
+  // `/teacher/*` endpoints 403 for them, so only ever query as TEACHER.
+  const isTeacher = user?.role === 'TEACHER';
+
+  const profileQuery = useQuery({
+    queryKey: ['teacher', 'profile', 'me'],
+    queryFn: () => teacherApi.getMyProfile(),
+    enabled: isTeacher,
+  });
+
+  // First-time (or not-yet-finished) teachers have no `publicSlug` yet, i.e.
+  // no live public profile ("website"). Send them straight into the
+  // onboarding wizard instead of an empty dashboard (Req: everything needed
+  // to launch the site must surface on first login).
+  const needsProfileSetup =
+    isTeacher &&
+    profileQuery.isSuccess &&
+    !profileQuery.data.teacherProfile?.publicSlug;
+
+  useEffect(() => {
+    if (needsProfileSetup) {
+      router.replace(`/${locale}/onboarding`);
+    }
+  }, [needsProfileSetup, router, locale]);
 
   const overviewQuery = useQuery({
     queryKey: ['teacher', 'analytics', 'overview'],
@@ -70,6 +98,16 @@ export function TeacherDashboard({ locale }: TeacherDashboardProps) {
     queryKey: ['teacher', 'analytics', 'revenue-trend', 30],
     queryFn: () => teacherAnalyticsApi.revenueTrend(30),
   });
+
+  // Avoid flashing the (empty) dashboard while we check profile completion
+  // or while the redirect to `/onboarding` is in flight.
+  if (isTeacher && (profileQuery.isLoading || needsProfileSetup)) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 pb-12">
@@ -152,7 +190,11 @@ export function TeacherDashboard({ locale }: TeacherDashboardProps) {
 
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <TeacherChecklist locale={locale} />
+          <TeacherChecklist
+            locale={locale}
+            hasPublicProfile={!!profileQuery.data?.teacherProfile?.publicSlug}
+            hasPublishedCourse={(overviewQuery.data?.publishedCourses ?? 0) > 0}
+          />
         </div>
         <div>
           <TeacherTips />
@@ -923,22 +965,30 @@ function formatUzs(value: number): string {
 // Onboarding Checklist
 // ──────────────────────────────────────────────────────────────────────
 
-function TeacherChecklist({ locale }: { locale: string }) {
+function TeacherChecklist({
+  locale,
+  hasPublicProfile,
+  hasPublishedCourse,
+}: {
+  locale: string;
+  hasPublicProfile: boolean;
+  hasPublishedCourse: boolean;
+}) {
   const steps = [
     {
       id: 'brand',
-      title: 'Maktab brendini sozlash',
-      description: 'Logotip, ranglar va umumiy dizaynni moslashtiring.',
+      title: 'Ommaviy profilni sozlash',
+      description: "Sayt manzili, sarlavha va bio — bilgim.uz/teachers/... orqali topiladi.",
       icon: Settings,
-      isCompleted: true,
-      href: `/${locale}/settings`,
+      isCompleted: hasPublicProfile,
+      href: `/${locale}/onboarding`,
     },
     {
       id: 'curriculum',
-      title: 'Kurs mundarijasini yaratish',
-      description: 'Darslar va modullarni rejalashtiring.',
+      title: 'Kurs yaratish va nashr qilish',
+      description: 'Darslar va modullarni rejalashtiring, keyin nashr qiling.',
       icon: Edit3,
-      isCompleted: false,
+      isCompleted: hasPublishedCourse,
       href: `/${locale}/dashboard/courses/new`,
     },
     {

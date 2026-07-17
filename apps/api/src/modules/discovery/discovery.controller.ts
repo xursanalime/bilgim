@@ -16,6 +16,7 @@ import {
   DiscoveryCourseSummary,
   DiscoveryGroupSummary,
   DiscoveryService,
+  DiscoveryTeacherDetail,
   DiscoveryTeacherSummary,
   CursorPage,
 } from './discovery.service';
@@ -119,6 +120,27 @@ export class DiscoveryController {
     query: ListDiscoveryTeachersDto,
   ): Promise<CursorPage<DiscoveryTeacherSummary>> {
     return this.discoveryService.listTeachers(query);
+  }
+
+  /**
+   * GET /discovery/teachers/:slug
+   *
+   * A teacher's public profile ("their website") by `publicSlug`, with
+   * their published+discoverable courses embedded. Backs both the
+   * `bilgim.uz/teachers/:slug` page and (Phase 1 subdomain routing) a
+   * teacher's own `<slug>.bilgim.uz` landing page — same data, same rule.
+   * 404s when the slug doesn't exist or the profile has no public courses
+   * yet, rather than leaking a half-set-up profile.
+   */
+  @Public()
+  @Get('teachers/:slug')
+  @HttpCode(HttpStatus.OK)
+  @HttpCache({ maxAge: 60, staleWhileRevalidate: 300 })
+  @CacheTtl(60)
+  async getTeacherBySlug(
+    @Param('slug') slug: string,
+  ): Promise<DiscoveryTeacherDetail> {
+    return this.discoveryService.getTeacherBySlug(slug);
   }
 
   /** GET /discovery/settings/:key — get public system setting. */

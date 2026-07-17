@@ -32,6 +32,16 @@ export const envSchema = z.object({
       typeof v === 'boolean' ? v : v.toLowerCase() === 'true',
     ),
   /**
+   * `Domain` attribute for the auth cookies (`access_token`, `refresh_token`,
+   * `bilgim_session_hint`). Unset (default) preserves the old behaviour —
+   * the browser scopes each cookie to the exact issuing host. Set to
+   * `.bilgim.uz` (prod) / `.bilgim.test` (local subdomain simulation) so a
+   * session started on the main site is also valid on every teacher
+   * subdomain (`nodira.bilgim.uz`) — they share one eTLD+1, so this is a
+   * same-site scope widening, not a cross-site one.
+   */
+  COOKIE_DOMAIN: z.string().optional(),
+  /**
    * Maximum request body size (bytes) — applied to JSON and urlencoded
    * parsers. Defaults to 1 MB to limit slow-loris / payload-flood vectors;
    * media uploads use multipart presigned URLs and never traverse this

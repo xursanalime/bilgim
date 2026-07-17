@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Moon, Sun } from 'lucide-react';
 import { BrandMark } from './brand-logo';
 import { useTheme } from '../providers/theme-provider';
+import { localeHref } from '../../lib/locale-href';
 
 /**
  * Compact light/dark toggle for the landing capsule navbar. Cycles between
@@ -49,7 +50,7 @@ export function Header({ locale }: { locale: string }) {
     { label: 'Imkoniyatlar', href: '#features' },
     { label: 'AI Tutor', href: '#ai' },
     { label: 'Tariflar', href: '#pricing' },
-    { label: "O'qituvchilar", href: `/${locale}/teachers` },
+    { label: 'Ustozlar', href: localeHref(locale, '/teachers') },
   ];
 
   return (
@@ -70,7 +71,7 @@ export function Header({ locale }: { locale: string }) {
         >
           {/* Logo */}
           <Link
-            href={`/${locale}`}
+            href={localeHref(locale)}
             className="flex items-center gap-2.5 pl-1.5"
           >
             <BrandMark size={36} />
@@ -96,13 +97,13 @@ export function Header({ locale }: { locale: string }) {
           <div className="flex items-center gap-2">
             <LandingThemeToggle />
             <Link
-              href={`/${locale}/login`}
+              href={localeHref(locale, '/login')}
               className="hidden text-sm font-semibold text-ink-soft transition-colors hover:text-ink-strong sm:inline-block"
             >
               Kirish
             </Link>
             <Link
-              href={`/${locale}/register?role=teacher`}
+              href={localeHref(locale, '/register?role=teacher')}
               className="group relative inline-flex items-center gap-1.5 overflow-hidden rounded-full bg-blue px-4 py-2 text-sm font-bold text-white transition-all hover:bg-blue-600 active:scale-[0.97] sm:px-5 sm:py-2.5"
               style={{
                 boxShadow:
@@ -192,7 +193,7 @@ export function Header({ locale }: { locale: string }) {
               </nav>
               <div className="mt-3 border-t border-rim pt-3">
                 <Link
-                  href={`/${locale}/login`}
+                  href={localeHref(locale, '/login')}
                   onClick={() => setMobileOpen(false)}
                   className="block rounded-2xl px-4 py-3 text-sm font-semibold text-ink-strong"
                 >

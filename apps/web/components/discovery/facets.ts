@@ -12,9 +12,27 @@
  * provide the option lists + labels the filter UI renders.
  */
 
-import { CEFR_LEVELS, parseCefrLevel, type CefrLevel } from '../../lib/api/discovery';
+import {
+  CEFR_LEVELS,
+  parseCefrLevel,
+  type AccentColor,
+  type CefrLevel,
+} from '../../lib/api/discovery';
 
 export { CEFR_LEVELS, type CefrLevel };
+
+/** Static class strings (not template-built) so Tailwind's JIT scanner picks
+ * them up. Shared by the teacher card and profile page — the onboarding
+ * wizard (a different domain, `components/dashboard/`) keeps its own copy. */
+export const ACCENT_STYLES: Record<
+  AccentColor,
+  { tint: string; solid: string; ring: string }
+> = {
+  BLUE: { tint: 'bg-blue-tint', solid: 'text-blue', ring: 'ring-blue/20' },
+  GREEN: { tint: 'bg-green-tint', solid: 'text-green', ring: 'ring-green/20' },
+  PURPLE: { tint: 'bg-purple-tint', solid: 'text-purple', ring: 'ring-purple/20' },
+  ORANGE: { tint: 'bg-orange-tint', solid: 'text-orange-600', ring: 'ring-orange/20' },
+};
 
 export interface ExamTrackOption {
   /** Matches `ExamTrack.slug` / `Course.examTrack` on the backend. */

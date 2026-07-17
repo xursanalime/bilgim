@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -77,6 +78,7 @@ export interface CompleteOnboardingResult {
   dashboardUrl: string;
   taughtCefrLevels: CefrLevel[];
   examTrackFocus: string[];
+  publicSlug: string;
 }
 
 /**
@@ -146,8 +148,12 @@ export class OnboardingService {
    *   2. De-duplicates and validates the collected English-teaching attributes:
    *      `taughtCefrLevels` (already enum-checked by the DTO) and
    *      `examTrackFocus` slugs (checked against the active `ExamTrack` catalog).
-   *   3. Persists those attributes on the TeacherProfile.
-   *   4. Routes the instructor to the single English dashboard (Req 10.4).
+   *   3. Validates and claims `publicSlug` — the URL segment the teacher's
+   *      public profile ("their website", `/teachers/:publicSlug`) lives at.
+   *      This is what makes the teacher eligible for public discovery
+   *      (`discovery.repository.ts` requires `publicSlug IS NOT NULL`).
+   *   4. Persists those attributes + the public profile on the TeacherProfile.
+   *   5. Routes the instructor to the single English dashboard (Req 10.4).
    *
    * The 14-day trial is NOT created here — it is provisioned at email
    * verification by the billing module (Req 10.1) and is intentionally
@@ -181,21 +187,45 @@ export class OnboardingService {
       }
     }
 
-    // 4. Persist the English-teaching attributes.
+    // 4. Claim the public profile slug before writing anything (fail fast,
+    //    no partial state on conflict). The DTO already normalizes casing.
+    const publicSlug = dto.publicSlug;
+    const slugTaken = await this.teacherProfileRepository.isPublicSlugTaken(
+      publicSlug,
+      teacherUserId,
+    );
+    if (slugTaken) {
+      throw new ConflictException({
+        code: 'PUBLIC_SLUG_TAKEN',
+        message: `The profile URL "${publicSlug}" is already taken.`,
+      });
+    }
+
+    // 5. Persist the English-teaching attributes + public profile.
     await this.teacherProfileRepository.updateEnglishTeachingAttributes(
       teacherUserId,
       { taughtCefrLevels, examTrackFocus },
     );
+    await this.teacherProfileRepository.updatePublicProfile(teacherUserId, {
+      publicSlug,
+      headline: dto.headline?.trim() || null,
+      bio: dto.bio?.trim() || null,
+      yearsOfExperience: dto.yearsOfExperience ?? null,
+      schoolName: dto.schoolName?.trim() || null,
+      accentColor: dto.accentColor,
+    });
 
     this.logger.log(
       `Teacher ${teacherUserId} completed English onboarding ` +
-        `(levels=[${taughtCefrLevels.join(',')}], tracks=[${examTrackFocus.join(',')}])`,
+        `(levels=[${taughtCefrLevels.join(',')}], tracks=[${examTrackFocus.join(',')}], ` +
+        `slug=${publicSlug})`,
     );
 
     return {
       dashboardUrl: ENGLISH_DASHBOARD_URL,
       taughtCefrLevels,
       examTrackFocus,
+      publicSlug,
     };
   }
 

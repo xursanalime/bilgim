@@ -14,6 +14,7 @@
 import type {
   CursorPage,
   DiscoveryCourseSummary,
+  DiscoveryTeacherDetail,
   DiscoveryTeacherSummary,
   ListCoursesParams,
   ListTeachersParams,
@@ -108,6 +109,11 @@ export const serverDiscovery = {
   },
   getCourse(id: string) {
     return publicGet<DiscoveryCourseSummary>(`/discovery/courses/${id}`);
+  },
+  getTeacherBySlug(slug: string) {
+    return publicGet<DiscoveryTeacherDetail>(
+      `/discovery/teachers/${encodeURIComponent(slug)}`,
+    );
   },
 };
 

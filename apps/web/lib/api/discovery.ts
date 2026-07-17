@@ -32,6 +32,10 @@ import { apiClient } from '../api-client';
 export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
 export type CefrLevel = (typeof CEFR_LEVELS)[number];
 
+/** Accent color options (mirrors the API `TeacherAccentColor` enum). */
+export const ACCENT_COLORS = ['BLUE', 'GREEN', 'PURPLE', 'ORANGE'] as const;
+export type AccentColor = (typeof ACCENT_COLORS)[number];
+
 /** Narrow an arbitrary string to a `CefrLevel`, or `null` when invalid. */
 export function parseCefrLevel(value: string): CefrLevel | null {
   return (CEFR_LEVELS as readonly string[]).includes(value)
@@ -69,6 +73,10 @@ export interface DiscoveryTeacherSummary {
   taughtCefrLevels: string[];
   /** Exam-track slugs this instructor focuses on, e.g. `["ielts"]` (Req 15.2). */
   examTrackFocus: string[];
+  /** Optional brand name shown above `fullName` (e.g. "Nodira's English Academy"). */
+  schoolName: string | null;
+  /** Accent color for pills/buttons/monogram fallback avatar. */
+  accentColor: AccentColor;
   /** @deprecated retained for back-compat; see {@link DiscoverySpecialtySummary}. */
   specialty: DiscoverySpecialtySummary | null;
 }
@@ -95,6 +103,14 @@ export interface DiscoveryCourseSummary {
     /** @deprecated retained for back-compat. */
     specialty: DiscoverySpecialtySummary | null;
   };
+}
+
+/** `DiscoveryTeacherSummary` plus the fields the single-teacher public
+ * profile page needs (bio, years of experience, embedded course list). */
+export interface DiscoveryTeacherDetail extends DiscoveryTeacherSummary {
+  bio: string | null;
+  yearsOfExperience: number | null;
+  courses: DiscoveryCourseSummary[];
 }
 
 export interface CursorPage<T> {
@@ -161,6 +177,14 @@ export const discoveryApi = {
   listCourses(params: ListCoursesParams = {}) {
     return apiClient.get<CursorPage<DiscoveryCourseSummary>>(
       buildDiscoveryPath('/discovery/courses', params),
+      { public: true },
+    );
+  },
+
+  /** Public teacher profile ("their website") by publicSlug. */
+  getTeacherBySlug(slug: string) {
+    return apiClient.get<DiscoveryTeacherDetail>(
+      `/discovery/teachers/${encodeURIComponent(slug)}`,
       { public: true },
     );
   },

@@ -1,4 +1,10 @@
-import { PrismaClient, UserRole, UserStatus, HomeworkModuleType } from '@prisma/client';
+import {
+  PrismaClient,
+  UserRole,
+  UserStatus,
+  HomeworkModuleType,
+  CefrLevel,
+} from '@prisma/client';
 import * as argon2 from 'argon2';
 import { seedGamification } from './gamification-seed';
 
@@ -316,6 +322,201 @@ async function main() {
     },
   });
   console.log(`  ✓ Created plan: ${monthlyPlan.slug} (${monthlyPlan.priceUzs} UZS/oy)`);
+
+  // ============ Exam tracks ============
+  // Without these seeded, POST /teacher/onboarding/complete rejects EVERY
+  // exam-track selection with EXAM_TRACK_NOT_FOUND (the endpoint validates
+  // examTrackFocus slugs against this catalog) — the instructor-onboarding
+  // form offers these exact six slugs (see EXAM_TRACKS in
+  // instructor-onboarding-form.tsx), so the catalog must match it 1:1.
+  const examTracks: Array<{ slug: string; name: string }> = [
+    { slug: 'ielts', name: 'IELTS' },
+    { slug: 'toefl', name: 'TOEFL' },
+    { slug: 'general', name: 'General English' },
+    { slug: 'cambridge', name: 'Cambridge' },
+    { slug: 'pte', name: 'PTE' },
+    { slug: 'business-english', name: 'Business English' },
+  ];
+  for (const track of examTracks) {
+    await prisma.examTrack.upsert({
+      where: { slug: track.slug },
+      update: { name: track.name, isActive: true },
+      create: { slug: track.slug, name: track.name, isActive: true },
+    });
+  }
+  console.log(`  ✓ Seeded ${examTracks.length} exam tracks`);
+
+  // ============ Demo teachers & courses (public discovery) ============
+  // Populates /teachers, /search, /discover, /courses with realistic,
+  // browsable content in dev/staging. Without at least one TeacherProfile
+  // with `publicSlug` set AND one `isPublished + isDiscoverable` Course,
+  // the public marketplace pages render as permanently empty (see
+  // discovery.repository.ts `searchTeachers`).
+  const demoTeachers: Array<{
+    email: string;
+    fullName: string;
+    publicSlug: string;
+    headline: string;
+    bio: string;
+    rating: number;
+    studentsCount: number;
+    taughtCefrLevels: CefrLevel[];
+    examTrackFocus: string[];
+    schoolName?: string;
+    accentColor?: 'BLUE' | 'GREEN' | 'PURPLE' | 'ORANGE';
+    course: {
+      title: string;
+      description: string;
+      cefrLevel: CefrLevel;
+      examTrack: string | null;
+      fromPriceUzs: number;
+      group: { name: string; priceUzs: number; capacity: number };
+    };
+  }> = [
+    {
+      email: 'nodira.teacher@bilgim.uz',
+      fullName: 'Nodira Rashidova',
+      publicSlug: 'nodira-rashidova',
+      headline: 'IELTS 8.0 | 7 yillik tajriba',
+      bio: "Cambridge CELTA sertifikatiga ega, IELTS Speaking va Writing bo'yicha ixtisoslashgan o'qituvchi.",
+      rating: 4.9,
+      studentsCount: 214,
+      taughtCefrLevels: [CefrLevel.B2, CefrLevel.C1],
+      examTrackFocus: ['ielts'],
+      schoolName: "Nodira's English Academy",
+      accentColor: 'PURPLE',
+      course: {
+        title: 'IELTS Intensiv (Speaking + Writing)',
+        description:
+          "8 haftalik intensiv kurs — IELTS Speaking va Writing bo'limlariga chuqur tayyorgarlik.",
+        cefrLevel: CefrLevel.B2,
+        examTrack: 'ielts',
+        fromPriceUzs: 650_000,
+        group: { name: "Kechki guruh (18:00)", priceUzs: 650_000, capacity: 12 },
+      },
+    },
+    {
+      email: 'jasur.teacher@bilgim.uz',
+      fullName: 'Jasur Aliyev',
+      publicSlug: 'jasur-aliyev',
+      headline: 'TOEFL va umumiy ingliz tili',
+      bio: "10 yildan ortiq tajriba, davlat maktabida va xususiy markazlarda dars bergan.",
+      rating: 4.7,
+      studentsCount: 158,
+      taughtCefrLevels: [CefrLevel.A2, CefrLevel.B1, CefrLevel.B2],
+      examTrackFocus: ['toefl', 'general'],
+      course: {
+        title: 'Umumiy ingliz tili — B1 dan B2 ga',
+        description: "Grammatika, lug'at boyligi va nutq amaliyotiga asoslangan 12 haftalik kurs.",
+        cefrLevel: CefrLevel.B1,
+        examTrack: 'general',
+        fromPriceUzs: 450_000,
+        group: { name: "Ertalabki guruh (09:00)", priceUzs: 450_000, capacity: 15 },
+      },
+    },
+    {
+      email: 'malika.teacher@bilgim.uz',
+      fullName: 'Malika Yusupova',
+      publicSlug: 'malika-yusupova',
+      headline: "Boshlang'ich daraja bo'yicha mutaxassis",
+      bio: "Yosh o'quvchilar va boshlang'ich darajadagi kattalar bilan ishlashga ixtisoslashgan.",
+      rating: 4.8,
+      studentsCount: 96,
+      taughtCefrLevels: [CefrLevel.A1, CefrLevel.A2],
+      examTrackFocus: ['general'],
+      course: {
+        title: "Noldan ingliz tili (A1)",
+        description: "Alifbodan boshlab kundalik muloqot darajasigacha olib boradigan kurs.",
+        cefrLevel: CefrLevel.A1,
+        examTrack: 'general',
+        fromPriceUzs: 350_000,
+        group: { name: "Kunduzgi guruh (14:00)", priceUzs: 350_000, capacity: 10 },
+      },
+    },
+  ];
+
+  const demoPassword = await hashPassword('Demo123!@#');
+
+  for (const demo of demoTeachers) {
+    const user = await prisma.user.upsert({
+      where: { email: demo.email },
+      update: {},
+      create: {
+        email: demo.email,
+        passwordHash: demoPassword,
+        role: UserRole.TEACHER,
+        status: UserStatus.ACTIVE,
+        fullName: demo.fullName,
+        locale: 'uz',
+      },
+    });
+
+    await prisma.teacherProfile.upsert({
+      where: { userId: user.id },
+      update: {
+        publicSlug: demo.publicSlug,
+        headline: demo.headline,
+        fullName: demo.fullName,
+        rating: demo.rating,
+        studentsCount: demo.studentsCount,
+        taughtCefrLevels: demo.taughtCefrLevels,
+        examTrackFocus: demo.examTrackFocus,
+        schoolName: demo.schoolName ?? null,
+        ...(demo.accentColor && { accentColor: demo.accentColor }),
+      },
+      create: {
+        userId: user.id,
+        bio: demo.bio,
+        publicSlug: demo.publicSlug,
+        headline: demo.headline,
+        fullName: demo.fullName,
+        rating: demo.rating,
+        studentsCount: demo.studentsCount,
+        taughtCefrLevels: demo.taughtCefrLevels,
+        examTrackFocus: demo.examTrackFocus,
+        schoolName: demo.schoolName ?? null,
+        ...(demo.accentColor && { accentColor: demo.accentColor }),
+        onboardingCompletedAt: new Date(),
+      },
+    });
+
+    let course = await prisma.course.findFirst({
+      where: { teacherId: user.id, title: demo.course.title },
+    });
+    if (!course) {
+      course = await prisma.course.create({
+        data: {
+          teacherId: user.id,
+          title: demo.course.title,
+          description: demo.course.description,
+          cefrLevel: demo.course.cefrLevel,
+          examTrack: demo.course.examTrack,
+          fromPriceUzs: demo.course.fromPriceUzs,
+          isPublished: true,
+          isDiscoverable: true,
+        },
+      });
+    }
+
+    const existingGroup = await prisma.group.findFirst({
+      where: { courseId: course.id },
+    });
+    if (!existingGroup) {
+      await prisma.group.create({
+        data: {
+          courseId: course.id,
+          name: demo.course.group.name,
+          cefrLevel: demo.course.cefrLevel,
+          priceUzs: demo.course.group.priceUzs,
+          capacity: demo.course.group.capacity,
+          status: 'OPEN',
+          isDiscoverable: true,
+        },
+      });
+    }
+
+    console.log(`  ✓ Demo teacher: ${demo.fullName} (${demo.publicSlug})`);
+  }
 
   // ============ Gamification ============
   await seedGamification(prisma);

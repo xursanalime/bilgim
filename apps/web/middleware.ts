@@ -13,6 +13,14 @@ const SESSION_HINT_COOKIE = 'bilgim_session_hint';
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+/**
+ * Root domain teacher subdomains hang off of (`nodira.bilgim.uz` in prod,
+ * `nodira.bilgim.test` for local `/etc/hosts` simulation). Unset by
+ * default — subdomain routing is fully inert until this is configured, so
+ * a bare `pnpm dev` on `localhost:3001` behaves exactly as before.
+ */
+const ROOT_DOMAIN = process.env.ROOT_DOMAIN;
+
 interface SessionHint {
   sub: string;
   email: string;
@@ -97,6 +105,26 @@ function isPublicPath(pathname: string): boolean {
   );
 }
 
+/**
+ * The teacher-slug subdomain of the request's `Host` header, or `null` when
+ * the request is on the root domain (`bilgim.uz`, `www.bilgim.uz`) or
+ * `ROOT_DOMAIN` isn't configured. Defensive against multi-level hosts
+ * (`a.b.bilgim.uz`) — those aren't a valid teacher slug, so they fall
+ * through to normal routing instead of erroring.
+ */
+function getTeacherSubdomain(request: NextRequest): string | null {
+  if (!ROOT_DOMAIN) return null;
+  const host = (request.headers.get('host') || '').split(':')[0];
+  if (!host || host === ROOT_DOMAIN || host === `www.${ROOT_DOMAIN}`) {
+    return null;
+  }
+  const suffix = `.${ROOT_DOMAIN}`;
+  if (!host.endsWith(suffix)) return null;
+  const subdomain = host.slice(0, -suffix.length);
+  if (!subdomain || subdomain.includes('.')) return null;
+  return subdomain;
+}
+
 function readSessionHint(request: NextRequest): SessionHint | null {
   const raw = request.cookies.get(SESSION_HINT_COOKIE)?.value;
   if (!raw) return null;
@@ -147,6 +175,23 @@ export async function middleware(request: NextRequest) {
     pathname.includes('.')
   ) {
     return NextResponse.next();
+  }
+
+  // Teacher subdomain root (nodira.bilgim.uz/) → that teacher's public
+  // profile page, reusing the exact same route the main site serves at
+  // /teachers/:slug (Req: shablon asosida avtomatik generatsiya qilingan
+  // sayt — no separate template/page, just a different entry path to it).
+  //
+  // Every OTHER path on a subdomain (login, dashboard, lessons, ...) is
+  // deliberately left untouched below — it resolves to the exact same
+  // route as on the main domain, and the shared `COOKIE_DOMAIN` session
+  // cookie is what makes auth carry over there without a separate login.
+  const subdomain = getTeacherSubdomain(request);
+  if (subdomain && stripLocalePrefix(pathname) === '/') {
+    const localeMatch = pathname.match(/^\/(uz|ru|en)(?=\/|$)/);
+    const localePrefix = localeMatch ? `/${localeMatch[1]}` : '';
+    request.nextUrl.pathname = `${localePrefix}/teachers/${subdomain}`;
+    return intlMiddleware(request);
   }
 
   // Check authentication for protected routes (dashboard, courses, etc.)

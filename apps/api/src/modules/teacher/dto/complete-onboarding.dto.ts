@@ -1,5 +1,7 @@
-import { CefrLevel } from '@prisma/client';
+import { CefrLevel, TeacherAccentColor } from '@prisma/client';
 import { z } from 'zod';
+
+import { PublicSlugSchema } from './public-slug.schema';
 
 /**
  * CompleteOnboardingDto — Zod schema for POST /teacher/onboarding/complete.
@@ -19,6 +21,12 @@ import { z } from 'zod';
  *
  * Both arrays are optional and default to empty: an instructor can complete
  * onboarding without declaring any attribute and still reach the dashboard.
+ *
+ * `publicSlug` is REQUIRED: onboarding completion is also where a teacher
+ * claims the URL their public profile ("website", `/teachers/:publicSlug`)
+ * lives at. Without it the teacher can never appear on the public discovery
+ * surface (`discovery.repository.ts` requires `publicSlug IS NOT NULL`).
+ * `headline`/`bio` are optional polish on top of that profile.
  */
 export const CompleteOnboardingSchema = z.object({
   taughtCefrLevels: z
@@ -30,6 +38,37 @@ export const CompleteOnboardingSchema = z.object({
     .array(z.string().min(1, 'examTrackFocus entries must be non-empty strings'))
     .optional()
     .default([]),
+  publicSlug: PublicSlugSchema,
+  headline: z
+    .string()
+    .trim()
+    .max(120, 'headline must be at most 120 characters long')
+    .optional()
+    .nullable(),
+  bio: z
+    .string()
+    .trim()
+    .max(2000, 'bio must be at most 2000 characters long')
+    .optional()
+    .nullable(),
+  yearsOfExperience: z
+    .number()
+    .int()
+    .min(0, 'yearsOfExperience cannot be negative')
+    .max(60, 'yearsOfExperience must be at most 60')
+    .optional()
+    .nullable(),
+  /** Optional brand name distinct from the teacher's own name, e.g.
+   * "Nodira's English Academy" — shown above `fullName` on the profile. */
+  schoolName: z
+    .string()
+    .trim()
+    .max(60, 'schoolName must be at most 60 characters long')
+    .optional()
+    .nullable(),
+  /** Closed set (Req: contrast-accessible branding) — defaults to BLUE
+   * server-side when omitted, matching the schema default. */
+  accentColor: z.nativeEnum(TeacherAccentColor).optional(),
   /**
    * @deprecated Req 2.3 — the generic Specialty abstraction is being retired.
    * Accepted (and validated leniently) for backward compatibility with legacy

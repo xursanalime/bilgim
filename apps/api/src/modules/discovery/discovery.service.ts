@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CefrLevel } from '@prisma/client';
+import { CefrLevel, TeacherAccentColor } from '@prisma/client';
 
 import { CacheService } from '../../infra/cache/cache.service';
 import {
   DiscoveryCourseRow,
   DiscoveryRepository,
+  DiscoveryTeacherDetailRow,
   DiscoveryTeacherRow,
 } from './repositories/discovery.repository';
 
@@ -80,7 +81,19 @@ export interface DiscoveryTeacherSummary {
   courseCount: number;
   taughtCefrLevels: string[];
   examTrackFocus: string[];
+  /** Optional brand name shown above `fullName` (e.g. "Nodira's English Academy"). */
+  schoolName: string | null;
+  /** Accent color for pills/buttons/monogram fallback avatar. */
+  accentColor: TeacherAccentColor;
   specialty: DiscoverySpecialtySummary | null;
+}
+
+/** `DiscoveryTeacherSummary` plus the fields the single-teacher public
+ * profile page needs (bio, years of experience, embedded course list). */
+export interface DiscoveryTeacherDetail extends DiscoveryTeacherSummary {
+  bio: string | null;
+  yearsOfExperience: number | null;
+  courses: DiscoveryCourseSummary[];
 }
 
 export interface DiscoverySpecialtySummary {
@@ -219,6 +232,28 @@ export class DiscoveryService {
     });
   }
 
+  /**
+   * Single teacher's public profile ("their website") by `publicSlug`.
+   * Not cached like the list endpoints — this is a unique-indexed lookup
+   * (same rationale as {@link getCourseById}).
+   */
+  async getTeacherBySlug(slug: string): Promise<DiscoveryTeacherDetail> {
+    const row = await this.repository.findTeacherBySlug(slug);
+    if (!row) {
+      throw new NotFoundException({
+        code: 'TEACHER_NOT_FOUND',
+        message: `Teacher "${slug}" not found`,
+      });
+    }
+    const courseRows = await this.repository.listCoursesByTeacherId(row.userId);
+    return {
+      ...toTeacherSummary(row),
+      bio: row.bio,
+      yearsOfExperience: row.yearsOfExperience,
+      courses: courseRows.map(toCourseSummary),
+    };
+  }
+
   // ==================================================================
   // System Settings (Public)
   // ==================================================================
@@ -321,6 +356,8 @@ function toTeacherSummary(row: DiscoveryTeacherRow): DiscoveryTeacherSummary {
     courseCount: row._count.courses,
     taughtCefrLevels: row.taughtCefrLevels,
     examTrackFocus: row.examTrackFocus,
+    schoolName: row.schoolName,
+    accentColor: row.accentColor,
     specialty: row.specialty,
   };
 }

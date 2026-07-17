@@ -289,6 +289,74 @@ describe('configureSecurity (Task 24.1)', () => {
     });
   });
 
+  describe('CORS allow-list — teacher subdomains via COOKIE_DOMAIN', () => {
+    let app: INestApplication;
+
+    beforeAll(async () => {
+      app = await bootstrap(makeFakeRedisService(), {
+        COOKIE_DOMAIN: '.bilgim.test',
+      });
+    });
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it('allows a subdomain of COOKIE_DOMAIN even though it is not in WEB_ORIGIN', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/echo')
+        .set('Origin', 'http://nodira.bilgim.test')
+        .send({});
+
+      expect(res.headers['access-control-allow-origin']).toBe(
+        'http://nodira.bilgim.test',
+      );
+    });
+
+    it('allows the bare root domain itself', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/echo')
+        .set('Origin', 'http://bilgim.test')
+        .send({});
+
+      expect(res.headers['access-control-allow-origin']).toBe(
+        'http://bilgim.test',
+      );
+    });
+
+    it('does not widen to an unrelated domain that merely contains the suffix', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/echo')
+        .set('Origin', 'http://evil-bilgim.test')
+        .send({});
+
+      expect(res.headers['access-control-allow-origin']).not.toBe(
+        'http://evil-bilgim.test',
+      );
+    });
+  });
+
+  describe('CORS allow-list — COOKIE_DOMAIN unset (default)', () => {
+    let app: INestApplication;
+
+    beforeAll(async () => {
+      app = await bootstrap(makeFakeRedisService());
+    });
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it('does not widen CORS when COOKIE_DOMAIN is not configured', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/echo')
+        .set('Origin', 'http://nodira.bilgim.test')
+        .send({});
+
+      expect(res.headers['access-control-allow-origin']).not.toBe(
+        'http://nodira.bilgim.test',
+      );
+    });
+  });
+
   describe('body size limit', () => {
     let app: INestApplication;
 

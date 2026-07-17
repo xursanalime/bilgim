@@ -7,29 +7,23 @@ import {
   serverDiscovery,
   ServerDiscoveryError,
 } from '../../../../../lib/server-discovery';
-import type {
-  DiscoveryCourseSummary,
-  DiscoveryTeacherSummary,
-} from '../../../../../lib/api/discovery';
+import type { DiscoveryTeacherDetail } from '../../../../../lib/api/discovery';
 import { TeacherDmButton } from '../../../../../components/marketing/teacher-dm-button';
 import {
   CourseCard,
   formatRating,
   getInitials,
 } from '../../../../../components/marketing/discovery-cards';
-import { cefrLabel, examTrackLabel } from '../../../../../components/discovery/facets';
+import {
+  cefrLabel,
+  examTrackLabel,
+  ACCENT_STYLES,
+} from '../../../../../components/discovery/facets';
+import { cn } from '../../../../../lib/utils';
 
 interface TeacherProfilePageProps {
   params: { locale: string; publicSlug: string };
 }
-
-const TEACHER_LOOKUP_PAGE_SIZE = 50;
-const COURSE_LOOKUP_PAGE_SIZE = 50;
-/** How many list pages we are willing to scan when looking up a teacher
- * by `publicSlug`. The API does not yet expose `/teachers/:slug`, so we
- * page through the discovery list with a hard cap to keep response time
- * bounded. */
-const MAX_LOOKUP_PAGES = 6;
 
 export async function generateMetadata({
   params: { locale, publicSlug },
@@ -99,7 +93,7 @@ export default async function TeacherProfilePage({
     notFound();
   }
 
-  const courses = await fetchTeacherCourses(publicSlug);
+  const courses = teacher.courses;
   const fullName = teacher.fullName ?? 'Ustoz';
   const cefr = teacher.taughtCefrLevels ?? [];
   const tracks = teacher.examTrackFocus ?? [];
@@ -130,7 +124,13 @@ export default async function TeacherProfilePage({
           </Link>
 
           <header className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-start">
-            <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-blue-tint ring-1 ring-inset ring-blue/20">
+            <div
+              className={cn(
+                'flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-3xl ring-1 ring-inset',
+                ACCENT_STYLES[teacher.accentColor].tint,
+                ACCENT_STYLES[teacher.accentColor].ring,
+              )}
+            >
               {teacher.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -139,13 +139,23 @@ export default async function TeacherProfilePage({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span className="text-2xl font-extrabold tracking-tight text-blue">
-                  {getInitials(fullName)}
+                <span
+                  className={cn(
+                    'text-2xl font-extrabold tracking-tight',
+                    ACCENT_STYLES[teacher.accentColor].solid,
+                  )}
+                >
+                  {getInitials(teacher.schoolName || fullName)}
                 </span>
               )}
             </div>
 
             <div className="min-w-0 flex-1">
+              {teacher.schoolName && (
+                <p className="text-xs font-bold uppercase tracking-wider text-ink-faint">
+                  {teacher.schoolName}
+                </p>
+              )}
               <h1 className="text-balance text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl">
                 {fullName}
               </h1>
@@ -166,7 +176,11 @@ export default async function TeacherProfilePage({
                       {cefr.map((level) => (
                         <span
                           key={`cefr-${level}`}
-                          className="inline-flex items-center rounded-full border border-blue/20 bg-blue-tint px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-blue"
+                          className={cn(
+                            'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide',
+                            ACCENT_STYLES[teacher.accentColor].tint,
+                            ACCENT_STYLES[teacher.accentColor].solid,
+                          )}
                         >
                           {cefrLabel(level)}
                         </span>
@@ -201,6 +215,11 @@ export default async function TeacherProfilePage({
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-rim bg-tint px-3 py-1 text-[11px] font-semibold text-ink-soft">
                   {teacher.courseCount} kurs
                 </span>
+                {teacher.yearsOfExperience !== null && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-rim bg-tint px-3 py-1 text-[11px] font-semibold text-ink-soft">
+                    {teacher.yearsOfExperience} yillik tajriba
+                  </span>
+                )}
               </div>
             </div>
 
@@ -214,6 +233,18 @@ export default async function TeacherProfilePage({
           </header>
         </div>
       </div>
+
+      {/* Bio */}
+      {teacher.bio && (
+        <div className="mx-auto max-w-5xl px-4 pt-10 sm:px-6 lg:px-8">
+          <h2 className="text-lg font-extrabold tracking-tight text-ink-strong">
+            Ustoz haqida
+          </h2>
+          <p className="mt-3 max-w-3xl whitespace-pre-line text-sm leading-relaxed text-ink-soft">
+            {teacher.bio}
+          </p>
+        </div>
+      )}
 
       {/* Courses */}
       <div className="mx-auto max-w-5xl px-4 pb-24 pt-12 sm:px-6 lg:px-8">
@@ -248,66 +279,21 @@ export default async function TeacherProfilePage({
 // ──────────────────────────────────────────────────────────────────────
 
 /**
- * Page through `/discovery/teachers` until we find one whose `slug`
- * matches `publicSlug`. The API does not yet expose a per-slug lookup,
- * so we walk the cursor with a hard cap on page count.
+ * Single teacher by `publicSlug`, courses embedded — one request via the
+ * dedicated `/discovery/teachers/:slug` endpoint (replaces the old
+ * pagination-scan over `/discovery/teachers` + `/discovery/courses`).
  */
 async function findTeacherBySlug(
   publicSlug: string,
-): Promise<DiscoveryTeacherSummary | null> {
-  let cursor: string | undefined;
-  for (let i = 0; i < MAX_LOOKUP_PAGES; i++) {
-    let page;
-    try {
-      page = await serverDiscovery.listTeachers({
-        ...(cursor && { cursor }),
-        pageSize: TEACHER_LOOKUP_PAGE_SIZE,
-      });
-    } catch (err) {
-      if (err instanceof ServerDiscoveryError && err.statusCode >= 500) {
-        throw err;
-      }
-      // Network/4xx → render the graceful "not found" shell rather than
-      // crashing the route during transient API outages.
-      return null;
+): Promise<DiscoveryTeacherDetail | null> {
+  try {
+    return await serverDiscovery.getTeacherBySlug(publicSlug);
+  } catch (err) {
+    if (err instanceof ServerDiscoveryError && err.statusCode >= 500) {
+      throw err;
     }
-
-    const match = page.items.find((t) => t.slug === publicSlug);
-    if (match) return match;
-
-    if (!page.nextCursor) return null;
-    cursor = page.nextCursor;
+    // 404 (unknown slug) or other 4xx / network hiccup → render the
+    // graceful "not found" shell rather than crashing the route.
+    return null;
   }
-  return null;
-}
-
-/**
- * Fetch a teacher's published+discoverable courses by walking the
- * public courses list and filtering on the client. Bounded by
- * `MAX_LOOKUP_PAGES` for the same reason as the teacher lookup.
- */
-async function fetchTeacherCourses(
-  publicSlug: string,
-): Promise<DiscoveryCourseSummary[]> {
-  const collected: DiscoveryCourseSummary[] = [];
-  let cursor: string | undefined;
-  for (let i = 0; i < MAX_LOOKUP_PAGES; i++) {
-    let page;
-    try {
-      page = await serverDiscovery.listCourses({
-        ...(cursor && { cursor }),
-        pageSize: COURSE_LOOKUP_PAGE_SIZE,
-      });
-    } catch {
-      return collected;
-    }
-    for (const course of page.items) {
-      if (course.teacher.publicSlug === publicSlug) {
-        collected.push(course);
-      }
-    }
-    if (!page.nextCursor) break;
-    cursor = page.nextCursor;
-  }
-  return collected;
 }

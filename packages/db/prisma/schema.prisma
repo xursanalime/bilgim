@@ -118,6 +118,17 @@ enum CefrLevel {
   C2
 }
 
+/// Closed set of public-profile accent colors (Req: teacher "school"
+/// branding, MVP scope) — deliberately not free-form hex so every
+/// combination stays contrast-accessible against the design system's
+/// light/dark surfaces.
+enum TeacherAccentColor {
+  BLUE
+  GREEN
+  PURPLE
+  ORANGE
+}
+
 enum AiIntent {
   TUTOR_EXPLAIN
   TUTOR_TRANSLATE
@@ -517,6 +528,15 @@ model TeacherProfile {
   coverUrl      String?
   rating        Decimal? @db.Decimal(3, 2)
   studentsCount Int      @default(0)
+
+  /// Optional brand name distinct from the teacher's own name (e.g.
+  /// "Nodira's English Academy") — shown above `fullName` on the public
+  /// profile when set; falls back to just the teacher's name otherwise.
+  schoolName String?
+  /// Accent color for the public profile (CEFR pills, buttons, monogram
+  /// avatar fallback). A small closed set, not free-form hex, so contrast
+  /// stays accessible. Defaults to BLUE.
+  accentColor TeacherAccentColor @default(BLUE)
 
   /// English-teaching attributes (english-only-platform-refocus, Req 10.3).
   /// The CEFR levels this instructor teaches (subset of A1–C2). Empty = not

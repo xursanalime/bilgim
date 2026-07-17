@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { CefrLevel, Prisma, PrismaClient, TeacherProfile } from '@prisma/client';
+import {
+  CefrLevel,
+  Prisma,
+  PrismaClient,
+  TeacherAccentColor,
+  TeacherProfile,
+} from '@prisma/client';
 
 export interface UpsertTeacherProfileInput {
   userId: string;
@@ -88,6 +94,64 @@ export class TeacherProfileRepository {
         taughtCefrLevels: { set: input.taughtCefrLevels },
         examTrackFocus: { set: input.examTrackFocus },
         onboardingCompletedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Whether `slug` is already claimed by a DIFFERENT teacher. `publicSlug`
+   * is `@unique` at the DB level, so this is a pre-check for a friendly
+   * `PUBLIC_SLUG_TAKEN` error — the unique constraint remains the source of
+   * truth against races.
+   */
+  async isPublicSlugTaken(slug: string, excludeUserId: string): Promise<boolean> {
+    const existing = await this.prisma.teacherProfile.findFirst({
+      where: { publicSlug: slug, userId: { not: excludeUserId } },
+      select: { userId: true },
+    });
+    return existing !== null;
+  }
+
+  /**
+   * Persist the teacher's public profile — the fields that make their
+   * `/teachers/:publicSlug` page ("website") real: the slug itself, a short
+   * headline, bio, years of experience, school branding name, and accent
+   * color. Called from onboarding (Req: first-login site setup) and
+   * reusable later from profile settings.
+   *
+   * `headline`/`bio`/`yearsOfExperience`/`schoolName`/`accentColor` use
+   * `undefined` to mean "leave unchanged" (field omitted by the caller) vs
+   * `null` to mean "explicitly cleared" (not applicable to `accentColor`,
+   * which always has a value once set — the enum has no "cleared" state).
+   */
+  async updatePublicProfile(
+    userId: string,
+    input: {
+      publicSlug: string;
+      headline?: string | null;
+      bio?: string | null;
+      yearsOfExperience?: number | null;
+      schoolName?: string | null;
+      accentColor?: TeacherAccentColor | undefined;
+    },
+    tx?: Prisma.TransactionClient,
+  ): Promise<TeacherProfile> {
+    const client = tx ?? this.prisma;
+    return client.teacherProfile.update({
+      where: { userId },
+      data: {
+        publicSlug: input.publicSlug,
+        ...(input.headline !== undefined && { headline: input.headline }),
+        ...(input.bio !== undefined && { bio: input.bio }),
+        ...(input.yearsOfExperience !== undefined && {
+          yearsOfExperience: input.yearsOfExperience,
+        }),
+        ...(input.schoolName !== undefined && {
+          schoolName: input.schoolName,
+        }),
+        ...(input.accentColor !== undefined && {
+          accentColor: input.accentColor,
+        }),
       },
     });
   }

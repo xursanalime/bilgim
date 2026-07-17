@@ -137,9 +137,28 @@ export class UsersRepository {
   }
 
   async getProfile(userId: string): Promise<any> {
+    // `passwordHash` is deliberately excluded via `select` (never `include`)
+    // — this method's result is returned as-is by GET /users/me and
+    // GET /teacher/profile/me, and previously leaked the argon2 hash to any
+    // authenticated client.
     return this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
+      select: {
+        id: true,
+        publicId: true,
+        email: true,
+        username: true,
+        phone: true,
+        telegramChatId: true,
+        role: true,
+        status: true,
+        fullName: true,
+        avatarUrl: true,
+        locale: true,
+        location: true,
+        mfaRequired: true,
+        createdAt: true,
+        updatedAt: true,
         teacherProfile: true,
         studentProfile: true,
       },
