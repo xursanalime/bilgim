@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BrandMark } from './brand-logo';
+import { localeHref } from '../../lib/locale-href';
 
 export function Footer({ locale, text }: { locale: string; text?: string }) {
   return (
@@ -9,7 +10,7 @@ export function Footer({ locale, text }: { locale: string; text?: string }) {
           {/* Brand */}
           <div className="col-span-2 md:col-span-4">
             <Link
-              href={`/${locale}`}
+              href={localeHref(locale)}
               className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-ink-strong"
               style={{ letterSpacing: '-0.025em' }}
             >
@@ -59,7 +60,7 @@ export function Footer({ locale, text }: { locale: string; text?: string }) {
               { label: 'Imkoniyatlar', href: '#features' },
               { label: 'AI Tutor', href: '#ai' },
               { label: 'Tariflar', href: '#pricing' },
-              { label: 'Mobil ilova', href: `/${locale}/mobile` },
+              { label: 'Mobil ilova', href: localeHref(locale, '/mobile') },
             ]}
           />
           <Column
@@ -67,35 +68,35 @@ export function Footer({ locale, text }: { locale: string; text?: string }) {
             links={[
               {
                 label: "O'qituvchilar uchun",
-                href: `/${locale}/register?role=teacher`,
+                href: localeHref(locale, '/register?role=teacher'),
               },
               {
                 label: 'Talabalar uchun',
-                href: `/${locale}/talabalar-uchun`,
+                href: localeHref(locale, '/talabalar-uchun'),
               },
               {
                 label: "O'qituvchini topish",
-                href: `/${locale}/search`,
+                href: localeHref(locale, '/search'),
               },
-              { label: 'Kurslar', href: `/${locale}/courses` },
+              { label: 'Kurslar', href: localeHref(locale, '/courses') },
             ]}
           />
           <Column
             title="Kompaniya"
             links={[
-              { label: 'Biz haqimizda', href: `/${locale}/about` },
-              { label: 'Karyera', href: `/${locale}/careers` },
-              { label: 'Blog', href: `/${locale}/blog` },
-              { label: 'Yangiliklar', href: `/${locale}/news` },
+              { label: 'Biz haqimizda', href: localeHref(locale, '/about') },
+              { label: 'Karyera', href: localeHref(locale, '/careers') },
+              { label: 'Blog', href: localeHref(locale, '/blog') },
+              { label: 'Yangiliklar', href: localeHref(locale, '/news') },
             ]}
           />
           <Column
             title="Yuridik"
             links={[
-              { label: 'Maxfiylik', href: `/${locale}/legal/privacy` },
-              { label: 'Foydalanish', href: `/${locale}/legal/terms` },
-              { label: 'PDP', href: `/${locale}/legal/pdp` },
-              { label: 'Yordam', href: `/${locale}/support` },
+              { label: 'Maxfiylik', href: localeHref(locale, '/legal/privacy') },
+              { label: 'Foydalanish', href: localeHref(locale, '/legal/terms') },
+              { label: 'PDP', href: localeHref(locale, '/legal/pdp') },
+              { label: 'Yordam', href: localeHref(locale, '/support') },
             ]}
           />
         </div>

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { AuroraBackdrop } from './aurora-backdrop';
+import { localeHref } from '../../lib/locale-href';
 
 export function FinalCta({ locale }: { locale: string }) {
   return (
@@ -60,7 +61,7 @@ export function FinalCta({ locale }: { locale: string }) {
             {/* CTAs */}
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
-                href={`/${locale}/register?role=teacher`}
+                href={localeHref(locale, '/register?role=teacher')}
                 className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-blue px-8 py-4 text-base font-bold text-white transition-all hover:bg-blue-400 active:scale-[0.97]"
                 style={{
                   boxShadow:
@@ -72,7 +73,7 @@ export function FinalCta({ locale }: { locale: string }) {
                 <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
               </Link>
               <Link
-                href={`/${locale}/discover`}
+                href={localeHref(locale, '/discover')}
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-rim-2 bg-canvas px-7 py-4 text-base font-semibold text-ink backdrop-blur-md transition-all hover:border-rim-2 hover:bg-soft"
               >
                 <Search className="h-4 w-4" />

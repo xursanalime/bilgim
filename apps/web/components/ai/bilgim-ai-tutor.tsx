@@ -428,7 +428,7 @@ export function BilgimAiTutor({
   return (
     <div
       className={cn(
-        'flex h-full min-h-0 flex-col bg-base text-ink-strong',
+        'flex h-full min-h-0 flex-col bg-surface text-ink-strong',
         className,
       )}
     >

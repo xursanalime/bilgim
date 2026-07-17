@@ -3,9 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Radio,
   Sparkles,
-  ClipboardCheck,
   Trophy,
   MessageSquare,
   type LucideIcon,
@@ -14,12 +12,11 @@ import {
 import { cn } from '../../lib/utils';
 
 // ═════════════════════════════════════════════════════════════════
-// FeatureShowcase — interactive, theme-aware product tour.
+// FeatureShowcase — interactive, theme-aware deep dive.
 //
-// A modern split layout: a vertical list of the platform's real
-// capabilities on the left; a live-updating glass preview panel on the
-// right. Fully driven by semantic design tokens so it flips cleanly in
-// dark mode. Pure client-side (no data) — it "opens up" what the app does.
+// Deliberately scoped to the two capabilities NOT already covered by
+// the FeaturesBento overview (gamification, messaging) — avoids
+// repeating live/AI/homework, which are shown there.
 // ═════════════════════════════════════════════════════════════════
 
 type Accent = 'red' | 'purple' | 'blue' | 'orange' | 'teal' | 'green';
@@ -44,33 +41,6 @@ const ACCENT: Record<Accent, { chip: string; dot: string; ring: string; text: st
 };
 
 const FEATURES: readonly Feature[] = [
-  {
-    id: 'live',
-    icon: Radio,
-    accent: 'red',
-    title: 'Jonli darslar',
-    tagline: 'HD video, ekran ulashish va interaktiv doska — bir oynada.',
-    bullets: ['Past kechikishli video/audio', 'Birgalikda chiziladigan doska', 'Qo‘l ko‘tarish va chat'],
-    preview: LivePreview,
-  },
-  {
-    id: 'ai',
-    icon: Sparkles,
-    accent: 'purple',
-    title: 'AI Tutor',
-    tagline: 'Tayyor javob bermaydi — o‘rganishga yo‘naltiradi.',
-    bullets: ['Tushuntirish va misollar', 'Tarjima va talaffuz', '24/7 yordamchi'],
-    preview: AiPreview,
-  },
-  {
-    id: 'homework',
-    icon: ClipboardCheck,
-    accent: 'blue',
-    title: 'Uy ishlari va baholash',
-    tagline: '8 ta ingliz skili bo‘yicha topshiriq va AI yordamida baholash.',
-    bullets: ['Avtomatik tekshirish', 'Rubrika bo‘yicha baho', 'Fikr-mulohaza'],
-    preview: HomeworkPreview,
-  },
   {
     id: 'gamification',
     icon: Trophy,
@@ -118,17 +88,17 @@ export function FeatureShowcase({ locale: _locale }: { locale: string }) {
         {/* Heading */}
         <div className="mx-auto max-w-2xl text-center">
           <span className="liquid-glass inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-ink-soft">
-            <Sparkles className="h-3.5 w-3.5 text-blue" /> Platforma imkoniyatlari
+            <Sparkles className="h-3.5 w-3.5 text-blue" /> Bundan tashqari
           </span>
           <h2
             className="mt-5 font-display font-extrabold tracking-tight text-ink-strong"
             style={{ fontSize: 'clamp(2rem, 4.5vw, 3.25rem)', letterSpacing: '-0.04em' }}
           >
-            Bitta tizimda — barcha kerakli vositalar
+            Motivatsiya va muloqot ham o‘ylangan
           </h2>
           <p className="mt-4 text-base leading-relaxed text-ink-soft sm:text-lg">
-            Jonli dars, AI yordamchi, uy ishlari va geymifikatsiya —
-            o‘qitish va o‘rganish uchun zarur hamma narsa.
+            Faqat dars va vazifa emas — talaba qiziqishini yo‘qotmasligi va
+            siz bilan aloqada bo‘lishi uchun ham tayyor vositalar bor.
           </p>
         </div>
 
@@ -240,99 +210,6 @@ export function FeatureShowcase({ locale: _locale }: { locale: string }) {
 // ─────────────────────────────────────────────────────────────────
 // Preview panels — lightweight, token-driven mock UIs
 // ─────────────────────────────────────────────────────────────────
-
-function LivePreview() {
-  return (
-    <div className="space-y-3">
-      <div className="relative aspect-video overflow-hidden rounded-2xl bg-ink-strong">
-        {/* Real footage so it reads like an actual live broadcast in progress. */}
-        <video
-          className="absolute inset-0 h-full w-full object-cover"
-          src="https://assets.mixkit.co/videos/28287/28287-720.mp4"
-          poster="https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80"
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          aria-hidden="true"
-        />
-        <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 backdrop-blur">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red opacity-75" />
-            <span className="relative h-1.5 w-1.5 rounded-full bg-red" />
-          </span>
-          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.15em] text-white/90">Jonli · 42</span>
-        </div>
-        {/* Participant strip — small student tiles overlapping the stage. */}
-        <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
-          {['/videos/student-1.mp4', '/videos/student-2.mp4', '/videos/student-3.mp4'].map((src) => (
-            <span key={src} className="relative h-12 w-16 overflow-hidden rounded-lg border border-white/20 shadow-lg">
-              <video className="h-full w-full object-cover" src={src} autoPlay loop muted playsInline aria-hidden="true" />
-            </span>
-          ))}
-        </div>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {['Doska', 'Chat', 'Ishtirokchilar'].map((t) => (
-          <div key={t} className="rounded-xl border border-rim bg-canvas px-3 py-2 text-center text-xs font-semibold text-ink-soft">
-            {t}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AiPreview() {
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-blue px-4 py-2.5 text-sm font-medium text-white">
-          Present Perfect ni tushuntirib bering
-        </div>
-      </div>
-      <div className="flex items-start gap-2.5">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-purple text-white">
-          <Sparkles className="h-4 w-4" />
-        </span>
-        <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-rim bg-canvas px-4 py-3 text-sm leading-relaxed text-ink-soft">
-          Present Perfect o‘tmishda boshlanib hozirgacha aloqador ish-harakatni bildiradi.
-          Keling, avval bitta misol bilan o‘zingiz urinib ko‘ring 👇
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2 pl-10">
-        {['Misol bering', 'Tarjima qiling', 'Mashq'].map((t) => (
-          <span key={t} className="rounded-full bg-purple/10 px-3 py-1 text-xs font-semibold text-purple">{t}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function HomeworkPreview() {
-  const skills: { name: string; pct: number; tone: Accent }[] = [
-    { name: 'Writing', pct: 88, tone: 'blue' },
-    { name: 'Grammar', pct: 72, tone: 'purple' },
-    { name: 'Vocabulary', pct: 95, tone: 'green' },
-    { name: 'Listening', pct: 64, tone: 'orange' },
-  ];
-  return (
-    <div className="space-y-3">
-      {skills.map((s) => (
-        <div key={s.name} className="rounded-xl border border-rim bg-canvas p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-ink-strong">{s.name}</span>
-            <span className={cn('text-xs font-extrabold', ACCENT[s.tone].text)}>{s.pct}%</span>
-          </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-soft">
-            <div className={cn('h-full rounded-full', ACCENT[s.tone].dot)} style={{ width: `${s.pct}%` }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function GamificationPreview() {
   return (

@@ -96,7 +96,7 @@ export function ReconnectStatus({ theme }: ReconnectStatusProps) {
         aria-live="polite"
         className={[
           'absolute inset-0 z-[300] flex items-center justify-center backdrop-blur-sm',
-          dark ? 'bg-black/70' : 'bg-base/80',
+          dark ? 'bg-black/70' : 'bg-surface/80',
         ].join(' ')}
       >
         <div className="flex flex-col items-center gap-3 text-center">

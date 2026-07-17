@@ -142,7 +142,7 @@ function InnerViewer({ lessonId, watermarkLabel, locale, onLeave }: InnerViewerP
   const isRecording = status === 'LIVE';
 
   return (
-    <div className="relative flex h-screen w-full flex-col bg-base font-sans text-ink-strong">
+    <div className="relative flex h-screen w-full flex-col bg-surface font-sans text-ink-strong">
       {/* Screen-capture / hidden-window deterrent — blanks the content. */}
       {(isCapturing || isHidden) && (
         <div

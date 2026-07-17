@@ -3,7 +3,8 @@
     "allow": [
       "Skill(run)",
       "Bash(npx -y pnpm@9.6.0 add cookie-parser --filter @bilgim/api)",
-      "Bash(npx -y pnpm@9.6.0 add -D @types/cookie-parser --filter @bilgim/api)"
+      "Bash(npx -y pnpm@9.6.0 add -D @types/cookie-parser --filter @bilgim/api)",
+      "Bash(git -C /home/xursanalime/Downloads/bilgim-main log --oneline -1 -- apps/api/src/modules/catalog/dto/create-course.dto.ts)"
     ]
   }
 }

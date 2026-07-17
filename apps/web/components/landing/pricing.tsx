@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { SectionHeader } from './features-bento';
+import { localeHref } from '../../lib/locale-href';
 
 export function Pricing({ locale }: { locale: string }) {
   return (
@@ -183,7 +184,7 @@ function Card({
         <p className="mt-3 text-sm text-ink-soft">{description}</p>
 
         <Link
-          href={`/${locale}/register?role=teacher&plan=${name.toLowerCase()}`}
+          href={localeHref(locale, `/register?role=teacher&plan=${name.toLowerCase()}`)}
           className={`mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold transition-all active:scale-[0.97] ${
             popular
               ? 'bg-blue text-white hover:bg-blue-400'

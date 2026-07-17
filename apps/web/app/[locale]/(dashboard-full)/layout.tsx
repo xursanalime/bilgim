@@ -31,7 +31,7 @@ export default function DashboardFullLayout({
     <QueryProvider>
       <GamificationToastProvider role={user.role}>
         <LevelUpToast role={user.role} locale={locale} />
-        <div className="flex h-screen bg-base text-ink-strong overflow-hidden">
+        <div className="flex h-screen bg-surface text-ink-strong overflow-hidden">
           <AiChatWidget role={user.role as 'STUDENT' | 'TEACHER' | 'ADMIN'} />
 
           <DashboardSidebar

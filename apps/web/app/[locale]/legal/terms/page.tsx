@@ -18,7 +18,7 @@ export function generateMetadata(): Metadata {
 export default function TermsPage({ params: { locale } }: Props) {
   unstable_setRequestLocale(locale);
   return (
-    <main className="min-h-screen bg-base text-ink-strong">
+    <main className="min-h-screen bg-surface text-ink-strong">
       <div className="mx-auto max-w-3xl px-6 py-16 sm:py-20">
         <Link
           href={`/${locale}`}

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { tokens } from '../../lib/design/tokens';
 import { SectionHeader } from './features-bento';
+import { localeHref } from '../../lib/locale-href';
 
 export function ForRoles({ locale }: { locale: string }) {
   return (
@@ -43,7 +44,7 @@ export function ForRoles({ locale }: { locale: string }) {
             ]}
             cta={{
               label: 'Bepul boshlash',
-              href: `/${locale}/register?role=teacher`,
+              href: localeHref(locale, '/register?role=teacher'),
             }}
             highlighted
             delay={0}
@@ -63,7 +64,7 @@ export function ForRoles({ locale }: { locale: string }) {
             ]}
             cta={{
               label: 'Talabalar uchun',
-              href: `/${locale}/talabalar-uchun`,
+              href: localeHref(locale, '/talabalar-uchun'),
             }}
             delay={0.1}
           />

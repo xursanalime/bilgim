@@ -25,14 +25,21 @@ const securityHeaders = [
       // dynamic-import shim in protected-video-player.tsx (hiding the
       // optional, not-installed `shaka-player` package from webpack). That
       // shim now uses a `webpackIgnore` magic comment instead, so eval-like
-      // execution is no longer needed anywhere in the app.
+      // execution is no longer needed anywhere in the app's own code.
+      // It IS still needed in `next dev`: webpack's dev-mode module loader
+      // and Fast Refresh runtime wrap modules in `eval(...)`, so without
+      // this the entire client bundle throws an EvalError on load and the
+      // page never hydrates. Production builds don't use eval, so this is
+      // dev-only.
       // hCaptcha (Phase 3 — real bot-check widget) needs its script,
       // iframe challenge, and verify XHR allow-listed explicitly.
-      "script-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com",
+      `script-src 'self' 'unsafe-inline' ${
+        process.env.NODE_ENV === 'production' ? '' : "'unsafe-eval' "
+      }https://hcaptcha.com https://*.hcaptcha.com`,
       "style-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com",
       // img-src: R2 dan to'g'ridan rasm yuklanmaydi, proxy orqali keladi (blob:)
-      // Avatarlar va tashqi rasmlar uchun https: qo'shildi
-      "img-src 'self' data: blob: https://avatars.githubusercontent.com",
+      // Avatarlar, tashqi rasmlar (unsplash — landing dekorativ rasmlari) uchun qo'shildi
+      "img-src 'self' data: blob: https://avatars.githubusercontent.com https://images.unsplash.com",
       // media-src: video/audio faqat 'self' (proxy) yoki blob: (local) dan keladi
       // R2 to'g'ridan murojaat bloklangan — hls.js blob URL ishlatadi
       "media-src 'self' blob:",

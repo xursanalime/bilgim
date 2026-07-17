@@ -85,7 +85,7 @@ function PreJoinScreen({ onJoin, lessonTitle, canPublish }: PreJoinProps) {
   };
 
   return (
-    <div className="flex h-screen w-full bg-base relative overflow-hidden">
+    <div className="flex h-screen w-full bg-surface relative overflow-hidden">
       {/* Ambient background */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue/5 rounded-full blur-3xl" />
@@ -550,7 +550,7 @@ function InnerRoom({ lessonId, role, locale, onLeave }: InnerRoomProps) {
   const isRecording = sessionStatus === 'LIVE';
 
   return (
-    <div className="h-screen w-full bg-base text-ink-strong overflow-hidden font-sans relative">
+    <div className="h-screen w-full bg-surface text-ink-strong overflow-hidden font-sans relative">
       {/* Ekran yozib olinayotganda kontent yashiriladi */}
       {(isCapturing || isHidden) && (
         <div className="absolute inset-0 z-[500] flex flex-col items-center justify-center bg-black">

@@ -15,7 +15,7 @@ const LiveRoom = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-screen items-center justify-center bg-base">
+      <div className="flex h-screen items-center justify-center bg-surface">
         <Loader2 className="h-8 w-8 animate-spin text-blue" aria-hidden="true" />
       </div>
     ),
@@ -28,7 +28,7 @@ const LiveViewer = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-screen items-center justify-center bg-base">
+      <div className="flex h-screen items-center justify-center bg-surface">
         <Loader2 className="h-8 w-8 animate-spin text-blue" aria-hidden="true" />
       </div>
     ),
@@ -163,7 +163,7 @@ export function LiveSessionJoin({ locale, lessonId }: LiveSessionJoinProps) {
     return (
       <div
         role="alert"
-        className="flex h-screen flex-col items-center justify-center bg-base p-6 text-ink-strong"
+        className="flex h-screen flex-col items-center justify-center bg-surface p-6 text-ink-strong"
       >
         <div className="w-full max-w-md space-y-6 rounded-3xl border border-rim bg-canvas p-8 text-center shadow-sm">
           <div
@@ -200,7 +200,7 @@ export function LiveSessionJoin({ locale, lessonId }: LiveSessionJoinProps) {
       <div
         role="status"
         aria-live="polite"
-        className="flex h-screen flex-col items-center justify-center bg-base p-6 text-ink-strong"
+        className="flex h-screen flex-col items-center justify-center bg-surface p-6 text-ink-strong"
       >
         <div className="w-full max-w-md space-y-8 text-center">
           <div
@@ -268,7 +268,7 @@ export function LiveSessionJoin({ locale, lessonId }: LiveSessionJoinProps) {
     return (
       <div
         role="alert"
-        className="flex h-screen flex-col items-center justify-center gap-6 bg-base p-6 text-ink-strong"
+        className="flex h-screen flex-col items-center justify-center gap-6 bg-surface p-6 text-ink-strong"
       >
         <p className="max-w-md text-center text-lg font-semibold text-red">{error}</p>
         <div className="flex gap-3">
@@ -297,7 +297,7 @@ export function LiveSessionJoin({ locale, lessonId }: LiveSessionJoinProps) {
       <div
         role="status"
         aria-live="polite"
-        className="flex h-screen flex-col items-center justify-center gap-4 bg-base text-ink-strong"
+        className="flex h-screen flex-col items-center justify-center gap-4 bg-surface text-ink-strong"
       >
         <Loader2 className="h-8 w-8 animate-spin text-blue" aria-hidden="true" />
         <p className="text-sm text-ink-soft">Efirga ulanmoqda…</p>

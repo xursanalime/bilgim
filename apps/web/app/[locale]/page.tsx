@@ -3,10 +3,11 @@ import { unstable_setRequestLocale } from 'next-intl/server';
 import { Header } from '../../components/landing/header';
 import { Hero } from '../../components/landing/hero';
 import { LogosStrip } from '../../components/landing/logos-strip';
+import { HowItWorks } from '../../components/landing/how-it-works';
 import { FeaturesBento } from '../../components/landing/features-bento';
 import { LiveShowcase } from '../../components/landing/live-showcase';
-import { Specialties } from '../../components/landing/specialties';
 import { AiSection } from '../../components/landing/ai-section';
+import { Comparison } from '../../components/landing/comparison';
 import { ForRoles } from '../../components/landing/for-roles';
 import { Pricing } from '../../components/landing/pricing';
 import { Testimonials } from '../../components/landing/testimonials';
@@ -58,7 +59,7 @@ export default async function LandingPage({ params: { locale } }: Props) {
   }
 
   return (
-    <div className="bg-base">
+    <div className="bg-surface">
       {/* Cursor-follow halo */}
       <CursorSpotlight />
 
@@ -71,13 +72,14 @@ export default async function LandingPage({ params: { locale } }: Props) {
             ? { subtitle: cmsData.heroSubtitleUz }
             : {})}
         />
+        <ForRoles locale={locale} />
         <LogosStrip />
+        <HowItWorks />
         <FeaturesBento />
         <FeatureShowcase locale={locale} />
         <LiveShowcase />
-        <Specialties />
         <AiSection />
-        <ForRoles locale={locale} />
+        <Comparison />
         <Pricing locale={locale} />
         <Testimonials />
         <Faq />

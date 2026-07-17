@@ -12,8 +12,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { LightBeam } from './light-beam';
-import { DemoButton } from './demo-modal';
 import { tokens } from '../../lib/design/tokens';
+import { localeHref } from '../../lib/locale-href';
 
 /**
  * Hero — Apple Liquid Glass light edition.
@@ -141,7 +141,7 @@ export function Hero({ locale, title, subtitle }: { locale: string; title?: stri
             >
               {/* Primary — Apple Blue */}
               <Link
-                href={`/${locale}/register?role=teacher`}
+                href={localeHref(locale, '/register?role=teacher')}
                 className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-blue px-7 py-3.5 text-sm font-bold text-white transition-all hover:bg-blue-600 active:scale-[0.97] sm:text-base"
                 style={{
                   boxShadow:
@@ -152,9 +152,6 @@ export function Hero({ locale, title, subtitle }: { locale: string; title?: stri
                 <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
               </Link>
-
-              {/* Secondary — Liquid Glass demo tour */}
-              <DemoButton locale={locale} />
             </motion.div>
 
             {/* Trust */}

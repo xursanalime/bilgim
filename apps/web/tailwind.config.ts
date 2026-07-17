@@ -70,7 +70,13 @@ const config: Config = {
         // Surfaces — driven by CSS vars so they FLIP in dark mode
         // (`:root` light / `.dark` overrides live in globals.css).
         canvas: 'rgb(var(--bg-canvas) / <alpha-value>)',
-        base: 'rgb(var(--bg-base) / <alpha-value>)',
+        // Named `surface`, not `base` — Tailwind's default fontSize scale
+        // also has a `base` key (1rem), and a color token sharing that name
+        // makes `text-base`/`sm:text-base` emit a `color` rule alongside the
+        // font-size rule, silently overriding `text-ink-strong`/`text-ink-soft`
+        // at that breakpoint (this broke testimonial quotes and FAQ answers —
+        // both used `sm:text-base` and rendered white-on-white).
+        surface: 'rgb(var(--bg-base) / <alpha-value>)',
         tint: 'rgb(var(--bg-tint) / <alpha-value>)',
         soft: 'rgb(var(--bg-soft) / <alpha-value>)',
         // Hairline rim borders (theme-aware, opacity baked into the var).
