@@ -1,0 +1,1239 @@
+// packages/db/prisma/schema.prisma
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, pg_trgm, citext]
+}
+
+// ============ ENUMS ============
+
+enum UserRole {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING_VERIFY
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+enum PaymeTxState {
+  PENDING
+  CREATED
+  PAID
+  CANCELED
+  CANCELED_AFTER_PAY
+}
+
+enum LessonType {
+  RECORDED
+  LIVE
+  HYBRID
+  TEXT_ONLY
+}
+
+enum LessonStatus {
+  DRAFT
+  READY
+  ARCHIVED
+}
+
+enum LiveSessionStatus {
+  SCHEDULED
+  STARTING
+  LIVE
+  ENDED
+  RECORDING_FAILED
+}
+
+enum EnrollmentStatus {
+  PENDING_PAYMENT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  GRADED
+  RETURNED
+}
+
+enum HomeworkModuleType {
+  // Language-learning modules
+  WRITING
+  READING
+  LISTENING
+  GRAMMAR
+  SPELLING
+  VOCABULARY
+  SPEAKING
+  PRONUNCIATION
+  // Generic interactive question types
+  MULTIPLE_CHOICE
+  GAP_FILL
+  MATCHING
+  DRAG_DROP
+  // Project / case-based modules
+  PROJECT_SUBMISSION
+  CASE_STUDY
+  MARKETING_COPY
+  AUDIENCE_ANALYSIS
+  CONTENT_CALENDAR
+  // Math modules
+  MATH_WORD_PROBLEM
+  MATH_EQUATION_SOLVER
+  MATH_GEOMETRY_PROOF
+  // Code modules
+  CODE_REVIEW
+  CODE_UNIT_TEST
+}
+
+enum AiIntent {
+  TUTOR_EXPLAIN
+  TUTOR_TRANSLATE
+  TUTOR_EXAMPLE
+  GRADE_PRECHECK
+  AI_TEXT_DETECT
+  SPECIALTY_CLASSIFY
+  AI_CHAT
+  GENERATE_TEST
+  SUGGEST_RUBRIC
+  TRANSLATE_WORD
+  TRANSLATE_SENTENCE
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  TELEGRAM
+  PUSH
+}
+
+enum NotificationKind {
+  ENROLLMENT_REQUESTED
+  ENROLLMENT_APPROVED
+  ENROLLMENT_REJECTED
+  PAYMENT_SUCCEEDED
+  PAYMENT_FAILED
+  LESSON_PUBLISHED
+  SCHEDULE_CHANGED
+  LIVE_STARTED
+  LIVE_REMINDER
+  HOMEWORK_ASSIGNED
+  HOMEWORK_GRADED
+  AI_REVIEW_READY
+  TRIAL_ENDING
+  SUBSCRIPTION_PAST_DUE
+  GAMIFICATION_LEVEL_UP
+}
+
+enum MediaKind {
+  VIDEO
+  AUDIO
+  IMAGE
+  PDF
+  DOC
+  SHEET
+  RECORDING
+  OTHER
+}
+
+enum AssetStatus {
+  UPLOADING
+  UPLOADED
+  TRANSCODING
+  READY
+  FAILED
+}
+
+enum MfaType {
+  TOTP
+  WEBAUTHN
+}
+
+// ============ AUTH / USERS ============
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  email        String     @unique @db.Citext
+  username     String?    @unique
+  phone        String?    @unique
+  passwordHash String
+  role         UserRole
+  status       UserStatus @default(PENDING_VERIFY)
+  fullName     String
+  avatarUrl    String?
+  locale       String     @default("uz")
+  location     String?
+  mfaRequired  Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  sessions           Session[]
+  emailVerifications EmailVerification[]
+  passwordResets     PasswordReset[]
+  mfaCredentials     MfaCredential[]
+  mfaBackupCodes     MfaBackupCode[]
+
+  teacherProfile TeacherProfile?
+  studentProfile StudentProfile?
+
+  notifications     Notification[]
+  notificationPrefs NotificationPreference[]
+  pushDevices       PushDevice[]
+  aiCalls           AiCall[]
+  aiConversations   AiConversation[]
+  auditLogs         AdminAuditLog[]
+  dmReadReceipts    DmReadReceipt[]
+
+  gamificationProfile GamificationProfile?
+  rewardPurchases     RewardPurchase[]
+
+  @@index([role, status])
+}
+
+// ============ GAMIFICATION ============
+
+enum BadgeRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum BadgeCategory {
+  LEARNING // O'rganish (student)
+  TEACHING // O'qitish (teacher)
+  SOCIAL   // Ijtimoiy
+  SPECIAL  // Maxsus
+}
+
+model GamificationProfile {
+  userId         String    @id @db.Uuid
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           UserRole // STUDENT yoki TEACHER
+  totalXp        Int       @default(0)
+  weeklyXp       Int       @default(0) // Haftada reset
+  currentLevel   Int       @default(1)
+  currentStreak  Int       @default(0)
+  longestStreak  Int       @default(0)
+  lastActiveDate DateTime?
+  freezesLeft    Int       @default(3)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  xpEvents          XpEvent[]
+  userBadges        UserBadge[]
+  challengeProgress ChallengeProgress[]
+
+  @@index([totalXp])
+  @@index([weeklyXp])
+}
+
+model XpEvent {
+  id       String              @id @default(uuid()) @db.Uuid
+  userId   String              @db.Uuid
+  profile  GamificationProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  amount   Int
+  reason   String // 'homework_submitted', 'live_attended', 'badge_earned', etc.
+  metadata Json? // { assignmentId, lessonId, ... }
+  earnedAt DateTime            @default(now())
+
+  @@index([userId, earnedAt])
+}
+
+model Badge {
+  id            String        @id @default(uuid()) @db.Uuid
+  slug          String        @unique
+  nameUz        String
+  nameRu        String
+  nameEn        String
+  descriptionUz String
+  iconUrl       String
+  rarity        BadgeRarity
+  category      BadgeCategory
+  xpReward      Int           @default(0)
+  isActive      Boolean       @default(true)
+  targetRole    UserRole? // null = hammaga, STUDENT = faqat student, TEACHER = faqat teacher
+  createdAt     DateTime      @default(now())
+
+  userBadges UserBadge[]
+}
+
+model UserBadge {
+  id       String              @id @default(uuid()) @db.Uuid
+  userId   String              @db.Uuid
+  profile  GamificationProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  badgeId  String              @db.Uuid
+  badge    Badge               @relation(fields: [badgeId], references: [id])
+  earnedAt DateTime            @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+}
+
+model DailyChallenge {
+  id          String   @id @default(uuid()) @db.Uuid
+  date        DateTime @db.Date
+  nameUz      String
+  description String
+  xpReward    Int
+  targetCount Int // Necha marta bajarish kerak
+  eventType   String // 'homework_submitted', 'live_attended', 'ai_tutor_used'
+  targetRole  UserRole @default(STUDENT)
+
+  progress ChallengeProgress[]
+
+  @@unique([date, eventType, targetRole])
+}
+
+model ChallengeProgress {
+  id           String              @id @default(uuid()) @db.Uuid
+  userId       String              @db.Uuid
+  profile      GamificationProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  challengeId  String              @db.Uuid
+  challenge    DailyChallenge      @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  currentCount Int                 @default(0)
+  completed    Boolean             @default(false)
+  completedAt  DateTime?
+
+  @@unique([userId, challengeId])
+  @@index([userId])
+}
+
+model RewardItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  slug        String   @unique
+  nameUz      String
+  description String
+  xpCost      Int
+  itemType    String // 'streak_freeze', 'profile_frame', 'badge_bg'
+  metadata    Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  purchases RewardPurchase[]
+}
+
+model RewardPurchase {
+  id          String     @id @default(uuid()) @db.Uuid
+  userId      String     @db.Uuid
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId      String     @db.Uuid
+  item        RewardItem @relation(fields: [itemId], references: [id])
+  xpSpent     Int
+  purchasedAt DateTime   @default(now())
+
+  @@index([userId])
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String
+  userAgent        String?
+  ip               String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model EmailVerification {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model PasswordReset {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+/// Multi-Factor Authentication credentials per user (Task 29.1).
+/// One row per enrolled factor (TOTP authenticator app, WebAuthn key).
+///
+///  * `type`        — TOTP or WEBAUTHN
+///  * `label`       — user-facing name ("iPhone", "YubiKey 5C")
+///  * `secret`      — TOTP: encrypted base32 shared secret;
+///                    WEBAUTHN: encrypted base64url public key (COSE)
+///  * `credentialId`— WebAuthn credential id (base64url) — NULL for TOTP.
+///                    Unique so two devices can't register the same key.
+///  * `counter`     — WebAuthn signature counter (anti-clone replay).
+///                    NULL for TOTP.
+///  * `deviceInfo`  — JSON: AAGUID / transports / aaguid metadata for
+///                    WebAuthn or app fingerprint for TOTP.
+///  * `verifiedAt`  — set when the user proves possession during enrollment.
+///  * `lastUsedAt`  — bumped after each successful challenge; also used to
+///                    reject replays of the same TOTP code inside the 30s
+///                    window.
+model MfaCredential {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @db.Uuid
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         MfaType
+  label        String?
+  secret       String
+  counter      BigInt?
+  credentialId String?   @unique
+  deviceInfo   Json?
+  verifiedAt   DateTime?
+  lastUsedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId, type])
+}
+
+/// Single-use MFA backup codes (Task 29.1).
+/// Issued in batches of 10. Hashed with SHA-256 so a leaked DB does not
+/// hand attackers a usable code. `usedAt` flips the row to consumed and
+/// `expiresAt` (default 1 year) lets us prune stale codes.
+model MfaBackupCode {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+
+  @@unique([userId, codeHash])
+  @@index([userId, usedAt])
+}
+
+// ============ TEACHER ============
+
+model Specialty {
+  id           String   @id @default(uuid()) @db.Uuid
+  slug         String   @unique
+  nameUz       String
+  nameRu       String
+  nameEn       String
+  isActive     Boolean  @default(true)
+  dashboardKey String
+  createdAt    DateTime @default(now())
+
+  teachers  TeacherProfile[]
+  questions OnboardingQuestion[]
+  modules   SpecialtyModule[]
+}
+
+/// Specialty <-> HomeworkModuleType mapping (admin-managed).
+/// Per-Specialty hard cap: at most 10 rows with isActive = true per specialtyId.
+/// Enforced at two layers:
+///   1. Service-layer guard in the admin module before insert/update.
+///   2. DB-level deferred constraint trigger enforce_specialty_module_cap()
+model SpecialtyModule {
+  specialtyId    String             @db.Uuid
+  specialty      Specialty          @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+  moduleType     HomeworkModuleType
+  isActive       Boolean            @default(true)
+  defaultEnabled Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@id([specialtyId, moduleType])
+  @@index([specialtyId, isActive])
+}
+
+model TeacherProfile {
+  userId                String     @id @db.Uuid
+  user                  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialtyId           String?    @db.Uuid
+  specialty             Specialty? @relation(fields: [specialtyId], references: [id])
+  bio                   String?
+  yearsOfExperience     Int?
+  onboardingCompletedAt DateTime?
+  createdAt             DateTime   @default(now())
+
+  // Public discovery fields (Phase 5)
+  publicSlug    String?  @unique
+  headline      String?
+  fullName      String?
+  coverUrl      String?
+  rating        Decimal? @db.Decimal(3, 2)
+  studentsCount Int      @default(0)
+
+  subscriptions     Subscription[]
+  courses           Course[]
+  onboardingAnswers OnboardingAnswer[]
+  invoices          Invoice[]
+
+  @@index([specialtyId])
+}
+
+model OnboardingQuestion {
+  id          String     @id @default(uuid()) @db.Uuid
+  specialtyId String?    @db.Uuid
+  specialty   Specialty? @relation(fields: [specialtyId], references: [id])
+  order       Int
+  textUz      String
+  textRu      String
+  textEn      String
+  optionsJson Json
+  isActive    Boolean    @default(true)
+
+  answers OnboardingAnswer[]
+
+  @@index([specialtyId, order])
+}
+
+model OnboardingAnswer {
+  id                String             @id @default(uuid()) @db.Uuid
+  teacherId         String             @db.Uuid
+  teacher           TeacherProfile     @relation(fields: [teacherId], references: [userId], onDelete: Cascade)
+  questionId        String             @db.Uuid
+  question          OnboardingQuestion @relation(fields: [questionId], references: [id])
+  selectedOptionId  String
+  selectedOptionIds Json?
+  createdAt         DateTime           @default(now())
+
+  @@unique([teacherId, questionId])
+}
+
+model StudentProfile {
+  userId        String    @id @db.Uuid
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dateOfBirth   DateTime?
+  primaryLocale String    @default("uz")
+  bio           String?
+
+  enrollments        Enrollment[]
+  enrollmentRequests EnrollmentRequest[]
+  submissions        Submission[]
+}
+
+// ============ BILLING ============
+
+model Plan {
+  id           String  @id @default(uuid()) @db.Uuid
+  slug         String  @unique
+  nameUz       String
+  priceUzs     Int
+  intervalDays Int
+  maxStudents  Int?
+  features     Json
+  isActive     Boolean @default(true)
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String             @id @default(uuid()) @db.Uuid
+  teacherId          String             @db.Uuid
+  teacher            TeacherProfile     @relation(fields: [teacherId], references: [userId], onDelete: Cascade)
+  planId             String?            @db.Uuid
+  plan               Plan?              @relation(fields: [planId], references: [id])
+  status             SubscriptionStatus
+  trialEndsAt        DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAt           DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  invoices Invoice[]
+
+  // Partial unique index added via raw SQL migration:
+  // Only one non-terminal (TRIAL/ACTIVE/PAST_DUE) subscription per teacher
+  @@index([status, currentPeriodEnd])
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id             String            @id @default(uuid()) @db.Uuid
+  subscriptionId String?           @db.Uuid
+  subscription   Subscription?     @relation(fields: [subscriptionId], references: [id])
+  teacherId      String?           @db.Uuid
+  teacher        TeacherProfile?   @relation(fields: [teacherId], references: [userId])
+  studentId      String?           @db.Uuid
+  groupId        String?           @db.Uuid
+  group          Group?            @relation(fields: [groupId], references: [id])
+  kind           String
+  amountUzs      Int
+  status         String
+  paymeTxId      String?           @db.Uuid
+  paymeTx        PaymeTransaction? @relation(fields: [paymeTxId], references: [id])
+  issuedAt       DateTime          @default(now())
+  paidAt         DateTime?
+
+  @@index([teacherId, status])
+  @@index([groupId, studentId, status])
+  // Revenue dashboard: paid invoices per teacher, newest first. The `paidAt`
+  // sort key is descending so the index serves the trailing-N-days lookup
+  // without a sort step (Task 24.2).
+  @@index([teacherId, status, paidAt(sort: Desc)])
+}
+
+model PaymeTransaction {
+  id             String       @id @default(uuid()) @db.Uuid
+  paymeId        String?      @unique
+  account        Json
+  amountUzs      Int
+  state          PaymeTxState @default(PENDING)
+  createTime     BigInt?
+  performTime    BigInt?
+  cancelTime     BigInt?
+  reason         Int?
+  rawPayload     Json?
+  idempotencyKey String       @unique
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  invoices Invoice[]
+
+  @@index([state, createdAt])
+}
+
+// ============ CATALOG ============
+
+model Course {
+  id             String         @id @default(uuid()) @db.Uuid
+  teacherId      String         @db.Uuid
+  teacher        TeacherProfile @relation(fields: [teacherId], references: [userId], onDelete: Cascade)
+  title          String
+  description    String?
+  level          String?
+  coverUrl       String?
+  isPublished    Boolean        @default(false)
+  isDiscoverable Boolean        @default(true)
+  fromPriceUzs   Int?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  groups Group[]
+
+  @@index([teacherId, isPublished])
+  @@index([isPublished, isDiscoverable])
+}
+
+model Group {
+  id             String    @id @default(uuid()) @db.Uuid
+  courseId       String    @db.Uuid
+  course         Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name           String
+  priceUzs       Int       @default(0)
+  capacity       Int?
+  startsOn       DateTime?
+  endsOn         DateTime?
+  status         String    @default("OPEN")
+  isDiscoverable Boolean   @default(true)
+  joinCode       String?   @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  schedule           Schedule?
+  scheduleExceptions ScheduleException[]
+  lessons            Lesson[]
+  inviteLinks        InviteLink[]
+  enrollments        Enrollment[]
+  enrollmentRequests EnrollmentRequest[]
+  invoices           Invoice[]
+  modules            GroupModule[]
+
+  @@index([courseId, status])
+  @@index([status, isDiscoverable])
+}
+
+/// Per-Group module toggle. Seeded from SpecialtyModule catalog on Group creation.
+model GroupModule {
+  groupId    String             @db.Uuid
+  group      Group              @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  moduleType HomeworkModuleType
+  isEnabled  Boolean            @default(false)
+  enabledAt  DateTime?
+  disabledAt DateTime?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@id([groupId, moduleType])
+  @@index([groupId, isEnabled])
+}
+
+model Schedule {
+  id          String   @id @default(uuid()) @db.Uuid
+  groupId     String   @unique @db.Uuid
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  rrule       String
+  timezone    String   @default("Asia/Tashkent")
+  durationMin Int
+  version     Int      @default(1)
+  updatedAt   DateTime @updatedAt
+}
+
+model ScheduleException {
+  id         String    @id @default(uuid()) @db.Uuid
+  groupId    String    @db.Uuid
+  group      Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  originalAt DateTime
+  cancelled  Boolean   @default(false)
+  newAt      DateTime?
+  reason     String?
+
+  @@index([groupId, originalAt])
+}
+
+model Lesson {
+  id          String       @id @default(uuid()) @db.Uuid
+  groupId     String       @db.Uuid
+  group       Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  type        LessonType
+  status      LessonStatus @default(DRAFT)
+  position    Int          @default(0)
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  attachments  Attachment[]
+  liveSessions LiveSession[]
+  recordings   Recording[]
+  assignments  Assignment[]
+
+  @@index([groupId, status])
+  @@index([groupId, position])
+}
+
+model Attachment {
+  id        String     @id @default(uuid()) @db.Uuid
+  lessonId  String     @db.Uuid
+  lesson    Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  assetId   String     @db.Uuid
+  asset     MediaAsset @relation(fields: [assetId], references: [id])
+  kind      MediaKind
+  role      String     @default("supplementary")
+  position  Int        @default(0)
+  caption   String?
+  createdAt DateTime   @default(now())
+
+  @@index([lessonId])
+}
+
+// ============ ENROLLMENT ============
+
+model InviteLink {
+  id          String    @id @default(uuid()) @db.Uuid
+  groupId     String    @db.Uuid
+  group       Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  token       String    @unique
+  createdById String    @db.Uuid
+  expiresAt   DateTime?
+  usesLimit   Int?
+  usesCount   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  @@index([groupId, isActive])
+}
+
+model EnrollmentRequest {
+  id           String           @id @default(uuid()) @db.Uuid
+  groupId      String           @db.Uuid
+  group        Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId    String           @db.Uuid
+  student      StudentProfile   @relation(fields: [studentId], references: [userId], onDelete: Cascade)
+  inviteLinkId String?          @db.Uuid
+  invoiceId    String?          @db.Uuid
+  status       EnrollmentStatus @default(PENDING_PAYMENT)
+  message      String?
+  createdAt    DateTime         @default(now())
+  decidedAt    DateTime?
+  decidedById  String?          @db.Uuid
+
+  @@unique([groupId, studentId])
+  @@index([status, createdAt])
+}
+
+model Enrollment {
+  id         String           @id @default(uuid()) @db.Uuid
+  groupId    String           @db.Uuid
+  group      Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId  String           @db.Uuid
+  student    StudentProfile   @relation(fields: [studentId], references: [userId], onDelete: Cascade)
+  status     EnrollmentStatus @default(APPROVED)
+  approvedAt DateTime         @default(now())
+  revokedAt  DateTime?
+  invoiceId  String?          @db.Uuid
+
+  submissions Submission[]
+
+  @@unique([groupId, studentId])
+  @@index([studentId, status])
+}
+
+// ============ MEDIA ============
+
+model MediaAsset {
+  id             String      @id @default(uuid()) @db.Uuid
+  ownerUserId    String      @db.Uuid
+  kind           MediaKind
+  status         AssetStatus @default(UPLOADING)
+  bytes          BigInt?
+  contentType    String?
+  originalKey    String?
+  hlsManifestKey String?
+  thumbnailKey   String?
+  durationMs     Int?
+  metadata       Json?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  attachments     Attachment[]
+  recordings      Recording[]
+  transcodingJobs TranscodingJob[]
+}
+
+model TranscodingJob {
+  id         String     @id @default(uuid()) @db.Uuid
+  assetId    String     @db.Uuid
+  asset      MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  status     String
+  attempt    Int        @default(0)
+  errorMsg   String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  @@index([status, createdAt])
+}
+
+// ============ LIVE ============
+
+model LiveSession {
+  id          String            @id @default(uuid()) @db.Uuid
+  lessonId    String            @db.Uuid
+  lesson      Lesson            @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  status      LiveSessionStatus @default(SCHEDULED)
+  startedAt   DateTime?
+  endedAt     DateTime?
+  roomId      String?           @unique
+  recorderRef String?
+
+  participants LiveParticipant[]
+  recordings   Recording[]
+
+  @@index([lessonId, status])
+}
+
+model LiveParticipant {
+  id        String      @id @default(uuid()) @db.Uuid
+  sessionId String      @db.Uuid
+  session   LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId    String      @db.Uuid
+  joinedAt  DateTime    @default(now())
+  leftAt    DateTime?
+  role      String
+
+  @@index([sessionId])
+}
+
+model Recording {
+  id         String       @id @default(uuid()) @db.Uuid
+  lessonId   String       @db.Uuid
+  lesson     Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  sessionId  String?      @unique @db.Uuid
+  session    LiveSession? @relation(fields: [sessionId], references: [id])
+  assetId    String?      @db.Uuid
+  asset      MediaAsset?  @relation(fields: [assetId], references: [id])
+  durationMs Int?
+  status     String
+  createdAt  DateTime     @default(now())
+}
+
+// ============ HOMEWORK ============
+
+model Assignment {
+  id          String    @id @default(uuid()) @db.Uuid
+  lessonId    String    @db.Uuid
+  lesson      Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  dueAt       DateTime?
+  totalPoints Int       @default(100)
+  isPublished Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  modules     AssignmentModule[]
+  submissions Submission[]
+}
+
+model AssignmentModule {
+  id           String             @id @default(uuid()) @db.Uuid
+  assignmentId String             @db.Uuid
+  assignment   Assignment         @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  type         HomeworkModuleType
+  order        Int
+  configJson   Json
+  weight       Int                @default(100)
+
+  @@index([assignmentId, order])
+}
+
+model Submission {
+  id           String           @id @default(uuid()) @db.Uuid
+  assignmentId String           @db.Uuid
+  assignment   Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String           @db.Uuid
+  student      StudentProfile   @relation(fields: [studentId], references: [userId], onDelete: Cascade)
+  enrollmentId String?          @db.Uuid
+  enrollment   Enrollment?      @relation(fields: [enrollmentId], references: [id])
+  status       SubmissionStatus @default(DRAFT)
+  answersJson  Json
+  score        Int?
+  aiFlagged    Boolean          @default(false)
+  aiLikelihood Float?
+  submittedAt  DateTime?
+  gradedAt     DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  feedbacks Feedback[]
+
+  @@unique([assignmentId, studentId])
+  @@index([studentId, status])
+  // Hot path: teacher review queue ("show me ungraded submissions for this
+  // assignment"). Composite index keeps the filter index-only.
+  @@index([assignmentId, status])
+}
+
+model Feedback {
+  id           String     @id @default(uuid()) @db.Uuid
+  submissionId String     @db.Uuid
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  authorType   String
+  authorId     String?    @db.Uuid
+  payload      Json
+  isFinal      Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+}
+
+// ============ AI ============
+
+model AiPromptTemplate {
+  id           String   @id @default(uuid()) @db.Uuid
+  key          String   @unique
+  intent       AiIntent
+  systemText   String
+  userTemplate String
+  modelName    String   @default("claude-3-5-sonnet-latest")
+  maxTokens    Int      @default(2000)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
+
+model AiCall {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @db.Uuid
+  user         User?    @relation(fields: [userId], references: [id])
+  intent       AiIntent
+  templateKey  String
+  modelName    String
+  inputTokens  Int
+  outputTokens Int
+  costUsd      Decimal  @db.Decimal(10, 6)
+  latencyMs    Int
+  refType      String?
+  refId        String?
+  status       String
+  errorMsg     String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([intent, createdAt])
+  // Admin oversight panel: filter by intent + status, newest first.
+  @@index([intent, status, createdAt(sort: Desc)])
+}
+
+// ============ NOTIFICATIONS ============
+
+model Notification {
+  id             String           @id @default(uuid()) @db.Uuid
+  userId         String           @db.Uuid
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind           NotificationKind
+  title          String
+  body           String
+  data           Json?
+  idempotencyKey String           @unique
+  readAt         DateTime?
+  createdAt      DateTime         @default(now())
+
+  deliveries NotificationDelivery[]
+
+  @@index([userId, readAt])
+  // In-app feed: unread first, then newest. Extends the existing
+  // (userId, readAt) coverage so the feed query is index-only.
+  @@index([userId, readAt, createdAt(sort: Desc)])
+}
+
+model NotificationDelivery {
+  id             String              @id @default(uuid()) @db.Uuid
+  notificationId String              @db.Uuid
+  notification   Notification        @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  channel        NotificationChannel
+  status         String
+  attempt        Int                 @default(0)
+  providerRef    String?
+  errorMsg       String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([notificationId, channel])
+}
+
+model NotificationPreference {
+  id      String              @id @default(uuid()) @db.Uuid
+  userId  String              @db.Uuid
+  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind    NotificationKind
+  channel NotificationChannel
+  enabled Boolean             @default(true)
+
+  @@unique([userId, kind, channel])
+}
+
+/// PushDevice — registered Expo push token for a user's device
+/// (Task 22.2, Req 16.1).
+///
+/// One row per active token. The same `User` may register tokens for
+/// multiple devices (phone + tablet); the `(userId, token)` unique
+/// constraint dedupes re-registration of the same token (a common case
+/// when the app re-asks for permission on every cold boot).
+///
+/// `platform` is the OS reported by `expo-device` at registration time
+/// (`ios`, `android`, `web`). The mobile app sends `expo-device`
+/// metadata in `deviceInfo` so admins can debug push failures
+/// (model name, OS version) without tying us to a specific schema.
+///
+/// `revokedAt` is set when the Expo Push API returns
+/// `DeviceNotRegistered` for a token. The push processor reads only
+/// rows with `revokedAt IS NULL` so a stale token cannot keep
+/// generating receipts.
+model PushDevice {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String
+  platform   String
+  deviceInfo Json?
+  lastSeenAt DateTime  @default(now())
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([userId, token])
+  @@index([userId, revokedAt])
+}
+
+// ============ CHAT ============
+
+model ChatRoom {
+  id        String   @id @default(uuid()) @db.Uuid
+  scope     String
+  scopeRef  String
+  createdAt DateTime @default(now())
+
+  messages     ChatMessage[]
+  readReceipts DmReadReceipt[]
+
+  @@unique([scope, scopeRef])
+}
+
+model DmReadReceipt {
+  roomId     String   @db.Uuid
+  room       ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt DateTime @default(now())
+
+  @@id([roomId, userId])
+}
+
+model ChatMessage {
+  id        String    @id @default(uuid()) @db.Uuid
+  roomId    String    @db.Uuid
+  room      ChatRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  authorId  String    @db.Uuid
+  body      String
+  assetId   String?   @db.Uuid
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([roomId, createdAt])
+}
+
+// ============ ADMIN / OUTBOX ============
+
+model AdminAuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  actorId   String?  @db.Uuid
+  actor     User?    @relation(fields: [actorId], references: [id])
+  action    String
+  target    String?
+  payload   Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([actorId, createdAt])
+}
+
+model OutboxEvent {
+  id             String    @id @default(uuid()) @db.Uuid
+  topic          String
+  payload        Json
+  idempotencyKey String    @unique
+  status         String    @default("PENDING")
+  attempt        Int       @default(0)
+  nextAttemptAt  DateTime  @default(now())
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  dispatchedAt   DateTime?
+
+  @@index([status, nextAttemptAt])
+}
+
+model IdempotencyRecord {
+  key          String   @id
+  scope        String
+  userId       String?  @db.Uuid
+  responseHash String
+  responseBody Json
+  statusCode   Int
+  expiresAt    DateTime
+
+  @@index([expiresAt])
+}
+
+model SystemSetting {
+  key         String   @id
+  value       Json
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+// ============ KEY MANAGEMENT (Task 28.2) ============
+
+/// Lifecycle status of an at-rest data-encryption key (DEK).
+///
+/// Only one row per process is ever `ACTIVE` — newly written
+/// envelopes always reference that row's id. After a rotation the
+/// previous active row is moved to `RETIRED`; rows remain readable
+/// (and their key material loadable into the in-memory key
+/// manager) until every envelope referencing them has been
+/// re-encrypted by `ReencryptProcessor` (Task 28.2).
+enum EncryptionKeyStatus {
+  ACTIVE
+  RETIRED
+  SHREDDED
+}
+
+/// EncryptionKey — Task 28.2.
+///
+/// A single 32-byte AES-256 data key wrapped (envelope-encrypted)
+/// by the master key from `MASTER_ENCRYPTION_KEY` / `MASTER_KEY`.
+/// The wrapped material is stored as a string envelope produced by
+/// `EncryptionService` so the master key never touches the database.
+///
+/// Rotation (zero-downtime):
+///   1. `KeyManagementService.rotate()` creates a new row with
+///      `status = ACTIVE`; the previous active row flips to
+///      `RETIRED` and `rotatedToId` points to the new row.
+///   2. Subsequent encrypts use the new key (new envelopes embed
+///      the new key id).
+///   3. `ReencryptProcessor` walks every column listed in
+///      `DEFAULT_ENCRYPTED_FIELDS` in batches and re-encrypts rows
+///      whose envelopes still reference the retired key id.
+///   4. Once no envelopes reference the retired key, an operator
+///      can prune the row (the key material is then unrecoverable —
+///      crypto-shredding posture, Req 28.7).
+///
+/// `keyMaterial` is intentionally a `String` (not `Bytes`) so
+/// callers can store the wrapped envelope verbatim without any
+/// further encoding. Reading the row never yields raw key bytes —
+/// the unwrap step happens inside `KeyManagementService`.
+// ============ AI CHAT CONVERSATIONS ============
+
+model AiConversation {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String   @default("Yangi suhbat")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages AiMessage[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+}
+
+model AiMessage {
+  id             String         @id @default(uuid()) @db.Uuid
+  conversationId String         @db.Uuid
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String         // 'user' | 'assistant'
+  content        String
+  attachments    Json?          // [{ name, type, size, url?, assetId? }]
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model EncryptionKey {
+  id           String              @id @default(cuid())
+  /// Wrapped key material (envelope encrypted by the master key).
+  /// Plaintext key bytes never appear in the database.
+  /// When the row is SHREDDED (Task 28.3, Req 28.7) this column is
+  /// reset to the empty string so the per-user key is provably
+  /// unrecoverable from the database alone.
+  keyMaterial  String
+  status       EncryptionKeyStatus @default(ACTIVE)
+  /// Forward pointer set when this key is retired and superseded
+  /// by another key. Null while the key is active.
+  rotatedToId  String?
+  /// Owning user for per-user keys (Task 28.3, Req 28.7). NULL for
+  /// the platform-wide DEK rotated by `KeyManagementService`. When
+  /// set, the key is used to encrypt that user's PII columns and
+  /// can be crypto-shredded by `CryptoShredService` to make all of
+  /// that user's at-rest ciphertext permanently undecryptable.
+  userId       String?             @db.Uuid
+  shreddedAt   DateTime?
+  createdAt    DateTime            @default(now())
+  retiredAt    DateTime?
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([userId])
+}

@@ -1,0 +1,255 @@
+# Pod Security Standards — Restricted Profile Enforcement
+# Requirement 31.9: Privileged container, host network, root user taqiqlash
+#
+# Note: PodSecurityPolicy is deprecated in K8s 1.25+.
+# We use ValidatingAdmissionPolicy (K8s 1.30+) + namespace PSS labels
+# for enforcement. This file provides additional Kyverno policies
+# as defense-in-depth for clusters running Kyverno.
+---
+# ValidatingAdmissionPolicy: Block privileged containers
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: edubridge-deny-privileged
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    security.edubridge.uz/policy: pss-restricted
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["deployments", "statefulsets", "daemonsets"]
+    namespaceSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: edubridge
+  validations:
+    - expression: >-
+        !has(object.spec.containers) ||
+        object.spec.containers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.privileged) ||
+          c.securityContext.privileged == false
+        )
+      message: "Privileged containers are not allowed in EduBridge namespaces (Req 31.9)"
+    - expression: >-
+        !has(object.spec.hostNetwork) || object.spec.hostNetwork == false
+      message: "Host network access is not allowed in EduBridge namespaces (Req 31.9)"
+    - expression: >-
+        !has(object.spec.hostPID) || object.spec.hostPID == false
+      message: "Host PID namespace is not allowed in EduBridge namespaces (Req 31.9)"
+    - expression: >-
+        !has(object.spec.hostIPC) || object.spec.hostIPC == false
+      message: "Host IPC namespace is not allowed in EduBridge namespaces (Req 31.9)"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: edubridge-deny-privileged-binding
+  labels:
+    app.kubernetes.io/part-of: edubridge
+spec:
+  policyName: edubridge-deny-privileged
+  validationActions:
+    - Deny
+    - Audit
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: edubridge
+---
+# ValidatingAdmissionPolicy: Enforce non-root user
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: edubridge-enforce-nonroot
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    security.edubridge.uz/policy: pss-restricted
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+    namespaceSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: edubridge
+  validations:
+    - expression: >-
+        !has(object.spec.containers) ||
+        object.spec.containers.all(c,
+          has(c.securityContext) &&
+          has(c.securityContext.runAsNonRoot) &&
+          c.securityContext.runAsNonRoot == true
+        )
+      message: "All containers must run as non-root user (Req 31.9)"
+    - expression: >-
+        !has(object.spec.containers) ||
+        object.spec.containers.all(c,
+          has(c.securityContext) &&
+          has(c.securityContext.allowPrivilegeEscalation) &&
+          c.securityContext.allowPrivilegeEscalation == false
+        )
+      message: "Privilege escalation must be disabled (Req 31.9)"
+    - expression: >-
+        !has(object.spec.containers) ||
+        object.spec.containers.all(c,
+          has(c.securityContext) &&
+          has(c.securityContext.capabilities) &&
+          has(c.securityContext.capabilities.drop) &&
+          c.securityContext.capabilities.drop.exists(cap, cap == "ALL")
+        )
+      message: "All capabilities must be dropped (Req 31.9)"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: edubridge-enforce-nonroot-binding
+  labels:
+    app.kubernetes.io/part-of: edubridge
+spec:
+  policyName: edubridge-enforce-nonroot
+  validationActions:
+    - Deny
+    - Audit
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: edubridge
+---
+# ValidatingAdmissionPolicy: Enforce read-only root filesystem
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: edubridge-readonly-rootfs
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    security.edubridge.uz/policy: pss-restricted
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+    namespaceSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: edubridge
+  validations:
+    - expression: >-
+        !has(object.spec.containers) ||
+        object.spec.containers.all(c,
+          has(c.securityContext) &&
+          has(c.securityContext.readOnlyRootFilesystem) &&
+          c.securityContext.readOnlyRootFilesystem == true
+        )
+      message: "Root filesystem must be read-only (Req 31.9)"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: edubridge-readonly-rootfs-binding
+  labels:
+    app.kubernetes.io/part-of: edubridge
+spec:
+  policyName: edubridge-readonly-rootfs
+  validationActions:
+    - Deny
+    - Audit
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: edubridge
+---
+# ValidatingAdmissionPolicy: Block hostPath volumes
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: edubridge-deny-hostpath
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    security.edubridge.uz/policy: pss-restricted
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+    namespaceSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: edubridge
+  validations:
+    - expression: >-
+        !has(object.spec.volumes) ||
+        object.spec.volumes.all(v, !has(v.hostPath))
+      message: "hostPath volumes are not allowed in EduBridge namespaces (Req 31.9)"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: edubridge-deny-hostpath-binding
+  labels:
+    app.kubernetes.io/part-of: edubridge
+spec:
+  policyName: edubridge-deny-hostpath
+  validationActions:
+    - Deny
+    - Audit
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: edubridge
+---
+# ValidatingAdmissionPolicy: Enforce seccomp profile
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: edubridge-enforce-seccomp
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    security.edubridge.uz/policy: pss-restricted
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+    namespaceSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: edubridge
+  validations:
+    - expression: >-
+        has(object.spec.securityContext) &&
+        has(object.spec.securityContext.seccompProfile) &&
+        object.spec.securityContext.seccompProfile.type == "RuntimeDefault"
+      message: "Pods must use RuntimeDefault seccomp profile (Req 31.9)"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: edubridge-enforce-seccomp-binding
+  labels:
+    app.kubernetes.io/part-of: edubridge
+spec:
+  policyName: edubridge-enforce-seccomp
+  validationActions:
+    - Deny
+    - Audit
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: edubridge

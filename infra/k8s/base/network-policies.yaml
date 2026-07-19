@@ -1,0 +1,241 @@
+# Network Segmentation Policies for EduBridge Platform
+# Requirement 31.5: Database faqat application pod lardan accessible,
+#                   public internet dan to'g'ridan-to'g'ri kirish imkonsiz
+---
+# Default deny all ingress/egress in production namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: edubridge-production
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    security.edubridge.uz/policy: default-deny
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Allow DNS resolution for all pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: edubridge-production
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    security.edubridge.uz/policy: dns
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Database access — ONLY from application pods (api, worker)
+# Public internet va boshqa podlardan kirish to'liq taqiqlangan
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: database-access-restricted
+  namespace: edubridge-production
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    security.edubridge.uz/policy: database-isolation
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: database
+  policyTypes:
+    - Ingress
+  ingress:
+    # Faqat api podlardan PostgreSQL portiga kirish
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: api
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Faqat worker podlardan PostgreSQL portiga kirish
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: worker
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Redis access — faqat api, worker, signaling podlardan
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-access-restricted
+  namespace: edubridge-production
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    security.edubridge.uz/policy: redis-isolation
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: api
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: worker
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: signaling
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+# API pods — ingress faqat ingress controller dan
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-ingress-policy
+  namespace: edubridge-production
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    security.edubridge.uz/policy: api-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 3000
+  egress:
+    # Database ga chiqish
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: database
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Redis ga chiqish
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # External services (Payme, Claude API, email, Telegram)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+---
+# Worker pods — egress to DB, Redis, external APIs
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: worker-network-policy
+  namespace: edubridge-production
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    security.edubridge.uz/policy: worker
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: worker
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []  # Workers don't accept inbound connections
+  egress:
+    # Database
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: database
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # External HTTPS (Claude API, email, Telegram, R2)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+---
+# Vault namespace — faqat application podlardan kirish
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vault-access-restricted
+  namespace: edubridge-vault
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    security.edubridge.uz/policy: vault-isolation
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vault
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: edubridge
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/component: api
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: edubridge
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/component: worker
+      ports:
+        - protocol: TCP
+          port: 8200

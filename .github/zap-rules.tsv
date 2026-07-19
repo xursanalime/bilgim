@@ -1,0 +1,61 @@
+# OWASP ZAP Baseline Scan Rules Configuration
+# Format: rule_id	action	name
+# Actions: IGNORE, WARN, FAIL
+#
+# EduBridge platformasi uchun sozlangan qoidalar
+# Critical va High topilmalar pipeline ni to'xtatadi (FAIL)
+# Medium va Low topilmalar ogohlantirish beradi (WARN)
+
+10003	WARN	Vulnerable JS Library
+10010	FAIL	Cookie No HttpOnly Flag
+10011	FAIL	Cookie Without Secure Flag
+10012	WARN	Password Autocomplete in Browser
+10015	FAIL	Incomplete or No Cache-control Header Set
+10016	WARN	Web Browser XSS Protection Not Enabled
+10017	FAIL	Cross-Domain JavaScript Source File Inclusion
+10019	FAIL	Content-Type Header Missing
+10020	FAIL	X-Frame-Options Header
+10021	FAIL	X-Content-Type-Options Header Missing
+10023	WARN	Information Disclosure - Debug Error Messages
+10024	WARN	Information Disclosure - Sensitive Information in URL
+10025	WARN	Information Disclosure - Sensitive Information in HTTP Referrer Header
+10027	WARN	Information Disclosure - Suspicious Comments
+10028	WARN	Open Redirect
+10029	WARN	Cookie Poisoning
+10030	WARN	User Controllable Charset
+10031	WARN	User Controllable HTML Element Attribute
+10032	WARN	Viewstate
+10033	WARN	Directory Browsing
+10034	WARN	Heartbleed OpenSSL Vulnerability
+10035	FAIL	Strict-Transport-Security Header
+10036	WARN	HTTP Server Response Header
+10037	WARN	Server Leaks Information via X-Powered-By
+10038	FAIL	Content Security Policy (CSP) Header Not Set
+10039	WARN	X-Backend-Server Header Information Leak
+10040	FAIL	Secure Pages Include Mixed Content
+10041	WARN	HTTP to HTTPS Insecure Transition in Form Post
+10042	WARN	HTTPS to HTTP Insecure Transition in Form Post
+10043	WARN	User Controllable JavaScript Event (XSS)
+10044	WARN	Big Redirect Detected (Potential Sensitive Information Leak)
+10045	WARN	Source Code Disclosure
+10048	WARN	Remote Code Execution - Shell Shock
+10049	WARN	Storable and Cacheable Content
+10050	WARN	Retrieved from Cache
+10052	WARN	X-ChromeLogger-Data Header Information Leak
+10054	FAIL	Cookie without SameSite Attribute
+10055	WARN	CSP
+10056	WARN	X-Debug-Token Information Leak
+10057	WARN	Username Hash Found
+10061	WARN	X-AspNet-Version Response Header
+10062	FAIL	PII Disclosure
+10063	WARN	Permissions Policy Header Not Set
+10096	WARN	Timestamp Disclosure
+10097	WARN	Hash Disclosure
+10098	FAIL	Cross-Domain Misconfiguration
+10105	WARN	Weak Authentication Method
+10106	FAIL	HTTP Only Site
+10107	WARN	Httpoxy - Proxy Header Misuse
+10108	FAIL	Reverse Tabnabbing
+10109	WARN	Modern Web Application
+10110	WARN	Dangerous JS Functions
+10202	WARN	Absence of Anti-CSRF Tokens
