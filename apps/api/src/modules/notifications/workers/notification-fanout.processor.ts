@@ -194,6 +194,8 @@ export class NotificationFanoutProcessor extends WorkerHost {
         return this.recipientsForHomeworkAssigned(payload);
       case 'homework.graded':
         return this.recipientsForHomeworkGraded(payload);
+      case 'live.reminder':
+        return this.recipientsForLiveReminder(payload);
       default:
         this.logger.warn(
           `Topic "${topic}" not yet wired into NotificationFanoutProcessor (skipping)`,
@@ -470,6 +472,47 @@ export class NotificationFanoutProcessor extends WorkerHost {
     ];
   }
 
+  /**
+   * `live.reminder` — emitted by `LiveCron.sendUpcomingReminders` roughly
+   * 15 minutes before a LIVE lesson's `scheduledAt`. Every APPROVED
+   * student of the lesson's group gets one LIVE_REMINDER notification.
+   * Mirrors `recipientsForLessonPublished`'s group broadcast shape.
+   */
+  private async recipientsForLiveReminder(
+    payload: Record<string, unknown>,
+  ): Promise<Array<{ userId: string; template: ResolvedTemplate }>> {
+    const lessonId = payload.lessonId as string | undefined;
+    const groupId = payload.groupId as string | undefined;
+    const title = (payload.title as string | undefined) ?? null;
+    if (!lessonId || !groupId) {
+      this.logger.warn(
+        `live.reminder payload missing lessonId/groupId: ${JSON.stringify(payload)}`,
+      );
+      return [];
+    }
+
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: { groupId, status: 'APPROVED' },
+      select: { studentId: true },
+    });
+
+    return enrollments.map((e) => ({
+      userId: e.studentId,
+      template: {
+        kind: 'LIVE_REMINDER' as NotificationKind,
+        title: 'Jonli dars tez orada boshlanadi',
+        body: title
+          ? `"${title}" darsi 15 daqiqadan keyin boshlanadi. Tayyorlanib turing!`
+          : 'Jonli darsingiz 15 daqiqadan keyin boshlanadi. Tayyorlanib turing!',
+        data: {
+          lessonId,
+          groupId,
+          scheduledAt: payload.scheduledAt ?? null,
+        },
+      },
+    }));
+  }
+
   // ==================================================================
   // Idempotency keys
   // ==================================================================
@@ -501,6 +544,8 @@ export class NotificationFanoutProcessor extends WorkerHost {
         return `homework.assigned:${payload.assignmentId}:${userId}`;
       case 'homework.graded':
         return `homework.graded:${payload.submissionId}:${userId}`;
+      case 'live.reminder':
+        return `live.reminder:${payload.lessonId}:${payload.scheduledAt ?? 'unscheduled'}:${userId}`;
       default:
         return `${topic}:${userId}`;
     }

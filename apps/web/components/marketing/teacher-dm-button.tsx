@@ -65,7 +65,7 @@ export function TeacherDmButton({
         onClick={handleClick}
         disabled={pending}
         aria-label={`${teacherName} ga xabar yuborish`}
-        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-accent2-500 px-5 py-3 text-sm font-bold text-ink shadow-[0_0_0_1px_rgba(0,232,122,0.4),0_8px_24px_-8px_rgba(0,232,122,0.6)] transition-all hover:bg-accent2-400 active:scale-[0.98] disabled:opacity-60"
+        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue px-5 py-3 text-sm font-bold text-white shadow-[0_12px_24px_-8px_rgba(0,113,227,0.5)] transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-60"
       >
         {pending ? (
           <>
@@ -101,7 +101,7 @@ export function TeacherDmButton({
       {error && (
         <p
           role="alert"
-          className="max-w-xs rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300"
+          className="max-w-xs rounded-xl border border-red/15 bg-red-tint px-3 py-2 text-xs font-semibold text-red"
         >
           {error}
         </p>

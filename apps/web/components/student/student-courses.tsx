@@ -98,7 +98,7 @@ export function StudentCourses({ locale }: StudentCoursesProps) {
             Hech qaysi guruhda ishtirok etmayapsiz. O'zingizga mos kursni qidirib ko'ring.
           </p>
           <Link
-            href={`/${locale}/search`}
+            href={`/${locale}/teacher-search`}
             className="group mt-8 inline-flex items-center gap-2.5 rounded-2xl bg-blue px-8 py-3.5 text-sm font-bold text-white shadow-blue-soft transition-all hover:bg-blue-600 active:scale-[0.98]"
           >
             <Search className="h-4.5 w-4.5" />
@@ -127,7 +127,7 @@ export function StudentCourses({ locale }: StudentCoursesProps) {
             </p>
           </div>
           <Link
-            href={`/${locale}/search`}
+            href={`/${locale}/teacher-search`}
             className="group inline-flex items-center gap-2.5 rounded-2xl bg-blue/5 border border-blue/10 px-6 py-3 text-sm font-bold text-blue transition-all hover:bg-blue hover:text-white active:scale-[0.98]"
           >
             <Plus className="h-4 w-4" />

@@ -168,7 +168,7 @@ export function AssignmentsList({ locale }: AssignmentsListProps) {
         <EmptyState
           title="Topshiriqlar yo'q"
           body="Siz hech qaysi guruhga yozilmagansiz. Kursga yozilgach, topshiriqlar shu yerda paydo bo'ladi."
-          ctaHref={`/${locale}/search`}
+          ctaHref={`/${locale}/teacher-search`}
           ctaLabel="Kurslarni qidirish"
         />
       ) : rows.length === 0 ? (

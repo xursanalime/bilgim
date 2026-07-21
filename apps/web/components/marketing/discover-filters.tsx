@@ -48,12 +48,12 @@ export function DiscoverFilters({
   return (
     <form
       onSubmit={submit}
-      className="flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-ink-surface/80 p-4 backdrop-blur-sm sm:flex-row sm:items-center"
+      className="flex flex-col gap-3 rounded-2xl border border-rim bg-canvas p-4 shadow-soft sm:flex-row sm:items-center"
     >
       {/* Search input */}
       <label className="relative flex-1">
         <span className="sr-only">Qidirish</span>
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-cream-dim">
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-faint">
           <svg
             className="h-5 w-5"
             viewBox="0 0 24 24"
@@ -73,7 +73,7 @@ export function DiscoverFilters({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Ustoz ismi yoki sarlavhasi"
           aria-label="Qidirish"
-          className="w-full rounded-2xl border border-white/[0.07] bg-white/[0.04] py-2.5 pl-12 pr-4 text-sm text-cream placeholder-cream-dim/60 outline-none transition-colors focus:border-accent2-500/60 focus:bg-white/[0.06] focus:ring-2 focus:ring-accent2-500/20"
+          className="w-full rounded-2xl border border-rim bg-tint py-2.5 pl-12 pr-4 text-sm text-ink-strong placeholder-ink-faint outline-none transition-all focus:border-blue/30 focus:bg-white focus:ring-4 focus:ring-blue/5"
         />
       </label>
 
@@ -81,7 +81,7 @@ export function DiscoverFilters({
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-accent2-500 px-5 py-2.5 text-sm font-bold text-ink shadow-[0_0_0_1px_rgba(0,232,122,0.4),0_8px_24px_-8px_rgba(0,232,122,0.6)] transition-all hover:bg-accent2-400 active:scale-[0.98] disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue px-5 py-2.5 text-sm font-bold text-white shadow-[0_8px_16px_-6px_rgba(0,113,227,0.5)] transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-60"
         >
           {pending ? 'Yuklanmoqda...' : 'Qidirish'}
         </button>
@@ -90,7 +90,7 @@ export function DiscoverFilters({
             type="button"
             onClick={reset}
             disabled={pending}
-            className="inline-flex items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-cream-dim transition-colors hover:border-white/[0.15] hover:text-cream"
+            className="inline-flex items-center justify-center rounded-2xl border border-rim bg-tint px-4 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:border-blue/20 hover:text-blue"
           >
             Tozalash
           </button>

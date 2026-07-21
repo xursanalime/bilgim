@@ -5,6 +5,7 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
 } from '@nestjs/common';
 
@@ -19,7 +20,16 @@ import {
   OnboardingService,
   SubmitAnswersResult,
 } from './onboarding.service';
-import { SubmitAnswersDto, SubmitAnswersSchema } from './dto';
+import {
+  TeacherPublicProfileService,
+  PublicProfileStatus,
+} from './public-profile.service';
+import {
+  SubmitAnswersDto,
+  SubmitAnswersSchema,
+  UpdatePublicProfileDto,
+  UpdatePublicProfileSchema,
+} from './dto';
 
 const SUPPORTED_LOCALES = new Set<OnboardingLocale>(['uz', 'ru', 'en']);
 
@@ -36,6 +46,7 @@ export class TeacherController {
   constructor(
     private readonly onboardingService: OnboardingService,
     private readonly usersRepository: UsersRepository,
+    private readonly publicProfileService: TeacherPublicProfileService,
   ) {}
 
   /**
@@ -96,6 +107,40 @@ export class TeacherController {
       userRecord?.fullName ?? null,
       dto,
     );
+  }
+
+  /**
+   * GET /teacher/profile/public
+   *
+   * Current "ochiq profil" (public discovery) status: whether the teacher
+   * is published on `/discovery/teachers`, their slug/headline, and how
+   * many discoverable courses they have (a public profile with zero such
+   * courses never appears in the listing — see DiscoveryRepository).
+   */
+  @Get('profile/public')
+  @HttpCode(HttpStatus.OK)
+  async getPublicProfile(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PublicProfileStatus> {
+    return this.publicProfileService.getStatus(user.sub);
+  }
+
+  /**
+   * PATCH /teacher/profile/public
+   *
+   * Toggles public discoverability on/off and optionally updates the
+   * headline. Enabling for the first time generates a unique `publicSlug`
+   * (and backfills `TeacherProfile.fullName` from the User record) — this
+   * is the only write path for those fields in the whole codebase.
+   */
+  @Patch('profile/public')
+  @HttpCode(HttpStatus.OK)
+  async updatePublicProfile(
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(UpdatePublicProfileSchema))
+    dto: UpdatePublicProfileDto,
+  ): Promise<PublicProfileStatus> {
+    return this.publicProfileService.setStatus(user.sub, dto);
   }
 
   /**

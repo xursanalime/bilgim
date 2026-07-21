@@ -125,6 +125,49 @@ export class LiveSessionRepository {
   }
 
   /**
+   * INSERT a new LiveSession in the `SCHEDULED` state, with `startedAt`
+   * left unset. Used when a STUDENT joins during the early-join window
+   * (up to `EARLY_JOIN_MS` before `lesson.scheduledAt`) before the
+   * teacher has pressed "start" — the room exists so the student can
+   * wait in it, but the session isn't "live" yet so the duration timer
+   * doesn't start counting.
+   */
+  async createPending(
+    input: CreateActiveSessionInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<LiveSession> {
+    const client = tx ?? this.prisma;
+    return client.liveSession.create({
+      data: {
+        lessonId: input.lessonId,
+        roomId: input.roomId,
+        status: 'SCHEDULED',
+      },
+    });
+  }
+
+  /**
+   * Optimistically transition a session out of `SCHEDULED` into `LIVE`,
+   * stamping `startedAt` at the moment the teacher actually starts the
+   * broadcast (not when the first student joined the waiting room).
+   * Returns `true` only if exactly one row moved.
+   */
+  async transitionToLive(
+    id: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const client = tx ?? this.prisma;
+    const result = await client.liveSession.updateMany({
+      where: { id, status: 'SCHEDULED' },
+      data: {
+        status: 'LIVE',
+        startedAt: new Date(),
+      },
+    });
+    return result.count > 0;
+  }
+
+  /**
    * Optimistically transition a session out of `STARTING|LIVE` into
    * `ENDED`. Returns `true` only if exactly one row moved — the loser
    * of a concurrent end-vs-end race sees `false` and treats the call as

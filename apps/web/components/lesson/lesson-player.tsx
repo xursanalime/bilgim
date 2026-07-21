@@ -108,7 +108,7 @@ export function LessonPlayer({ locale, lessonId }: LessonPlayerProps) {
           {isLive ? (
             <Link
               href={`/${locale}/live/${lessonId}?groupId=${groupId}`}
-              className="inline-flex items-center gap-2 rounded-2xl bg-purple/10 px-4 py-2 text-sm font-bold text-purple transition-all hover:bg-purple/20 active:scale-[0.98]"
+              className="inline-flex items-center gap-2 rounded-2xl bg-blue/10 px-4 py-2 text-sm font-bold text-blue transition-all hover:bg-blue/20 active:scale-[0.98]"
             >
               <Radio className="h-4 w-4" />
               Jonli efirga ulanish
@@ -170,16 +170,16 @@ function PlayerSurface({
 }: PlayerSurfaceProps) {
   if (isLive) {
     return (
-      <div className="rounded-3xl border border-purple/20 bg-purple-tint p-10 text-center shadow-soft">
+      <div className="rounded-3xl border border-rim bg-blue-tint p-10 text-center shadow-soft">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-soft">
-          <Radio className="h-6 w-6 text-purple" />
+          <Radio className="h-6 w-6 text-blue" />
         </div>
         <p className="text-sm font-semibold text-ink-strong">
           Bu dars jonli efir formatida.
         </p>
         <Link
           href={`/${locale}/live/${lessonId}?groupId=${groupId}`}
-          className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-purple px-5 py-2.5 text-sm font-bold text-white shadow-[0_8px_24px_-6px_rgba(175,82,222,0.4)] transition-all hover:opacity-90 active:scale-[0.98]"
+          className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-blue px-5 py-2.5 text-sm font-bold text-white shadow-[0_8px_24px_-6px_rgba(0,113,227,0.4)] transition-all hover:bg-blue-600 active:scale-[0.98]"
         >
           <Radio className="h-4 w-4" />
           Jonli efir sahifasiga o&apos;tish

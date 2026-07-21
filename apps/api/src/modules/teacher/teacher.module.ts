@@ -8,6 +8,7 @@ import { TeacherAnalyticsController } from './teacher-analytics.controller';
 import { OnboardingService } from './onboarding.service';
 import { SpecialtyService } from './specialty.service';
 import { TeacherAnalyticsService } from './teacher-analytics.service';
+import { TeacherPublicProfileService } from './public-profile.service';
 import { TeacherProfileRepository } from './repositories/teacher-profile.repository';
 
 /**
@@ -36,6 +37,7 @@ import { TeacherProfileRepository } from './repositories/teacher-profile.reposit
     OnboardingService,
     SpecialtyService,
     TeacherAnalyticsService,
+    TeacherPublicProfileService,
     TeacherProfileRepository,
     {
       provide: PrismaClient,
@@ -46,6 +48,7 @@ import { TeacherProfileRepository } from './repositories/teacher-profile.reposit
     OnboardingService,
     SpecialtyService,
     TeacherAnalyticsService,
+    TeacherPublicProfileService,
     TeacherProfileRepository,
   ],
 })

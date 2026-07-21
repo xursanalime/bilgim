@@ -128,7 +128,7 @@ function StudentHomework({ locale }: { locale: string }) {
         <EmptyState
           title="Hozircha topshiriq yo'q"
           body="O'qituvchingiz topshiriq e'lon qilganda u shu yerda paydo bo'ladi."
-          ctaHref={`/${locale}/search`}
+          ctaHref={`/${locale}/teacher-search`}
           ctaLabel="Kurslarni qidirish"
         />
       </div>

@@ -54,4 +54,24 @@ export class TeacherProfileRepository {
       },
     });
   }
+
+  /**
+   * Patch the public-discovery fields (`publicSlug`, `headline`,
+   * `fullName`) on an existing TeacherProfile. Used by the "ochiq profil"
+   * settings toggle — `publicSlug: null` drops the teacher out of
+   * `/discovery/teachers`, a non-null value publishes them.
+   */
+  async updatePublicProfile(
+    userId: string,
+    data: {
+      publicSlug?: string | null;
+      headline?: string | null;
+      fullName?: string | null;
+    },
+  ): Promise<TeacherProfile> {
+    return this.prisma.teacherProfile.update({
+      where: { userId },
+      data,
+    });
+  }
 }

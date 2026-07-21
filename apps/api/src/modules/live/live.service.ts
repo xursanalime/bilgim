@@ -17,6 +17,8 @@ import { LiveKitRoomSnapshot, LiveKitService } from './sfu/livekit.service';
 export interface LiveSessionWithSfu {
   session: LiveSession;
   sfu: LiveKitRoomSnapshot;
+  /** The lesson's own title — used by the room UI instead of the raw lessonId. */
+  lessonTitle?: string | undefined;
 }
 
 /** Shape returned by `joinSession`: session + room + a freshly-allocated token. */
@@ -26,6 +28,9 @@ export interface JoinSessionResult extends LiveSessionWithSfu {
   /** Role of the joining user inside the room. */
   role: 'TEACHER' | 'STUDENT';
 }
+
+/** How long before `lesson.scheduledAt` a STUDENT may join the waiting room even if the teacher hasn't started the broadcast yet. */
+const EARLY_JOIN_MS = 15 * 60 * 1000;
 
 /**
  * LiveService — owns the LiveSession lifecycle using LiveKit (Req 9.1 - 9.8).
@@ -53,9 +58,39 @@ export class LiveService {
     const room = await this.liveKitService.ensureRoom(lessonId);
     const groupId = await this.loadGroupId(lessonId);
 
-    // Idempotent fast-path
+    // A student may already be waiting in a SCHEDULED session (early-join
+    // window, see `joinSession`) — promote it to LIVE instead of creating
+    // a second row, and stamp `startedAt` now (not when the student joined).
     const existing = await this.liveSessionRepository.findActiveByLessonId(lessonId);
     if (existing) {
+      if (existing.status === 'SCHEDULED') {
+        const promoted = await this.prisma.$transaction(async (tx) => {
+          const transitioned = await this.liveSessionRepository.transitionToLive(existing.id, tx);
+          if (!transitioned) {
+            return (await this.liveSessionRepository.findById(existing.id, tx)) ?? existing;
+          }
+
+          await this.outboxService.create(tx, {
+            topic: 'live.started',
+            payload: {
+              sessionId: existing.id,
+              lessonId,
+              groupId,
+              teacherId,
+              roomId: room.roomId,
+              startedAt: new Date().toISOString(),
+            },
+            idempotencyKey: `live.started:${existing.id}`,
+          });
+
+          return (await this.liveSessionRepository.findById(existing.id, tx)) as LiveSession;
+        });
+
+        this.logger.log(`LiveSession ${promoted.id} promoted SCHEDULED -> LIVE (lesson=${lessonId} teacher=${teacherId})`);
+        return { session: promoted, sfu: room };
+      }
+
+      // Already LIVE/STARTING — idempotent fast-path.
       return { session: existing, sfu: room };
     }
 
@@ -140,40 +175,92 @@ export class LiveService {
   }
 
   /**
-   * Join an active live session.
+   * Join a live session.
+   *
+   * TEACHER must wait for an explicit `startSession` call (status LIVE).
+   * STUDENT may additionally join a `SCHEDULED` "waiting room" — and, if
+   * no session exists yet at all, opens one — as long as the current
+   * time is within `EARLY_JOIN_MS` of the lesson's `scheduledAt`. This
+   * lets students arrive up to 15 minutes early and sit in the room
+   * (camera/mic preview, seeing each other) before the teacher presses
+   * "start"; the session only actually goes LIVE — and the duration
+   * timer only starts — once the teacher does.
    */
   async joinSession(
     lessonId: string,
     userId: string,
     role: 'TEACHER' | 'STUDENT',
   ): Promise<JoinSessionResult> {
-    const session = await this.liveSessionRepository.findActiveByLessonId(lessonId);
-    if (!session || session.status !== 'LIVE') {
+    let session = await this.liveSessionRepository.findActiveByLessonId(lessonId);
+    let opensAt: Date | null = null;
+
+    if (!session && role === 'STUDENT') {
+      opensAt = await this.loadEarlyJoinOpensAt(lessonId);
+      if (opensAt && Date.now() >= opensAt.getTime()) {
+        session = await this.openWaitingRoom(lessonId);
+      }
+    }
+
+    const joinable =
+      !!session &&
+      (session.status === 'LIVE' || (role === 'STUDENT' && session.status === 'SCHEDULED'));
+
+    if (!joinable) {
+      if (opensAt === null) opensAt = await this.loadEarlyJoinOpensAt(lessonId);
       throw new NotFoundException({
         code: 'LIVE_SESSION_NOT_FOUND',
         message: `No live session in progress for lesson ${lessonId}`,
+        details: { opensAt: opensAt?.toISOString() ?? null },
       });
     }
 
+    const activeSession = session as LiveSession;
     const room = await this.liveKitService.ensureRoom(lessonId);
-    
+
     // Fetch user details for the token
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
     const participantName = user?.email?.split('@')[0] || 'Unknown';
 
     const token = await this.liveKitService.createToken(lessonId, participantName, userId, role);
 
-    this.logger.log(`LiveSession ${session.id} joined by user=${userId} role=${role}`);
+    this.logger.log(`LiveSession ${activeSession.id} joined by user=${userId} role=${role} sessionStatus=${activeSession.status}`);
 
-    return { session, sfu: room, token, role };
+    return { session: activeSession, sfu: room, token, role };
+  }
+
+  private async loadEarlyJoinOpensAt(lessonId: string): Promise<Date | null> {
+    const lesson = await this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { scheduledAt: true },
+    });
+    return lesson?.scheduledAt ? new Date(lesson.scheduledAt.getTime() - EARLY_JOIN_MS) : null;
   }
 
   /**
-   * Heartbeat to check if session is still alive.
+   * Open a `SCHEDULED` waiting-room session for a lesson so a STUDENT can
+   * join early. If a concurrent request already created one (roomId's
+   * partial unique index), fall back to reading the winner's row.
+   */
+  private async openWaitingRoom(lessonId: string): Promise<LiveSession | null> {
+    const room = await this.liveKitService.ensureRoom(lessonId);
+    try {
+      return await this.liveSessionRepository.createPending({ lessonId, roomId: room.roomId });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return await this.liveSessionRepository.findActiveByLessonId(lessonId);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Heartbeat to check if session is still alive. Also succeeds for a
+   * `SCHEDULED` waiting-room session, so a student sitting in early
+   * keeps polling successfully until the teacher flips it to LIVE.
    */
   async heartbeat(lessonId: string): Promise<LiveSessionWithSfu> {
     const session = await this.liveSessionRepository.findActiveByLessonId(lessonId);
-    if (!session || session.status !== 'LIVE') {
+    if (!session || (session.status !== 'LIVE' && session.status !== 'SCHEDULED')) {
       throw new NotFoundException({
         code: 'LIVE_SESSION_NOT_FOUND',
         message: `No live session in progress for lesson ${lessonId}`,
@@ -185,8 +272,9 @@ export class LiveService {
       room = await this.liveKitService.ensureRoom(lessonId);
       this.logger.log(`Recovered LiveKit room for lesson ${lessonId}`);
     }
-    
-    return { session, sfu: room };
+
+    const lessonTitle = await this.loadLessonTitle(lessonId);
+    return { session, sfu: room, lessonTitle };
   }
 
   /**
@@ -220,6 +308,11 @@ export class LiveService {
     const lesson = await this.prisma.lesson.findUnique({ where: { id: lessonId }, select: { groupId: true } });
     if (!lesson) throw new NotFoundException({ code: 'LESSON_NOT_FOUND', message: `Lesson ${lessonId} not found` });
     return lesson.groupId;
+  }
+
+  private async loadLessonTitle(lessonId: string): Promise<string | undefined> {
+    const lesson = await this.prisma.lesson.findUnique({ where: { id: lessonId }, select: { title: true } });
+    return lesson?.title;
   }
 
   private isTerminal(status: LiveSession['status']): boolean {

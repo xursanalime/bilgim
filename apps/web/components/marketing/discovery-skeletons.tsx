@@ -38,7 +38,7 @@ export function DiscoveryGridSkeleton({
 
 export function CourseCardSkeleton() {
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-ink-surface p-6">
+    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-rim bg-canvas p-6 shadow-soft">
       <div className="flex gap-2">
         <ShimmerPill width="3rem" />
         <ShimmerPill width="4.5rem" />
@@ -47,7 +47,7 @@ export function CourseCardSkeleton() {
       <ShimmerLine className="mt-2 h-4 w-full" />
       <ShimmerLine className="mt-1.5 h-4 w-5/6" />
       <ShimmerLine className="mt-1.5 h-4 w-2/3" />
-      <div className="mt-auto flex items-center gap-3 border-t border-white/[0.06] pt-4">
+      <div className="mt-auto flex items-center gap-3 border-t border-rim pt-4">
         <Shimmer className="h-9 w-9 flex-shrink-0 rounded-xl" />
         <div className="min-w-0 flex-1">
           <ShimmerLine className="h-4 w-1/2" />
@@ -60,7 +60,7 @@ export function CourseCardSkeleton() {
 
 export function TeacherCardSkeleton() {
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-ink-surface p-6">
+    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-rim bg-canvas p-6 shadow-soft">
       <div className="flex items-start gap-4">
         <Shimmer className="h-14 w-14 flex-shrink-0 rounded-2xl" />
         <div className="min-w-0 flex-1">
@@ -72,7 +72,7 @@ export function TeacherCardSkeleton() {
       <div className="mt-5 flex gap-2">
         <ShimmerPill width="6rem" />
       </div>
-      <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/[0.06] pt-4">
+      <div className="mt-5 grid grid-cols-3 gap-3 border-t border-rim pt-4">
         <ShimmerStat />
         <ShimmerStat />
         <ShimmerStat />
@@ -84,11 +84,7 @@ export function TeacherCardSkeleton() {
 
 export function CourseDetailSkeleton() {
   return (
-    <section
-      role="status"
-      aria-label="Yuklanmoqda"
-      className="relative bg-ink"
-    >
+    <section role="status" aria-label="Yuklanmoqda" className="relative overflow-hidden">
       <div className="relative mx-auto max-w-5xl px-4 pb-12 pt-16 sm:px-6 lg:px-8 lg:pt-20">
         <ShimmerLine className="h-3 w-24" />
         <div className="mt-8 flex gap-2">
@@ -113,11 +109,7 @@ export function CourseDetailSkeleton() {
 
 export function TeacherProfileSkeleton() {
   return (
-    <section
-      role="status"
-      aria-label="Yuklanmoqda"
-      className="relative bg-ink"
-    >
+    <section role="status" aria-label="Yuklanmoqda" className="relative overflow-hidden">
       <div className="relative mx-auto max-w-5xl px-4 pb-12 pt-16 sm:px-6 lg:px-8 lg:pt-20">
         <ShimmerLine className="h-3 w-24" />
         <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-start">
@@ -134,7 +126,7 @@ export function TeacherProfileSkeleton() {
         </div>
       </div>
       <div className="relative mx-auto max-w-5xl px-4 pb-24 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-white/[0.07] bg-ink-surface/60 p-6 sm:p-8">
+        <div className="rounded-3xl border border-rim bg-canvas p-6 shadow-soft sm:p-8">
           <ShimmerLine className="h-6 w-32" />
           <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <li>
@@ -155,14 +147,7 @@ export function TeacherProfileSkeleton() {
 // ──────────────────────────────────────────────────────────────────────
 
 function Shimmer({ className = '' }: { className?: string }) {
-  return (
-    <div
-      className={
-        'animate-pulse bg-gradient-to-r from-white/[0.04] via-white/[0.08] to-white/[0.04] ' +
-        className
-      }
-    />
-  );
+  return <div className={`animate-pulse bg-soft ${className}`} />;
 }
 
 function ShimmerLine({ className = '' }: { className?: string }) {
@@ -174,7 +159,7 @@ function ShimmerPill({ width }: { width: string }) {
     <span
       role="presentation"
       style={{ width }}
-      className="inline-block h-5 animate-pulse rounded-full bg-gradient-to-r from-white/[0.04] via-white/[0.08] to-white/[0.04]"
+      className="inline-block h-5 animate-pulse rounded-full bg-soft"
     />
   );
 }

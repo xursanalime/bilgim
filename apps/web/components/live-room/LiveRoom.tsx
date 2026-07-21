@@ -16,7 +16,7 @@ import {
 } from '@livekit/components-react';
 import '@livekit/components-styles';
 import { Track, ConnectionState, DataPacket_Kind } from 'livekit-client';
-import { Loader2, Video, Mic, MicOff, VideoOff, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
+import { Loader2, Video, Mic, MicOff, VideoOff, AlertTriangle, Wifi, WifiOff, Clock } from 'lucide-react';
 
 import { Whiteboard } from '../live/tabs/whiteboard-tab';
 import { LiveTopBar } from '../live/live-top-bar';
@@ -24,6 +24,7 @@ import { LiveControlBar } from '../live/live-control-bar';
 import { LiveSidebar } from '../live/live-sidebar';
 import { liveApi, LiveSessionWithSfu } from '../../lib/api/live';
 import { LiveStage, LiveWordmark, LiveBackButton, LiveCard } from '../live/live-visual-kit';
+import { ConfirmDialog } from '../ui/confirm-dialog';
 
 // DataChannel topic for hand-raise events
 export const HAND_RAISE_TOPIC = 'hand-raise';
@@ -231,6 +232,7 @@ function InnerRoom({ lessonId, role, onLeave }: InnerRoomProps) {
   const [showWhiteboard, setShowWhiteboard] = React.useState(false);
   const [quality, setQuality] = React.useState<'360p' | '720p' | '1080p'>('720p');
   const [sessionData, setSessionData] = React.useState<LiveSessionWithSfu | null>(null);
+  const [showEndConfirm, setShowEndConfirm] = React.useState(false);
   const [raisedHands, setRaisedHands] = React.useState<Set<string>>(new Set());
   // Student uchun: teacher mic ruxsat bergan identitylar
   const [micGranted, setMicGranted] = React.useState<Set<string>>(new Set());
@@ -296,6 +298,15 @@ function InnerRoom({ lessonId, role, onLeave }: InnerRoomProps) {
     return () => { room.off('dataReceived', handler); };
   }, [room, identity, localParticipant]);
 
+  const confirmEndBroadcast = async () => {
+    setShowEndConfirm(false);
+    try {
+      await liveApi.end(lessonId);
+    } finally {
+      onLeave();
+    }
+  };
+
   const toggleMic = () => {
     if (!isMicAllowed) return; // ruxsat yo'q
     localParticipant?.setMicrophoneEnabled(!isMicrophoneEnabled);
@@ -331,9 +342,8 @@ function InnerRoom({ lessonId, role, onLeave }: InnerRoomProps) {
     room?.localParticipant.publishData(new TextEncoder().encode(msg), { reliable: true });
   };
 
-  const lessonTitle = sessionData?.session
-    ? `Dars — ${sessionData.session.lessonId.slice(0, 8)}`
-    : 'Jonli dars';
+  const lessonTitle = sessionData?.lessonTitle || 'Jonli dars';
+  const isWaiting = sessionData?.session?.status === 'SCHEDULED';
 
   return (
     <div className="h-screen w-full bg-[rgb(var(--bg-base))] text-ink-strong overflow-hidden font-sans relative">
@@ -341,10 +351,11 @@ function InnerRoom({ lessonId, role, onLeave }: InnerRoomProps) {
 
       <LiveTopBar
         title={lessonTitle}
-        teacherName={sessionData?.session?.status === 'LIVE' ? 'Jonli dars' : 'Yuklanmoqda...'}
+        teacherName={isWaiting ? 'Kutilmoqda...' : sessionData?.session?.status === 'LIVE' ? 'Jonli dars' : 'Yuklanmoqda...'}
         viewerCount={participants.length}
         isRecording={false}
         startedAt={sessionData?.session?.startedAt ?? null}
+        isWaiting={isWaiting}
         raisedHandCount={raisedHands.size}
       />
 
@@ -362,9 +373,26 @@ function InnerRoom({ lessonId, role, onLeave }: InnerRoomProps) {
                 <VideoLayout />
               )}
               {!showWhiteboard && (
-                <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 z-10">
-                  <span className="h-1.5 w-1.5 rounded-full bg-green animate-pulse" />
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-white/70">Jonli efir</span>
+                <div className={`absolute bottom-3 left-3 flex items-center gap-1.5 backdrop-blur-md px-2.5 py-1 rounded-full border z-10 ${isWaiting ? 'bg-orange/20 border-orange/30' : 'bg-black/60 border-white/10'}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${isWaiting ? 'bg-orange' : 'bg-green animate-pulse'}`} />
+                  <span className={`text-[9px] font-bold uppercase tracking-widest ${isWaiting ? 'text-orange' : 'text-white/70'}`}>
+                    {isWaiting ? 'Kutish xonasi' : 'Jonli efir'}
+                  </span>
+                </div>
+              )}
+              {!showWhiteboard && isWaiting && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 backdrop-blur-[2px]">
+                  <div className="flex flex-col items-center gap-4 rounded-3xl border border-white/10 bg-black/60 px-10 py-8 text-center backdrop-blur-md">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange/20">
+                      <Clock className="h-7 w-7 text-orange" />
+                    </div>
+                    <div>
+                      <p className="text-base font-bold text-white">O&apos;qituvchi hali kirmadi</p>
+                      <p className="mt-1.5 max-w-xs text-sm text-white/60">
+                        Kamerangiz va mikrofoningizni tekshirib turing — o&apos;qituvchi efirni boshlashi bilan avtomatik ravishda jonli efir boshlanadi.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -402,7 +430,19 @@ function InnerRoom({ lessonId, role, onLeave }: InnerRoomProps) {
         onToggleWhiteboard={() => setShowWhiteboard(v => !v)}
         isWhiteboardOn={showWhiteboard}
         onLeave={onLeave}
+        onEndBroadcast={isTeacher ? () => setShowEndConfirm(true) : undefined}
         onSetQuality={setQuality}
+      />
+
+      <ConfirmDialog
+        open={showEndConfirm}
+        title="Efirni yakunlash"
+        message="Efirni barcha ishtirokchilar uchun yakunlaysizmi? Bu amalni bekor qilib bo'lmaydi."
+        confirmLabel="Ha, yakunlash"
+        cancelLabel="Bekor qilish"
+        tone="danger"
+        onConfirm={confirmEndBroadcast}
+        onCancel={() => setShowEndConfirm(false)}
       />
 
       <RoomAudioRenderer />

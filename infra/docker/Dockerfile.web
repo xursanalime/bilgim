@@ -68,7 +68,7 @@ RUN apk add --no-cache libc6-compat \
 WORKDIR /app
 
 # OCI image labels
-LABEL org.opencontainers.image.source="https://github.com/xursanalime/bilgimAI"
+LABEL org.opencontainers.image.source="https://github.com/xursanalime/bilgim"
 LABEL org.opencontainers.image.description="EduBridge Web - Next.js 14 production build"
 LABEL org.opencontainers.image.licenses="UNLICENSED"
 

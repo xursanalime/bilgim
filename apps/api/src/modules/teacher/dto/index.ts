@@ -1,5 +1,9 @@
 export { SubmitAnswersSchema, type SubmitAnswersDto } from './submit-answers.dto';
 export {
+  UpdatePublicProfileSchema,
+  type UpdatePublicProfileDto,
+} from './public-profile.dto';
+export {
   TeacherAnalyticsOverviewQuerySchema,
   type TeacherAnalyticsOverviewQueryDto,
   TeacherAnalyticsTrendQuerySchema,

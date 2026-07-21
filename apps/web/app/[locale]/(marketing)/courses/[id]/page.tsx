@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { unstable_setRequestLocale } from 'next-intl/server';
+import { ArrowLeft, ArrowRight, Star, Users } from 'lucide-react';
 
 import {
   serverDiscovery,
@@ -102,63 +103,45 @@ export default async function CourseDetailPage({
     : null;
 
   return (
-    <section className="relative overflow-hidden bg-ink">
+    <section className="relative overflow-hidden">
+      <div className="pointer-events-none absolute -right-32 -top-32 h-[400px] w-[400px] rounded-full bg-blue/5 blur-[100px]" />
+
       {/* Hero */}
       <div className="relative">
-        <div className="pointer-events-none absolute inset-0 bg-grid opacity-30" />
-        <div className="pointer-events-none absolute -right-32 top-0 h-[400px] w-[400px] rounded-full bg-accent2-500/10 blur-3xl" />
-
         <div className="relative mx-auto max-w-5xl px-4 pb-12 pt-16 sm:px-6 lg:px-8 lg:pt-20">
           <Link
             href={`/${locale}/courses`}
-            className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-cream-dim transition-colors hover:text-cream"
+            className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-ink-faint transition-colors hover:text-blue"
           >
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m12 19-7-7 7-7" />
-              <path d="M19 12H5" />
-            </svg>
+            <ArrowLeft className="h-3.5 w-3.5" />
             Kurslar
           </Link>
 
           <header className="mt-8">
             <div className="flex flex-wrap items-center gap-2 text-xs">
               {course.level && (
-                <span className="inline-flex items-center rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim">
+                <span className="inline-flex items-center rounded-full border border-rim bg-tint px-3 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-soft">
                   {course.level}
                 </span>
               )}
               {course.fromPriceUzs !== null && (
-                <span className="inline-flex items-center rounded-full border border-accent2-500/30 bg-accent2-500/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-accent2-500">
+                <span className="inline-flex items-center rounded-full border border-blue/15 bg-blue-tint px-3 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-blue">
                   {formatUzs(course.fromPriceUzs)} so&apos;m dan
                 </span>
               )}
               {course.teacher.specialty && (
-                <span className="inline-flex items-center rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim">
+                <span className="inline-flex items-center rounded-full border border-rim bg-tint px-3 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-soft">
                   {course.teacher.specialty.nameUz}
                 </span>
               )}
             </div>
-            <h1
-              className="mt-5 text-balance font-extrabold tracking-tight text-cream"
-              style={{
-                fontSize: 'clamp(2rem, 4.5vw, 3.25rem)',
-                letterSpacing: '-0.04em',
-              }}
-            >
+            <h1 className="mt-5 font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl lg:text-5xl">
               {course.title}
             </h1>
           </header>
 
           {course.coverUrl && (
-            <div className="mt-8 overflow-hidden rounded-3xl border border-white/[0.07] bg-ink-surface">
+            <div className="mt-8 overflow-hidden rounded-3xl border border-rim bg-canvas shadow-soft">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={course.coverUrl}
@@ -174,32 +157,26 @@ export default async function CourseDetailPage({
       <div className="relative mx-auto max-w-5xl px-4 pb-24 sm:px-6 lg:px-8">
         <div className="grid gap-8 lg:grid-cols-3">
           <div className="space-y-8 lg:col-span-2">
-            <article className="rounded-3xl border border-white/[0.07] bg-ink-surface/60 p-6 backdrop-blur-sm sm:p-8">
-              <h2
-                className="text-xl font-extrabold tracking-tight text-cream"
-                style={{ letterSpacing: '-0.03em' }}
-              >
+            <article className="rounded-3xl border border-rim bg-canvas p-6 shadow-soft sm:p-8">
+              <h2 className="text-xl font-extrabold tracking-tight text-ink-strong">
                 Kurs haqida
               </h2>
               {course.description ? (
-                <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-cream-dim">
+                <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-ink-soft">
                   {course.description}
                 </p>
               ) : (
-                <p className="mt-4 text-base leading-relaxed text-cream-dim/80">
+                <p className="mt-4 text-base leading-relaxed text-ink-faint">
                   Kursning batafsil tavsifi tez orada qo&apos;shiladi.
                 </p>
               )}
             </article>
 
-            <article className="rounded-3xl border border-white/[0.07] bg-ink-surface/60 p-6 backdrop-blur-sm sm:p-8">
-              <h2
-                className="text-xl font-extrabold tracking-tight text-cream"
-                style={{ letterSpacing: '-0.03em' }}
-              >
+            <article className="rounded-3xl border border-rim bg-canvas p-6 shadow-soft sm:p-8">
+              <h2 className="text-xl font-extrabold tracking-tight text-ink-strong">
                 Guruhlar
               </h2>
-              <p className="mt-4 text-sm text-cream-dim">
+              <p className="mt-4 text-sm text-ink-soft">
                 Quyidagi guruhlardan birini tanlang va qo&apos;shilish
                 so&apos;rovini yuboring. Ustoz so&apos;rovingizni
                 tasdiqlagach, darslar va jadval ochiladi.
@@ -209,12 +186,12 @@ export default async function CourseDetailPage({
 
           <aside className="space-y-6">
             {/* Teacher card */}
-            <div className="rounded-3xl border border-white/[0.07] bg-ink-surface/60 p-6 backdrop-blur-sm">
-              <h2 className="font-mono text-[11px] uppercase tracking-[0.12em] text-cream-dim">
+            <div className="rounded-3xl border border-rim bg-canvas p-6 shadow-soft">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-faint">
                 Ustoz
               </h2>
               <div className="mt-4 flex items-start gap-3">
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-accent2-500/10 ring-1 ring-inset ring-accent2-500/30">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-blue-tint text-blue">
                   {course.teacher.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -223,46 +200,39 @@ export default async function CourseDetailPage({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span className="text-base font-extrabold tracking-tight text-accent2-500">
+                    <span className="text-base font-extrabold tracking-tight">
                       {getInitials(teacherName)}
                     </span>
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p
-                    className="truncate text-base font-extrabold tracking-tight text-cream"
-                    style={{ letterSpacing: '-0.02em' }}
-                  >
+                  <p className="truncate text-base font-extrabold tracking-tight text-ink-strong">
                     {teacherName}
                   </p>
                   {course.teacher.headline && (
-                    <p className="mt-1 line-clamp-2 text-xs text-cream-dim">
+                    <p className="mt-1 line-clamp-2 text-xs text-ink-soft">
                       {course.teacher.headline}
                     </p>
                   )}
                 </div>
               </div>
 
-              <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-white/[0.06] pt-4 text-center">
+              <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-rim pt-4 text-center">
                 <div>
-                  <div
-                    className="text-base font-extrabold tracking-tight text-cream"
-                    style={{ letterSpacing: '-0.02em' }}
-                  >
+                  <div className="flex items-center justify-center gap-1 text-base font-extrabold tracking-tight text-ink-strong">
+                    <Star className="h-3.5 w-3.5 text-ink-faint" />
                     {formatRating(course.teacher.rating)}
                   </div>
-                  <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim/80">
+                  <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.1em] text-ink-faint">
                     Reyting
                   </div>
                 </div>
                 <div>
-                  <div
-                    className="text-base font-extrabold tracking-tight text-cream"
-                    style={{ letterSpacing: '-0.02em' }}
-                  >
+                  <div className="flex items-center justify-center gap-1 text-base font-extrabold tracking-tight text-ink-strong">
+                    <Users className="h-3.5 w-3.5 text-ink-faint" />
                     {course.teacher.studentsCount}
                   </div>
-                  <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim/80">
+                  <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.1em] text-ink-faint">
                     Talabalar
                   </div>
                 </div>
@@ -271,21 +241,10 @@ export default async function CourseDetailPage({
               {teacherHref && (
                 <Link
                   href={teacherHref}
-                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.1] bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-cream transition-colors hover:border-accent2-500/40 hover:bg-accent2-500/10 hover:text-accent2-500"
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-tint px-4 py-2.5 text-sm font-bold text-blue transition-colors hover:bg-blue hover:text-white"
                 >
                   Ustoz profili
-                  <svg
-                    className="h-4 w-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M5 12h14" />
-                    <path d="m12 5 7 7-7 7" />
-                  </svg>
+                  <ArrowRight className="h-4 w-4" />
                 </Link>
               )}
             </div>

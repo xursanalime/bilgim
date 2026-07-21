@@ -9,9 +9,10 @@ import type {
  * Shared marketing cards for the public discovery surface (Task 25.5).
  *
  * Each card is a Server Component — they take typed payloads from the
- * API and render Tailwind dark-themed cards. Kept in one module so the
- * `/search`, `/teachers`, `/courses`, and `/teachers/[slug]` routes
- * stay visually consistent without duplicating mark-up.
+ * API and render the platform's light Apple-style tokens (canvas/rim/ink,
+ * blue accent) so `/search`, `/teachers`, `/courses`, and `/teachers/[slug]`
+ * stay visually consistent with the rest of the product, not with an
+ * invented dark marketing theme.
  */
 
 export function TeacherCard({
@@ -28,9 +29,9 @@ export function TeacherCard({
   const initials = getInitials(fullName);
 
   const card = (
-    <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-ink-surface p-6 transition-all duration-300 hover:-translate-y-0.5 hover:border-accent2-500/30 hover:shadow-[0_0_0_1px_rgba(0,232,122,0.18),0_18px_36px_-18px_rgba(0,232,122,0.4)]">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-rim bg-canvas p-6 shadow-soft transition-all duration-300 hover:-translate-y-0.5 hover:border-blue/20 hover:shadow-medium">
       <div className="flex items-start gap-4">
-        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-accent2-500/10 ring-1 ring-inset ring-accent2-500/30">
+        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-blue-tint text-blue">
           {teacher.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -39,20 +40,17 @@ export function TeacherCard({
               className="h-full w-full object-cover"
             />
           ) : (
-            <span className="text-base font-extrabold tracking-tight text-accent2-500">
+            <span className="text-base font-extrabold tracking-tight">
               {initials}
             </span>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h3
-            className="truncate text-base font-extrabold tracking-tight text-cream"
-            style={{ letterSpacing: '-0.02em' }}
-          >
+          <h3 className="truncate text-base font-extrabold tracking-tight text-ink-strong">
             {fullName}
           </h3>
           {teacher.headline && (
-            <p className="mt-1 line-clamp-2 text-sm text-cream-dim">
+            <p className="mt-1 line-clamp-2 text-sm text-ink-soft">
               {teacher.headline}
             </p>
           )}
@@ -61,14 +59,13 @@ export function TeacherCard({
 
       <div className="mt-5 flex flex-wrap items-center gap-2 text-xs">
         {specialtyLabel && (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent2-500" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue/15 bg-blue-tint px-3 py-1 font-bold uppercase tracking-[0.08em] text-blue">
             {specialtyLabel}
           </span>
         )}
       </div>
 
-      <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-white/[0.06] pt-4 text-center">
+      <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-rim pt-4 text-center">
         <Stat label="Reyting" value={formatRating(teacher.rating)} />
         <Stat label="Talabalar" value={String(teacher.studentsCount)} />
         <Stat label="Kurslar" value={String(teacher.courseCount)} />
@@ -76,7 +73,7 @@ export function TeacherCard({
 
       <div className="mt-6">
         {profileHref ? (
-          <span className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.1] bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-cream transition-colors group-hover:border-accent2-500/40 group-hover:bg-accent2-500/10 group-hover:text-accent2-500">
+          <span className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-tint px-4 py-2.5 text-sm font-bold text-blue transition-colors group-hover:bg-blue group-hover:text-white">
             Profilga kirish
             <svg
               className="h-4 w-4 transition-transform group-hover:translate-x-1"
@@ -92,7 +89,7 @@ export function TeacherCard({
             </svg>
           </span>
         ) : (
-          <span className="inline-flex w-full items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-sm font-semibold text-cream-dim/70">
+          <span className="inline-flex w-full items-center justify-center rounded-2xl border border-rim bg-tint px-4 py-2.5 text-sm font-semibold text-ink-faint">
             Profil tez orada
           </span>
         )}
@@ -119,47 +116,44 @@ export function CourseCard({
   return (
     <Link
       href={`/${locale}/courses/${course.id}`}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-ink-surface p-6 transition-all duration-300 hover:-translate-y-0.5 hover:border-accent2-500/30 hover:shadow-[0_0_0_1px_rgba(0,232,122,0.18),0_18px_36px_-18px_rgba(0,232,122,0.4)]"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-rim bg-canvas p-6 shadow-soft transition-all duration-300 hover:-translate-y-0.5 hover:border-blue/20 hover:shadow-medium"
     >
       <div className="flex items-start gap-2 text-xs">
         {course.level && (
-          <span className="inline-flex items-center rounded-full border border-white/[0.1] bg-white/[0.04] px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim">
+          <span className="inline-flex items-center rounded-full border border-rim bg-tint px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-soft">
             {course.level}
           </span>
         )}
         {course.fromPriceUzs !== null && (
-          <span className="inline-flex items-center rounded-full border border-accent2-500/20 bg-accent2-500/10 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-accent2-500">
+          <span className="inline-flex items-center rounded-full border border-blue/15 bg-blue-tint px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-blue">
             {formatUzs(course.fromPriceUzs)} so&apos;m
           </span>
         )}
         {course.teacher.specialty && (
-          <span className="inline-flex items-center rounded-full border border-white/[0.1] bg-white/[0.04] px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim">
+          <span className="inline-flex items-center rounded-full border border-rim bg-tint px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-soft">
             {course.teacher.specialty.nameUz}
           </span>
         )}
       </div>
 
-      <h3
-        className="mt-4 text-lg font-extrabold tracking-tight text-cream"
-        style={{ letterSpacing: '-0.02em' }}
-      >
+      <h3 className="mt-4 text-lg font-extrabold tracking-tight text-ink-strong">
         {course.title}
       </h3>
       {course.description && (
-        <p className="mt-2 line-clamp-3 text-sm text-cream-dim">
+        <p className="mt-2 line-clamp-3 text-sm text-ink-soft">
           {course.description}
         </p>
       )}
 
-      <div className="mt-auto flex items-center gap-3 border-t border-white/[0.06] pt-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent2-500/10 text-sm font-extrabold text-accent2-500 ring-1 ring-inset ring-accent2-500/30">
+      <div className="mt-auto flex items-center gap-3 border-t border-rim pt-4">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-tint text-sm font-extrabold text-blue">
           {getInitials(teacherName)}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-cream">
+          <p className="truncate text-sm font-bold text-ink-strong">
             {teacherName}
           </p>
-          <p className="truncate text-xs text-cream-dim">
+          <p className="truncate text-xs text-ink-faint">
             {course.teacher.headline ?? 'Reyting ' + formatRating(course.teacher.rating)}
           </p>
         </div>
@@ -171,13 +165,10 @@ export function CourseCard({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div
-        className="text-base font-extrabold tracking-tight text-cream"
-        style={{ letterSpacing: '-0.02em' }}
-      >
+      <div className="text-base font-extrabold tracking-tight text-ink-strong">
         {value}
       </div>
-      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim/80">
+      <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.1em] text-ink-faint">
         {label}
       </div>
     </div>
@@ -194,8 +185,8 @@ export function EmptyState({
   message?: string;
 }) {
   return (
-    <div className="rounded-3xl border border-white/[0.07] bg-ink-surface p-10 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent2-500/10 text-accent2-500 ring-1 ring-inset ring-accent2-500/30">
+    <div className="rounded-3xl border border-rim bg-canvas p-10 text-center shadow-soft">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-tint text-blue">
         <svg
           className="h-6 w-6"
           viewBox="0 0 24 24"
@@ -209,13 +200,10 @@ export function EmptyState({
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
       </div>
-      <h3
-        className="mt-4 text-lg font-extrabold tracking-tight text-cream"
-        style={{ letterSpacing: '-0.02em' }}
-      >
+      <h3 className="mt-4 text-lg font-extrabold tracking-tight text-ink-strong">
         Hech narsa topilmadi
       </h3>
-      <p className="mt-2 text-sm text-cream-dim">
+      <p className="mt-2 text-sm text-ink-soft">
         {message ??
           (hasFilters
             ? "Filtrlarni o'zgartirib qayta urinib ko'ring."
@@ -224,7 +212,7 @@ export function EmptyState({
       {hasFilters && (
         <Link
           href={resetHref}
-          className="mt-6 inline-flex items-center gap-2 rounded-2xl border border-white/[0.1] bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:border-accent2-500/40 hover:bg-accent2-500/10 hover:text-accent2-500"
+          className="mt-6 inline-flex items-center gap-2 rounded-2xl border border-rim bg-tint px-5 py-2.5 text-sm font-bold text-ink-soft transition-colors hover:border-blue/20 hover:text-blue"
         >
           Filtrlarni tozalash
         </Link>
@@ -243,10 +231,10 @@ export function ErrorBanner({
   return (
     <div
       role="alert"
-      className="flex flex-col gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-sm text-red-300 sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col gap-3 rounded-2xl border border-red/15 bg-red-tint p-5 text-sm sm:flex-row sm:items-center sm:justify-between"
     >
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-red-500/20 text-red-200 ring-1 ring-inset ring-red-500/40">
+        <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-red/10 text-red">
           <svg
             className="h-4 w-4"
             viewBox="0 0 24 24"
@@ -261,11 +249,11 @@ export function ErrorBanner({
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
         </span>
-        <p>{message}</p>
+        <p className="font-semibold text-red">{message}</p>
       </div>
       <Link
         href={retryHref}
-        className="inline-flex shrink-0 items-center justify-center rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-200 transition-colors hover:border-red-300 hover:bg-red-500/20 hover:text-red-100"
+        className="inline-flex shrink-0 items-center justify-center rounded-xl border border-red/20 bg-canvas px-4 py-2 text-xs font-bold text-red transition-colors hover:bg-red/5"
       >
         Qayta urinib ko&apos;rish
       </Link>

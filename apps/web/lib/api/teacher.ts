@@ -30,9 +30,27 @@ export interface SubmitAnswersResult {
   usedAiFallback: boolean;
 }
 
+export interface PublicProfileStatus {
+  isPublic: boolean;
+  publicSlug: string | null;
+  headline: string | null;
+  fullName: string | null;
+  discoverableCourseCount: number;
+  profileUrlPath: string | null;
+}
+
+export interface UpdatePublicProfileDto {
+  isPublic: boolean;
+  headline?: string;
+}
+
 export const teacherApi = {
   getOnboardingQuestions: () =>
     apiClient.get<OnboardingQuestion[]>('/teacher/onboarding/questions'),
   submitOnboardingAnswers: (dto: SubmitAnswersDto) =>
     apiClient.post<SubmitAnswersResult>('/teacher/onboarding/answers', dto),
+  getPublicProfile: () =>
+    apiClient.get<PublicProfileStatus>('/teacher/profile/public'),
+  updatePublicProfile: (dto: UpdatePublicProfileDto) =>
+    apiClient.patch<PublicProfileStatus>('/teacher/profile/public', dto),
 };

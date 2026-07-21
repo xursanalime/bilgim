@@ -128,7 +128,7 @@ export function SearchControls({
         <div
           role="tablist"
           aria-label="Discovery tab"
-          className="inline-flex rounded-2xl border border-white/[0.07] bg-ink-surface p-1 text-sm"
+          className="inline-flex rounded-2xl border border-rim bg-tint p-1 text-sm"
         >
           <TabButton
             active={tab === 'teachers'}
@@ -146,7 +146,7 @@ export function SearchControls({
 
         <label className="relative block">
           <span className="sr-only">Qidirish</span>
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-cream-dim">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-faint">
             <svg
               className="h-5 w-5"
               viewBox="0 0 24 24"
@@ -170,10 +170,10 @@ export function SearchControls({
                 : 'Kurs nomi yoki tavsifi (kamida 2 belgi)'
             }
             aria-label="Qidirish"
-            className="w-full rounded-2xl border border-white/[0.07] bg-white/[0.04] py-3 pl-12 pr-4 text-sm text-cream placeholder-cream-dim/60 outline-none transition-colors focus:border-accent2-500/60 focus:bg-white/[0.06] focus:ring-2 focus:ring-accent2-500/20"
+            className="w-full rounded-2xl border border-rim bg-tint py-3 pl-12 pr-4 text-sm text-ink-strong placeholder-ink-faint outline-none transition-all focus:border-blue/30 focus:bg-white focus:ring-4 focus:ring-blue/5"
           />
           {pending && (
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-cream-dim/70">
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-ink-faint">
               Yangilanmoqda...
             </span>
           )}
@@ -183,8 +183,8 @@ export function SearchControls({
       {/* Filter sidebar — only courses have filters (level / price).
           EduBridge is English-only, so there is no subject filter. */}
       {tab === 'courses' && (
-        <aside className="w-full shrink-0 rounded-2xl border border-white/[0.07] bg-ink-surface/80 p-5 backdrop-blur-sm lg:w-80">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.16em] text-cream-dim">
+        <aside className="w-full shrink-0 rounded-2xl border border-rim bg-canvas p-5 shadow-soft lg:w-80">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-faint">
             Filtrlar
           </h2>
           <div className="mt-4 space-y-4">
@@ -195,7 +195,7 @@ export function SearchControls({
                 onChange={(e) => setLevel(e.target.value)}
                 onBlur={() => pushUrl()}
                 placeholder="A1 / B2 / C1..."
-                className="w-full rounded-xl border border-white/[0.07] bg-white/[0.04] px-3 py-2 text-xs text-cream placeholder-cream-dim/60 outline-none focus:border-accent2-500/60 focus:ring-2 focus:ring-accent2-500/20"
+                className="w-full rounded-xl border border-rim bg-tint px-3 py-2 text-xs text-ink-strong placeholder-ink-faint outline-none focus:border-blue/30 focus:ring-4 focus:ring-blue/5"
               />
             </FilterField>
             <div className="grid grid-cols-2 gap-3">
@@ -208,7 +208,7 @@ export function SearchControls({
                   onChange={(e) => setPriceMin(e.target.value)}
                   onBlur={() => pushUrl()}
                   placeholder="0"
-                  className="w-full rounded-xl border border-white/[0.07] bg-white/[0.04] px-3 py-2 text-xs text-cream placeholder-cream-dim/60 outline-none focus:border-accent2-500/60 focus:ring-2 focus:ring-accent2-500/20"
+                  className="w-full rounded-xl border border-rim bg-tint px-3 py-2 text-xs text-ink-strong placeholder-ink-faint outline-none focus:border-blue/30 focus:ring-4 focus:ring-blue/5"
                 />
               </FilterField>
               <FilterField label="Max narx (UZS)">
@@ -220,7 +220,7 @@ export function SearchControls({
                   onChange={(e) => setPriceMax(e.target.value)}
                   onBlur={() => pushUrl()}
                   placeholder="999000"
-                  className="w-full rounded-xl border border-white/[0.07] bg-white/[0.04] px-3 py-2 text-xs text-cream placeholder-cream-dim/60 outline-none focus:border-accent2-500/60 focus:ring-2 focus:ring-accent2-500/20"
+                  className="w-full rounded-xl border border-rim bg-tint px-3 py-2 text-xs text-ink-strong placeholder-ink-faint outline-none focus:border-blue/30 focus:ring-4 focus:ring-blue/5"
                 />
               </FilterField>
             </div>
@@ -230,7 +230,7 @@ export function SearchControls({
                 type="button"
                 onClick={() => pushUrl()}
                 disabled={pending}
-                className="inline-flex flex-1 items-center justify-center rounded-xl bg-accent2-500 px-4 py-2 text-xs font-bold text-ink shadow-[0_8px_24px_-8px_rgba(0,232,122,0.6)] transition-colors hover:bg-accent2-400 disabled:opacity-60"
+                className="inline-flex flex-1 items-center justify-center rounded-xl bg-blue px-4 py-2 text-xs font-bold text-white shadow-[0_8px_16px_-6px_rgba(0,113,227,0.5)] transition-colors hover:bg-blue-600 disabled:opacity-60"
               >
                 Qo&apos;llash
               </button>
@@ -238,7 +238,7 @@ export function SearchControls({
                 type="button"
                 onClick={handleReset}
                 disabled={pending}
-                className="inline-flex items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.04] px-4 py-2 text-xs font-semibold text-cream-dim transition-colors hover:border-white/[0.15] hover:text-cream"
+                className="inline-flex items-center justify-center rounded-xl border border-rim bg-tint px-4 py-2 text-xs font-semibold text-ink-soft transition-colors hover:border-blue/20 hover:text-blue"
               >
                 Tozalash
               </button>
@@ -267,8 +267,8 @@ function TabButton({
       onClick={onClick}
       className={
         active
-          ? 'inline-flex items-center justify-center rounded-xl bg-accent2-500 px-4 py-2 text-sm font-bold text-ink shadow-[0_8px_24px_-8px_rgba(0,232,122,0.6)]'
-          : 'inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-cream-dim transition-colors hover:text-cream'
+          ? 'inline-flex items-center justify-center rounded-xl bg-blue px-4 py-2 text-sm font-bold text-white shadow-[0_8px_16px_-6px_rgba(0,113,227,0.5)]'
+          : 'inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-ink-soft transition-colors hover:text-blue'
       }
     >
       {children}
@@ -285,7 +285,7 @@ function FilterField({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim">
+      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.1em] text-ink-faint">
         {label}
       </span>
       {children}

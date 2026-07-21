@@ -151,6 +151,9 @@
   .border-rim-2 {
     border-color: rgb(0 0 0 / 0.12);
   }
+  .bg-rim {
+    background-color: rgb(0 0 0 / 0.07);
+  }
   .bg-canvas {
     background-color: rgb(var(--bg-canvas));
   }

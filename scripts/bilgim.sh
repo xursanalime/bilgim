@@ -22,6 +22,15 @@ LOG_DIR="$LOCAL_DIR/logs"
 LIVEKIT_BIN="$LOCAL_DIR/bin/livekit-server"
 LIVEKIT_PORT="7880"
 LIVEKIT_PID_FILE="$LOCAL_DIR/livekit.pid"
+MINIO_BIN="$LOCAL_DIR/bin/minio"
+MINIO_PORT="9000"
+MINIO_CONSOLE_PORT="9001"
+MINIO_DATA="$LOCAL_DIR/miniodata"
+MINIO_PID_FILE="$LOCAL_DIR/minio.pid"
+MINIO_ROOT_USER="minioadmin"
+MINIO_ROOT_PASSWORD="minioadmin123"
+FFMPEG_BIN="$LOCAL_DIR/bin/ffmpeg"
+FFPROBE_BIN="$LOCAL_DIR/bin/ffprobe"
 
 PG_BIN="$(dirname "$(find /usr/lib/postgresql/*/bin/pg_ctl 2>/dev/null | sort -V | tail -1)")"
 if [ -z "$PG_BIN" ]; then
@@ -32,12 +41,16 @@ fi
 mkdir -p "$LOCAL_DIR" "$REDIS_DIR" "$LOG_DIR" "$PGSOCK"
 
 stop_stack() {
-  echo "==> Stopping Postgres, Redis and LiveKit..."
+  echo "==> Stopping Postgres, Redis, LiveKit and MinIO..."
   "$PG_BIN/pg_ctl" -D "$PGDATA" stop -m fast >/dev/null 2>&1 || true
   redis-cli -h 127.0.0.1 -p "$REDIS_PORT" -a "$REDIS_PASSWORD" shutdown nosave >/dev/null 2>&1 || true
   if [ -f "$LIVEKIT_PID_FILE" ]; then
     kill "$(cat "$LIVEKIT_PID_FILE")" >/dev/null 2>&1 || true
     rm -f "$LIVEKIT_PID_FILE"
+  fi
+  if [ -f "$MINIO_PID_FILE" ]; then
+    kill "$(cat "$MINIO_PID_FILE")" >/dev/null 2>&1 || true
+    rm -f "$MINIO_PID_FILE"
   fi
   echo "Stopped."
 }
@@ -106,6 +119,45 @@ else
   echo "==> LiveKit already running."
 fi
 
+# ---- MinIO (S3-compatible object storage — local stand-in for R2, used
+# for chat/homework/lesson media uploads) ----
+if ! curl -s -o /dev/null -m 2 "http://127.0.0.1:${MINIO_PORT}/minio/health/live" 2>/dev/null; then
+  if [ ! -x "$MINIO_BIN" ]; then
+    echo "==> Downloading minio..."
+    mkdir -p "$LOCAL_DIR/bin"
+    curl -sSL -o "$MINIO_BIN" "https://dl.min.io/server/minio/release/linux-amd64/minio"
+    chmod +x "$MINIO_BIN"
+  fi
+  echo "==> Starting MinIO on port $MINIO_PORT..."
+  mkdir -p "$MINIO_DATA"
+  MINIO_ROOT_USER="$MINIO_ROOT_USER" MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
+    MINIO_API_CORS_ALLOW_ORIGIN="*" \
+    nohup "$MINIO_BIN" server "$MINIO_DATA" \
+    --address "127.0.0.1:${MINIO_PORT}" --console-address "127.0.0.1:${MINIO_CONSOLE_PORT}" \
+    >"$LOG_DIR/minio.log" 2>&1 &
+  echo $! > "$MINIO_PID_FILE"
+  for _ in $(seq 1 30); do
+    curl -s -o /dev/null -m 1 "http://127.0.0.1:${MINIO_PORT}/minio/health/live" 2>/dev/null && break
+    sleep 0.5
+  done
+else
+  echo "==> MinIO already running."
+fi
+
+# ---- ffmpeg/ffprobe (video transcoding for chat/lesson uploads) ----
+if [ ! -x "$FFMPEG_BIN" ] || [ ! -x "$FFPROBE_BIN" ]; then
+  echo "==> Downloading ffmpeg/ffprobe (static build)..."
+  mkdir -p "$LOCAL_DIR/bin"
+  curl -sSL -o /tmp/ffmpeg-static.tar.xz \
+    "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+  FFMPEG_TMPDIR="$(mktemp -d)"
+  tar -xJf /tmp/ffmpeg-static.tar.xz -C "$FFMPEG_TMPDIR"
+  cp "$FFMPEG_TMPDIR"/ffmpeg-*-amd64-static/ffmpeg "$FFMPEG_BIN"
+  cp "$FFMPEG_TMPDIR"/ffmpeg-*-amd64-static/ffprobe "$FFPROBE_BIN"
+  chmod +x "$FFMPEG_BIN" "$FFPROBE_BIN"
+  rm -rf "$FFMPEG_TMPDIR" /tmp/ffmpeg-static.tar.xz
+fi
+
 # ---- .env ----
 if [ ! -f "$ROOT/.env" ]; then
   echo "==> Creating .env..."
@@ -117,6 +169,13 @@ if [ ! -f "$ROOT/.env" ]; then
     -e "s#^DATABASE_READ_REPLICA_URL=.*#DATABASE_READ_REPLICA_URL=\"postgresql://edubridge:${REDIS_PASSWORD}@localhost:${PGPORT}/edubridge?schema=public\"#" \
     -e "s#^JWT_SECRET=.*#JWT_SECRET=\"${JWT_SECRET}\"#" \
     -e "s#^MASTER_ENCRYPTION_KEY=.*#MASTER_ENCRYPTION_KEY=\"${MASTER_KEY}\"#" \
+    -e "s#^R2_ACCOUNT_ID=.*#R2_ACCOUNT_ID=\"local-dev\"#" \
+    -e "s#^R2_ACCESS_KEY_ID=.*#R2_ACCESS_KEY_ID=\"${MINIO_ROOT_USER}\"#" \
+    -e "s#^R2_SECRET_ACCESS_KEY=.*#R2_SECRET_ACCESS_KEY=\"${MINIO_ROOT_PASSWORD}\"#" \
+    -e "s#^R2_BUCKET_NAME=.*#R2_BUCKET_NAME=\"edubridge-media\"#" \
+    -e "s#^R2_PUBLIC_URL=.*#R2_PUBLIC_URL=\"http://127.0.0.1:${MINIO_PORT}\"#" \
+    -e "s#^FFMPEG_PATH=.*#FFMPEG_PATH=\"${FFMPEG_BIN}\"#" \
+    -e "s#^FFPROBE_PATH=.*#FFPROBE_PATH=\"${FFPROBE_BIN}\"#" \
     "$ROOT/.env"
 fi
 

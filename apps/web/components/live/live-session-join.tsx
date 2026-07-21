@@ -43,6 +43,17 @@ function Wordmark() {
   return <LiveWordmark className="mb-8" />;
 }
 
+function formatClockTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString('uz-UZ', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 function GlassCard({ children, tone = 'default' }: { children: React.ReactNode; tone?: 'default' | 'danger' }) {
   return (
     <LiveCard tone={tone} className="w-full max-w-md">
@@ -54,6 +65,7 @@ function GlassCard({ children, tone = 'default' }: { children: React.ReactNode; 
 export function LiveSessionJoin({ locale, lessonId, groupId, courseId }: LiveSessionJoinProps) {
   const [data, setData] = useState<JoinSessionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [opensAt, setOpensAt] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isTeacher, setIsTeacher] = useState(false);
   const [pollCount, setPollCount] = useState(0);
@@ -71,10 +83,14 @@ export function LiveSessionJoin({ locale, lessonId, groupId, courseId }: LiveSes
       const response = await liveApi.join(lessonId);
       setData(response);
       setError(null);
+      setOpensAt(null);
       return true;
     } catch (err: any) {
       if (err?.statusCode === 404 || err?.status === 404) {
         setError('LIVE_NOT_STARTED');
+        // Backend envelope: ApiClientError.details = { code, message, details: { opensAt }, traceId }
+        const nestedOpensAt = err?.details?.details?.opensAt;
+        setOpensAt(typeof nestedOpensAt === 'string' ? nestedOpensAt : null);
       } else {
         setError('Live efirga ulanishda xatolik yuz berdi.');
       }
@@ -137,7 +153,9 @@ export function LiveSessionJoin({ locale, lessonId, groupId, courseId }: LiveSes
             <p className="mt-3 text-sm leading-relaxed text-ink-soft">
               {isTeacher
                 ? 'Darsni boshlash uchun quyidagi tugmani bosing.'
-                : "O'qituvchi efirni boshlaguncha avtomatik ulanasiz..."}
+                : opensAt
+                  ? `Darsga ${formatClockTime(opensAt)}dan boshlab kirishingiz mumkin bo'ladi — o'qituvchi hali efirni boshlamagan bo'lsa ham kutish xonasida tayyorlanib turasiz.`
+                  : "O'qituvchi efirni boshlaguncha avtomatik ulanasiz..."}
             </p>
 
             {!isTeacher && (

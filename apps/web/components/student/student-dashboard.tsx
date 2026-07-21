@@ -273,8 +273,6 @@ export function StudentDashboard({ locale }: StudentDashboardProps) {
   if (enrollments.length === 0) {
     return (
       <div className="mx-auto max-w-5xl space-y-8 pb-12">
-        <DailyChallengesWidget />
-
         {/* Hero */}
         <div className="pb-2 pt-4 text-center">
           <div className="relative mx-auto mb-6 w-fit">
@@ -320,7 +318,7 @@ export function StudentDashboard({ locale }: StudentDashboardProps) {
               </p>
             </div>
             <Link
-              href={`/${locale}/search`}
+              href={`/${locale}/teacher-search`}
               className="mt-6 inline-flex items-center justify-center gap-2.5 rounded-2xl bg-blue px-6 py-3.5 text-sm font-bold text-white shadow-[0_12px_24px_-8px_rgba(0,113,227,0.5)] transition-all hover:bg-blue-600 active:scale-[0.98]"
             >
               <Search className="h-4 w-4" />

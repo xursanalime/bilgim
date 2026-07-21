@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -24,6 +24,56 @@ interface LoginFormProps {
   locale: string;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Simple math captcha (client-side bot deterrent, shown after password)
+// ═══════════════════════════════════════════════════════════════
+
+const CAPTCHA_OPS = ['+', '-', '×', '÷'] as const;
+type CaptchaOp = (typeof CAPTCHA_OPS)[number];
+
+interface Captcha {
+  a: number;
+  b: number;
+  op: CaptchaOp;
+  answer: number;
+  question: string;
+}
+
+function generateCaptcha(): Captcha {
+  const op = CAPTCHA_OPS[Math.floor(Math.random() * CAPTCHA_OPS.length)] as CaptchaOp;
+  let a = 0;
+  let b = 0;
+  let answer = 0;
+
+  switch (op) {
+    case '+':
+      a = 1 + Math.floor(Math.random() * 10);
+      b = 1 + Math.floor(Math.random() * 10);
+      answer = a + b;
+      break;
+    case '-':
+      a = 1 + Math.floor(Math.random() * 10);
+      b = 1 + Math.floor(Math.random() * 10);
+      if (b > a) [a, b] = [b, a]; // avoid negative results
+      answer = a - b;
+      break;
+    case '×':
+      a = 1 + Math.floor(Math.random() * 9);
+      b = 1 + Math.floor(Math.random() * 9);
+      answer = a * b;
+      break;
+    case '÷': {
+      b = 1 + Math.floor(Math.random() * 9);
+      const q = 1 + Math.floor(Math.random() * 9);
+      a = b * q; // guarantees a whole-number result
+      answer = q;
+      break;
+    }
+  }
+
+  return { a, b, op, answer, question: `${a} ${op} ${b}` };
+}
+
 /**
  * LoginForm — email + password sign-in.
  *
@@ -42,6 +92,17 @@ export function LoginForm({ locale }: LoginFormProps) {
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [remember, setRemember] = useState(false);
+  // Generated client-side only (useEffect), never during the initial render —
+  // Math.random() during render would mismatch the server-rendered HTML and
+  // trigger a hydration error.
+  const [captcha, setCaptcha] = useState<Captcha | null>(null);
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCaptcha(generateCaptcha());
+  }, []);
 
   const {
     register,
@@ -53,10 +114,24 @@ export function LoginForm({ locale }: LoginFormProps) {
 
   const verified = searchParams.get('verified') === '1';
 
+  const refreshCaptcha = () => {
+    setCaptcha(generateCaptcha());
+    setCaptchaAnswer('');
+    setCaptchaError(null);
+  };
+
   const onSubmit = async (values: LoginFormValues) => {
     setServerError(null);
+
+    if (!captcha || Number(captchaAnswer) !== captcha.answer) {
+      setCaptchaError("Javob noto'g'ri, qaytadan urinib ko'ring");
+      refreshCaptcha();
+      return;
+    }
+    setCaptchaError(null);
+
     try {
-      const result = await authApi.login(values);
+      const result = await authApi.login(values, remember);
       const callbackUrl = searchParams.get('callbackUrl');
 
       if (callbackUrl && callbackUrl.startsWith('/')) {
@@ -82,6 +157,7 @@ export function LoginForm({ locale }: LoginFormProps) {
       } else {
         setServerError(getAuthErrorMessage('NETWORK_ERROR'));
       }
+      refreshCaptcha();
     }
   };
 
@@ -200,10 +276,51 @@ export function LoginForm({ locale }: LoginFormProps) {
         {...register('password')}
       />
 
+      <FormField
+        id="captcha"
+        label={
+          captcha
+            ? `Tasdiqlash uchun hisoblang: ${captcha.question} = ?`
+            : 'Tasdiqlash yuklanmoqda...'
+        }
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        required
+        disabled={!captcha}
+        placeholder="Javob"
+        value={captchaAnswer}
+        onChange={(e) => setCaptchaAnswer(e.target.value)}
+        error={captchaError ?? undefined}
+        rightIcon={
+          <button
+            type="button"
+            onClick={refreshCaptcha}
+            className="pointer-events-auto text-ink-faint transition-colors hover:text-ink-strong"
+            tabIndex={-1}
+            aria-label="Boshqa misol"
+          >
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+          </button>
+        }
+      />
+
       <div className="flex items-center justify-between">
         <label className="flex items-center gap-2 text-sm text-ink-soft">
           <input
             type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
             className="h-4 w-4 rounded border-rim accent-blue"
           />
           Eslab qolish

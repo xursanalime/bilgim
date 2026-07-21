@@ -37,12 +37,14 @@ function readCookie(name: string): string | null {
   return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
 }
 
-function writeCookie(name: string, value: string, maxAgeSec: number): void {
+function writeCookie(name: string, value: string, maxAgeSec?: number): void {
   if (typeof document === 'undefined') return;
   const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  // Omitting max-age makes it a session cookie — deleted when the browser closes.
+  const maxAge = typeof maxAgeSec === 'number' ? `; max-age=${maxAgeSec}` : '';
   document.cookie = `${name}=${encodeURIComponent(
     value,
-  )}; path=/; max-age=${maxAgeSec}; SameSite=Lax${secure}`;
+  )}; path=/${maxAge}; SameSite=Lax${secure}`;
 }
 
 function deleteCookie(name: string): void {
@@ -70,17 +72,32 @@ export function getRefreshToken(): string | null {
   );
 }
 
-export function setTokens(tokens: AuthTokens): void {
+/**
+ * Persists tokens after a successful login.
+ *
+ * @param remember - When true (checkbox checked), the session survives
+ *   browser restarts for up to 30 days. When false, tokens live only for
+ *   the current browser session (session cookie, no localStorage mirror),
+ *   so closing the browser signs the user out.
+ */
+export function setTokens(tokens: AuthTokens, remember = true): void {
   if (typeof window === 'undefined') return;
 
   // Cookies are the shared source of truth (middleware + SSR + client).
-  writeCookie(ACCESS_TOKEN_KEY, tokens.accessToken, COOKIE_MAX_AGE);
-  writeCookie(REFRESH_TOKEN_KEY, tokens.refreshToken, COOKIE_MAX_AGE);
+  const maxAge = remember ? COOKIE_MAX_AGE : undefined;
+  writeCookie(ACCESS_TOKEN_KEY, tokens.accessToken, maxAge);
+  writeCookie(REFRESH_TOKEN_KEY, tokens.refreshToken, maxAge);
 
-  // Keep localStorage as a best-effort mirror for backwards-compat.
   try {
-    localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
-    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+    if (remember) {
+      // Best-effort mirror for backwards-compat — only when "remember me" is on,
+      // otherwise localStorage would outlive the intended session-only cookie.
+      localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
+      localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+    } else {
+      localStorage.removeItem(ACCESS_TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+    }
   } catch {
     // Ignore storage quota / privacy-mode errors — cookies are enough.
   }

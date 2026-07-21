@@ -18,6 +18,7 @@ export interface LiveKitRoomSnapshot {
 export interface LiveSessionWithSfu {
   session: LiveSession;
   sfu: LiveKitRoomSnapshot;
+  lessonTitle?: string;
 }
 
 export interface JoinSessionResult extends LiveSessionWithSfu {

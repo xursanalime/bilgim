@@ -785,10 +785,26 @@ function describeUploadError(error: unknown): string {
     const text = details?.message ?? error.message;
     if (details?.code === 'MEDIA_CONTENT_TYPE_NOT_ALLOWED') return "Fayl turi qo'llanmaydi";
     if (text.toLowerCase().includes('bucket')) return 'Media ombori tayyor emas';
+    if (isUntranslatedBackendMessage(text)) {
+      return 'Serverda kutilmagan xatolik yuz berdi. Birozdan so‘ng qayta urinib ko‘ring';
+    }
     return text.length > 36 ? `${text.slice(0, 33)}...` : text;
   }
   if (error instanceof Error) {
+    if (error.message.includes('Missing ETag')) return 'ETag CORS ruxsati yo‘q';
+    if (error.message.includes('Network')) return 'Tarmoq xatosi';
+    if (isUntranslatedBackendMessage(error.message)) {
+      return 'Serverda kutilmagan xatolik yuz berdi. Birozdan so‘ng qayta urinib ko‘ring';
+    }
     return error.message.length > 36 ? `${error.message.slice(0, 33)}...` : error.message;
   }
   return 'Upload xatosi';
+}
+
+/** Backend fallback errors (e.g. the generic 500 handler) come through in
+ * English with no error code to key off of. Detect plain-ASCII-only text
+ * with no Uzbek-specific characters so it never leaks untranslated into
+ * the chat UI. */
+function isUntranslatedBackendMessage(text: string): boolean {
+  return /^[\x20-\x7E]*$/.test(text) && /[a-zA-Z]/.test(text);
 }

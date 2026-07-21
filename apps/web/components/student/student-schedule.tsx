@@ -143,7 +143,7 @@ export function StudentSchedule({ locale }: StudentScheduleProps) {
         <EmptyState
           title="Guruhlar mavjud emas"
           message="Siz hech qaysi guruhga yozilmagansiz. Kursga yozilgach, darslar jadvali shu yerda paydo bo'ladi."
-          ctaHref={`/${locale}/search`}
+          ctaHref={`/${locale}/teacher-search`}
           ctaLabel="Kurslarni qidirish"
           icon={BookOpen}
         />

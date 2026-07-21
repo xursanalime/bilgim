@@ -69,6 +69,7 @@ const TOPIC_TO_QUEUE: Record<string, string | readonly string[]> = {
     QUEUE_NAMES.NOTIFICATION_FANOUT,
     QUEUE_NAMES.LIVE_RECORDING,
   ],
+  'live.reminder': QUEUE_NAMES.NOTIFICATION_FANOUT,
   'recording.ready': QUEUE_NAMES.NOTIFICATION_FANOUT,
 
   // Homework events

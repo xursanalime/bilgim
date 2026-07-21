@@ -2,7 +2,7 @@
 
 import {
   Mic, MicOff, Video, VideoOff, MonitorUp, MessageSquare,
-  Users, Hand, PhoneOff, Settings, PenLine, X, ChevronDown,
+  Users, Hand, PhoneOff, Settings, PenLine, X, ChevronDown, StopCircle,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useState, useEffect, useRef } from 'react';
@@ -30,6 +30,8 @@ interface LiveControlBarProps {
   onToggleSidebar: () => void;
   onToggleWhiteboard: () => void;
   onLeave: () => void;
+  /** Teacher-only: ends the session for every participant (vs. `onLeave`, which only disconnects the caller). */
+  onEndBroadcast?: (() => void | Promise<void>) | undefined;
   onSetQuality: (q: '360p' | '720p' | '1080p') => void;
 }
 
@@ -43,7 +45,7 @@ export function LiveControlBar({
   isMicOn, isCamOn, isScreenSharing, isHandRaised,
   isSidebarOpen, isWhiteboardOn, isTeacher, isMicAllowed, activeTab, quality,
   onToggleMic, onToggleCam, onToggleScreen, onToggleHand,
-  onToggleSidebar, onToggleWhiteboard, onLeave, onSetQuality,
+  onToggleSidebar, onToggleWhiteboard, onLeave, onEndBroadcast, onSetQuality,
 }: LiveControlBarProps) {
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -190,6 +192,17 @@ export function LiveControlBar({
               </div>
             )}
           </div>
+
+          {isTeacher && onEndBroadcast && (
+            <button
+              onClick={onEndBroadcast}
+              title="Efirni yakunlash"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-red/30 bg-red-tint text-red transition-all hover:bg-red/15 active:scale-95"
+              aria-label="Efirni barchaga yakunlash"
+            >
+              <StopCircle className="h-5 w-5" />
+            </button>
+          )}
 
           <button
             onClick={onLeave}

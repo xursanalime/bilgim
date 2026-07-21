@@ -13,13 +13,15 @@ interface LiveTopBarProps {
   viewerCount: number;
   isRecording: boolean;
   startedAt?: string | null;
+  /** True while the session is `SCHEDULED` — teacher hasn't started yet, students are waiting. */
+  isWaiting?: boolean;
   raisedHandCount?: number;
   onShowInfo?: () => void;
 }
 
 export function LiveTopBar({
   title, teacherName, viewerCount, isRecording,
-  startedAt, raisedHandCount = 0, onShowInfo,
+  startedAt, isWaiting = false, raisedHandCount = 0, onShowInfo,
 }: LiveTopBarProps) {
   const [elapsedTime, setElapsedTime] = useState('00:00');
   const { localParticipant } = useLocalParticipant();
@@ -71,16 +73,25 @@ export function LiveTopBar({
           </div>
         </div>
 
-        {/* Center: LIVE badge + timer */}
+        {/* Center: LIVE/waiting badge + timer */}
         <div className="absolute left-1/2 -translate-x-1/2 pointer-events-auto">
           <div className="flex items-center gap-3 bg-white border border-rim px-4 py-2 rounded-full shadow-soft">
-            <div className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red shadow-[0_0_8px_rgba(255,59,48,0.6)]" />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-ink-strong">Jonli</span>
-            <div className="h-3 w-px bg-rim" />
-            <span className="text-[11px] font-mono font-bold text-ink-strong tabular-nums">{elapsedTime}</span>
+            {isWaiting ? (
+              <>
+                <span className="h-2 w-2 rounded-full bg-orange" />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange">Kutilmoqda</span>
+              </>
+            ) : (
+              <>
+                <div className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red shadow-[0_0_8px_rgba(255,59,48,0.6)]" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-ink-strong">Jonli</span>
+                <div className="h-3 w-px bg-rim" />
+                <span className="text-[11px] font-mono font-bold text-ink-strong tabular-nums">{elapsedTime}</span>
+              </>
+            )}
           </div>
         </div>
 

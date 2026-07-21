@@ -20,6 +20,7 @@ export default async function CourseDetailPage({
 
   let course: Course;
   let groups: Group[] = [];
+  let groupsLoadError: string | null = null;
   try {
     course = await serverApi.get<Course>(`/catalog/courses/${courseId}`);
   } catch (err) {
@@ -33,6 +34,7 @@ export default async function CourseDetailPage({
     groups = await serverApi.get<Group[]>(`/catalog/courses/${courseId}/groups`);
   } catch (err) {
     if (!(err instanceof ServerApiError)) throw err;
+    groupsLoadError = err.message;
   }
 
   const formatPriceLocal = (amount: number | null): string => {
@@ -136,6 +138,12 @@ export default async function CourseDetailPage({
           </Link>
         </div>
 
+        {groupsLoadError && (
+          <div className="rounded-2xl border border-red/20 bg-red-tint p-4 text-sm font-medium text-red">
+            Guruhlarni yuklab bo'lmadi: {groupsLoadError}
+          </div>
+        )}
+
         {groups.length === 0 ? (
           <div className="flex min-h-[300px] flex-col items-center justify-center rounded-[2rem] border-2 border-dashed border-rim bg-tint/30 p-12 text-center transition-colors hover:bg-tint/50">
             <div className="relative mb-6">
@@ -145,10 +153,12 @@ export default async function CourseDetailPage({
               </div>
             </div>
             <h3 className="font-display text-lg font-extrabold text-ink-strong">
-              Guruhlar hali mavjud emas
+              {groupsLoadError ? 'Guruhlarni ko‘rsatib bo‘lmadi' : 'Guruhlar hali mavjud emas'}
             </h3>
             <p className="mt-2 max-w-xs text-sm leading-relaxed text-ink-soft">
-              Ushbu kurs uchun birinchi o'quv guruhini yarating va talabalarni qabul qilishni boshlang.
+              {groupsLoadError
+                ? 'Sahifani qayta yuklab ko‘ring yoki tizimga qayta kiring.'
+                : 'Ushbu kurs uchun birinchi o\'quv guruhini yarating va talabalarni qabul qilishni boshlang.'}
             </p>
             <Link
               href={`/${locale}/dashboard/courses/${course.id}/groups/new`}

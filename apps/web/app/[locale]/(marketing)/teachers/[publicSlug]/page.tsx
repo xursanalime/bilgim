@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { unstable_setRequestLocale } from 'next-intl/server';
+import { ArrowLeft, Layers, Star, Users } from 'lucide-react';
 
 import {
   serverDiscovery,
@@ -10,11 +11,7 @@ import {
   type DiscoveryTeacherSummary,
 } from '../../../../../lib/discovery-api';
 import { TeacherDmButton } from '../../../../../components/marketing/teacher-dm-button';
-import {
-  CourseCard,
-  formatRating,
-  getInitials,
-} from '../../../../../components/marketing/discovery-cards';
+import { formatRating, getInitials } from '../../../../../components/marketing/discovery-cards';
 
 interface TeacherProfilePageProps {
   params: { locale: string; publicSlug: string };
@@ -79,6 +76,9 @@ export async function generateMetadata({
  * of their courses.
  *
  * The DM button is a client island (auth required, surfaces rate-limit).
+ *
+ * Styled with the platform's light Apple-style tokens (canvas/rim/ink,
+ * blue accent) to match the rest of the `/teachers` listing.
  */
 export default async function TeacherProfilePage({
   params: { locale, publicSlug },
@@ -94,116 +94,91 @@ export default async function TeacherProfilePage({
   const fullName = teacher.fullName ?? 'Ustoz';
 
   return (
-    <section className="relative overflow-hidden bg-ink">
-      {/* Cover */}
-      <div className="relative">
-        <div className="pointer-events-none absolute inset-0 bg-grid opacity-30" />
-        <div className="pointer-events-none absolute -right-32 top-0 h-[400px] w-[400px] rounded-full bg-accent2-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -left-32 bottom-0 h-[300px] w-[300px] rounded-full bg-accent2-500/10 blur-3xl" />
+    <section className="relative overflow-hidden">
+      <div className="pointer-events-none absolute -right-32 -top-32 h-[400px] w-[400px] rounded-full bg-blue/5 blur-[100px]" />
+      <div className="pointer-events-none absolute -left-32 bottom-0 h-[300px] w-[300px] rounded-full bg-purple/5 blur-[100px]" />
 
-        <div className="relative mx-auto max-w-5xl px-4 pb-12 pt-16 sm:px-6 lg:px-8 lg:pt-20">
-          <Link
-            href={`/${locale}/teachers`}
-            className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-cream-dim transition-colors hover:text-cream"
-          >
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m12 19-7-7 7-7" />
-              <path d="M19 12H5" />
-            </svg>
-            Ustozlar
-          </Link>
+      <div className="relative mx-auto max-w-5xl px-4 pb-12 pt-16 sm:px-6 lg:px-8 lg:pt-20">
+        <Link
+          href={`/${locale}/teachers`}
+          className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-ink-faint transition-colors hover:text-blue"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Ustozlar
+        </Link>
 
-          <header className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-start">
-            <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-accent2-500/10 ring-1 ring-inset ring-accent2-500/30">
-              {teacher.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={teacher.avatarUrl}
-                  alt={fullName}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span className="text-2xl font-extrabold tracking-tight text-accent2-500">
-                  {getInitials(fullName)}
-                </span>
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <h1
-                className="text-balance font-extrabold tracking-tight text-cream"
-                style={{
-                  fontSize: 'clamp(2rem, 4vw, 3rem)',
-                  letterSpacing: '-0.04em',
-                }}
-              >
-                {fullName}
-              </h1>
-              {teacher.headline && (
-                <p className="mt-3 max-w-2xl text-base text-cream-dim sm:text-lg">
-                  {teacher.headline}
-                </p>
-              )}
-              <div className="mt-5 flex flex-wrap items-center gap-2 text-xs">
-                {teacher.specialty && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-accent2-500/30 bg-accent2-500/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-accent2-500">
-                    <span className="h-1.5 w-1.5 rounded-full bg-accent2-500" />
-                    {teacher.specialty.nameUz}
-                  </span>
-                )}
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim">
-                  Reyting {formatRating(teacher.rating)}
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim">
-                  {teacher.studentsCount} talaba
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim">
-                  {teacher.courseCount} kurs
-                </span>
-              </div>
-            </div>
-
-            <div className="sm:flex sm:flex-col sm:items-end sm:gap-2">
-              <TeacherDmButton
-                locale={locale}
-                teacherId={teacher.id}
-                teacherName={fullName}
+        <header className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-start">
+          <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-blue-tint text-blue">
+            {teacher.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={teacher.avatarUrl}
+                alt={fullName}
+                className="h-full w-full object-cover"
               />
+            ) : (
+              <span className="text-2xl font-extrabold tracking-tight">
+                {getInitials(fullName)}
+              </span>
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <h1 className="font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl">
+              {fullName}
+            </h1>
+            {teacher.headline && (
+              <p className="mt-3 max-w-2xl text-base text-ink-soft sm:text-lg">
+                {teacher.headline}
+              </p>
+            )}
+            <div className="mt-5 flex flex-wrap items-center gap-2 text-xs">
+              {teacher.specialty && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-blue/15 bg-blue-tint px-3 py-1 font-bold uppercase tracking-[0.08em] text-blue">
+                  {teacher.specialty.nameUz}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-rim bg-tint px-3 py-1 font-bold text-ink-soft">
+                <Star className="h-3 w-3" /> {formatRating(teacher.rating)}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-rim bg-tint px-3 py-1 font-bold text-ink-soft">
+                <Users className="h-3 w-3" /> {teacher.studentsCount} talaba
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-rim bg-tint px-3 py-1 font-bold text-ink-soft">
+                <Layers className="h-3 w-3" /> {teacher.courseCount} kurs
+              </span>
             </div>
-          </header>
-        </div>
+          </div>
+
+          <div className="sm:flex sm:flex-col sm:items-end sm:gap-2">
+            <TeacherDmButton
+              locale={locale}
+              teacherId={teacher.id}
+              teacherName={fullName}
+            />
+          </div>
+        </header>
       </div>
 
       {/* Courses */}
       <div className="relative mx-auto max-w-5xl px-4 pb-24 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-white/[0.07] bg-ink-surface/60 p-6 backdrop-blur-sm sm:p-8">
-          <h2
-            className="text-2xl font-extrabold tracking-tight text-cream"
-            style={{ letterSpacing: '-0.03em' }}
-          >
+        <div className="rounded-3xl border border-rim bg-canvas p-6 shadow-soft sm:p-8">
+          <h2 className="font-display text-2xl font-extrabold tracking-tight text-ink-strong">
             Kurslar
           </h2>
-          <p className="mt-2 text-sm text-cream-dim">
+          <p className="mt-2 text-sm text-ink-soft">
             Ushbu ustozning ochiq va aktiv kurslari.
           </p>
 
           {courses.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-8 text-center text-sm text-cream-dim">
+            <div className="mt-6 rounded-2xl border border-rim bg-tint p-8 text-center text-sm text-ink-soft">
               Hozircha ochiq kurs mavjud emas.
             </div>
           ) : (
             <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
               {courses.map((course) => (
                 <li key={course.id}>
-                  <CourseCard course={course} locale={locale} />
+                  <LightCourseCard course={course} locale={locale} />
                 </li>
               ))}
             </ul>
@@ -211,6 +186,54 @@ export default async function TeacherProfilePage({
         </div>
       </div>
     </section>
+  );
+}
+
+function LightCourseCard({
+  course,
+  locale,
+}: {
+  course: DiscoveryCourseSummary;
+  locale: string;
+}) {
+  const teacherName = course.teacher.fullName ?? 'Ustoz';
+  return (
+    <Link
+      href={`/${locale}/courses/${course.id}`}
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-rim bg-white p-6 shadow-soft transition-all hover:-translate-y-0.5 hover:border-blue/20 hover:shadow-medium"
+    >
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {course.level && (
+          <span className="inline-flex items-center rounded-full border border-rim bg-tint px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-soft">
+            {course.level}
+          </span>
+        )}
+        {course.fromPriceUzs !== null && (
+          <span className="inline-flex items-center rounded-full border border-blue/15 bg-blue-tint px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-blue">
+            {course.fromPriceUzs.toLocaleString('uz-UZ')} so'm
+          </span>
+        )}
+      </div>
+
+      <h3 className="mt-4 text-lg font-extrabold tracking-tight text-ink-strong">
+        {course.title}
+      </h3>
+      {course.description && (
+        <p className="mt-2 line-clamp-3 text-sm text-ink-soft">{course.description}</p>
+      )}
+
+      <div className="mt-auto flex items-center gap-3 border-t border-rim pt-4 mt-4">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-tint text-sm font-extrabold text-blue">
+          {getInitials(teacherName)}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-ink-strong">{teacherName}</p>
+          <p className="truncate text-xs text-ink-faint">
+            {course.teacher.headline ?? 'Reyting ' + formatRating(course.teacher.rating)}
+          </p>
+        </div>
+      </div>
+    </Link>
   );
 }
 

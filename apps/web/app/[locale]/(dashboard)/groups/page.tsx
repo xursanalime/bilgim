@@ -53,7 +53,12 @@ export default async function GroupsPage({ params: { locale } }: PageProps) {
         );
         return { ...course, groups };
       } catch (err) {
-        if (err instanceof ServerApiError) return { ...course, groups: [] };
+        if (err instanceof ServerApiError) {
+          loadError = loadError
+            ? `${loadError} / ${course.title}: ${err.message}`
+            : `"${course.title}" kursi guruhlarini yuklab bo'lmadi: ${err.message}`;
+          return { ...course, groups: [] };
+        }
         throw err;
       }
     }),
@@ -138,11 +143,12 @@ export default async function GroupsPage({ params: { locale } }: PageProps) {
             </div>
           </div>
           <h2 className="font-display text-xl font-extrabold text-ink-strong">
-            Kurslar topilmadi
+            {loadError ? 'Kurslarni yuklab bo‘lmadi' : 'Kurslar topilmadi'}
           </h2>
           <p className="mt-3 max-w-sm text-sm leading-relaxed text-ink-soft">
-            Guruhlar yaratishdan oldin, kamida bitta kurs tashkil qilishingiz
-            kerak.
+            {loadError
+              ? 'Sahifani qayta yuklab ko‘ring. Muammo davom etsa, tizimga qayta kiring.'
+              : 'Guruhlar yaratishdan oldin, kamida bitta kurs tashkil qilishingiz kerak.'}
           </p>
           <Link
             href={`/${locale}/dashboard/courses/new`}

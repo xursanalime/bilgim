@@ -89,7 +89,7 @@ export function JoinCourseGroups({ locale, courseId }: JoinCourseGroupsProps) {
 
   if (loadError) {
     return (
-      <div className="rounded-3xl border border-white/[0.07] bg-ink-surface/60 p-6 text-sm text-cream-dim">
+      <div className="rounded-3xl border border-rim bg-canvas p-6 text-sm text-ink-soft shadow-soft">
         {loadError}
       </div>
     );
@@ -97,20 +97,20 @@ export function JoinCourseGroups({ locale, courseId }: JoinCourseGroupsProps) {
 
   if (groups === null) {
     return (
-      <div className="rounded-3xl border border-white/[0.07] bg-ink-surface/60 p-6">
-        <div className="h-5 w-24 animate-pulse rounded-full bg-white/[0.06]" />
-        <div className="mt-4 h-16 animate-pulse rounded-2xl bg-white/[0.04]" />
+      <div className="rounded-3xl border border-rim bg-canvas p-6 shadow-soft">
+        <div className="h-5 w-24 animate-pulse rounded-full bg-soft" />
+        <div className="mt-4 h-16 animate-pulse rounded-2xl bg-soft" />
       </div>
     );
   }
 
   if (groups.length === 0) {
     return (
-      <div className="rounded-3xl border border-white/[0.07] bg-ink-surface/60 p-6">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.12em] text-cream-dim">
+      <div className="rounded-3xl border border-rim bg-canvas p-6 shadow-soft">
+        <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-faint">
           Guruhlar
         </h2>
-        <p className="mt-3 text-sm text-cream-dim">
+        <p className="mt-3 text-sm text-ink-soft">
           Hozircha ochiq guruhlar yo&apos;q. Tez orada qo&apos;shiladi.
         </p>
       </div>
@@ -118,11 +118,11 @@ export function JoinCourseGroups({ locale, courseId }: JoinCourseGroupsProps) {
   }
 
   return (
-    <div className="rounded-3xl border border-accent2-500/30 bg-accent2-500/[0.05] p-6 shadow-[0_0_60px_-24px_rgba(0,232,122,0.4)]">
-      <h2 className="font-mono text-[11px] uppercase tracking-[0.12em] text-accent2-500">
+    <div className="rounded-3xl border border-blue/15 bg-blue-tint p-6 shadow-soft">
+      <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-blue">
         Guruhga qo&apos;shilish
       </h2>
-      <p className="mt-2 text-xs text-cream-dim">
+      <p className="mt-2 text-xs text-ink-soft">
         {authed
           ? "Guruhni tanlang va qo'shilish so'rovini yuboring. Ustoz tasdiqlagach darslar ochiladi."
           : "Qo'shilish uchun avval tizimga kiring."}
@@ -143,14 +143,14 @@ export function JoinCourseGroups({ locale, courseId }: JoinCourseGroupsProps) {
           return (
             <li
               key={g.id}
-              className="rounded-2xl border border-white/[0.07] bg-ink-surface/60 p-4"
+              className="rounded-2xl border border-rim bg-canvas p-4"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-cream">
+                  <p className="truncate text-sm font-bold text-ink-strong">
                     {g.name}
                   </p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim">
+                  <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-faint">
                     {g.priceUzs > 0
                       ? `${formatUzs(g.priceUzs)} so'm`
                       : 'Bepul'}
@@ -168,7 +168,7 @@ export function JoinCourseGroups({ locale, courseId }: JoinCourseGroupsProps) {
                   justDone={justDone}
                   onClick={() => handleJoin(g.id)}
                 />
-                {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
+                {error && <p className="mt-2 text-xs font-semibold text-red">{error}</p>}
               </div>
             </li>
           );
@@ -191,14 +191,14 @@ function JoinButton({
 }) {
   if (status === 'APPROVED') {
     return (
-      <span className="inline-flex w-full items-center justify-center rounded-2xl border border-accent2-500/30 bg-accent2-500/10 px-4 py-2.5 text-sm font-semibold text-accent2-500">
+      <span className="inline-flex w-full items-center justify-center rounded-2xl border border-green/20 bg-green-tint px-4 py-2.5 text-sm font-bold text-green">
         ✓ Qo&apos;shilgansiz
       </span>
     );
   }
   if (justDone || status === 'PENDING_APPROVAL') {
     return (
-      <span className="inline-flex w-full items-center justify-center rounded-2xl border border-white/[0.1] bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-cream-dim">
+      <span className="inline-flex w-full items-center justify-center rounded-2xl border border-rim bg-tint px-4 py-2.5 text-sm font-semibold text-ink-soft">
         So&apos;rov yuborildi · Tasdiq kutilmoqda
       </span>
     );
@@ -209,7 +209,7 @@ function JoinButton({
         type="button"
         onClick={onClick}
         disabled={isSubmitting}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-accent2-500 px-4 py-2.5 text-sm font-bold text-ink transition-all hover:bg-accent2-400 disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-blue-600 disabled:opacity-60"
       >
         {isSubmitting ? 'Yuborilmoqda…' : 'Qayta urinish'}
       </button>
@@ -220,7 +220,7 @@ function JoinButton({
       type="button"
       onClick={onClick}
       disabled={isSubmitting}
-      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-accent2-500 px-4 py-2.5 text-sm font-bold text-ink shadow-[0_0_0_1px_rgba(0,232,122,0.4),0_8px_24px_-8px_rgba(0,232,122,0.6)] transition-all hover:bg-accent2-400 active:scale-[0.98] disabled:opacity-60"
+      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue px-4 py-2.5 text-sm font-bold text-white shadow-[0_8px_16px_-6px_rgba(0,113,227,0.5)] transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-60"
     >
       {isSubmitting ? 'Yuborilmoqda…' : "Qo'shilish so'rovi"}
     </button>

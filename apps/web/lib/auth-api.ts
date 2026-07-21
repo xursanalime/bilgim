@@ -76,15 +76,22 @@ export const authApi = {
     });
   },
 
-  /** POST /auth/login — also stores tokens on success */
-  async login(payload: LoginPayload): Promise<LoginResponse> {
+  /**
+   * POST /auth/login — also stores tokens on success.
+   * @param remember - "Eslab qolish" checkbox; false keeps the session
+   *   scoped to the current browser session only (see `setTokens`).
+   */
+  async login(payload: LoginPayload, remember = true): Promise<LoginResponse> {
     const result = await apiClient.post<LoginResponse>('/auth/login', payload, {
       public: true,
     });
-    setTokens({
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-    });
+    setTokens(
+      {
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      },
+      remember,
+    );
     return result;
   },
 
