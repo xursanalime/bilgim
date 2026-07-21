@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { unstable_setRequestLocale } from 'next-intl/server';
+import { ArrowRight } from 'lucide-react';
 
 import {
   serverDiscovery,
@@ -142,26 +143,19 @@ export default async function SearchPage({
   }
 
   return (
-    <section className="relative overflow-hidden bg-ink py-16 sm:py-20">
-      <div className="pointer-events-none absolute inset-0 bg-grid opacity-30" />
-      <div className="pointer-events-none absolute -left-40 top-10 h-[400px] w-[400px] rounded-full bg-accent2-500/10 blur-3xl" />
+    <section className="relative overflow-hidden py-16 sm:py-20">
+      <div className="pointer-events-none absolute -left-32 -top-32 h-[400px] w-[400px] rounded-full bg-blue/5 blur-[100px]" />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <header className="max-w-3xl">
-          <span className="inline-flex items-center gap-2 rounded-full border border-accent2-500/30 bg-accent2-500/10 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-accent2-500">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent2-500" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-blue/15 bg-blue-tint px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-blue">
+            <span className="h-1.5 w-1.5 rounded-full bg-blue" />
             Qidiruv
           </span>
-          <h1
-            className="mt-4 text-balance font-extrabold tracking-tight text-cream"
-            style={{
-              fontSize: 'clamp(2.25rem, 4.5vw, 3.5rem)',
-              letterSpacing: '-0.04em',
-            }}
-          >
+          <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl lg:text-5xl">
             {tab === 'courses' ? 'Kurslar' : 'Ustozlar'}ni toping
           </h1>
-          <p className="mt-3 max-w-xl text-base text-cream-dim sm:text-lg">
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-soft sm:text-base">
             EduBridge platformasidagi ochiq{' '}
             {tab === 'courses' ? 'ingliz tili kurslari' : 'ingliz tili ustozlari'}{' '}
             ro&apos;yxati.
@@ -216,21 +210,10 @@ export default async function SearchPage({
           <div className="mt-10 text-center">
             <Link
               href={buildCursorHref(nextCursor)}
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/[0.1] bg-white/[0.04] px-6 py-3 text-sm font-semibold text-cream transition-all hover:border-accent2-500/40 hover:bg-accent2-500/10 hover:text-accent2-500"
+              className="inline-flex items-center gap-2 rounded-2xl border border-rim bg-canvas px-6 py-3 text-sm font-bold text-ink-soft shadow-soft transition-all hover:border-blue/20 hover:text-blue"
             >
               Ko&apos;proq ko&apos;rish
-              <svg
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M5 12h14" />
-                <path d="m12 5 7 7-7 7" />
-              </svg>
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         )}

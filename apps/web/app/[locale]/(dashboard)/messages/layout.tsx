@@ -21,7 +21,7 @@ export default function MessagesLayout({
   unstable_setRequestLocale(locale);
   requireAuth({ locale, roles: ['STUDENT', 'TEACHER'] });
   return (
-    <div className="mx-auto h-[calc(100vh-8rem)] w-full max-w-7xl overflow-hidden rounded-2xl border border-white/[0.07] bg-ink-surface/40">
+    <div className="mx-auto h-[calc(100vh-8rem)] w-full max-w-7xl overflow-hidden rounded-2xl border border-rim bg-canvas shadow-soft">
       {children}
     </div>
   );

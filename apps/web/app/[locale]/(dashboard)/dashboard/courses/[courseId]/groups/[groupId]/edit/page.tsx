@@ -36,17 +36,17 @@ export default async function EditGroupPage({
     <div className="mx-auto max-w-2xl space-y-6">
       <Link
         href={`/${locale}/dashboard/courses/${courseId}/groups/${groupId}`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-cream-dim hover:text-cream"
+        className="inline-flex items-center gap-1 text-sm font-medium text-ink-faint hover:text-ink-strong"
       >
         <ArrowLeft className="h-4 w-4" />
         {group.name}
       </Link>
 
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-cream">
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink-strong">
           Guruhni tahrirlash
         </h1>
-        <p className="mt-1 text-sm text-cream-dim">
+        <p className="mt-1 text-sm text-ink-soft">
           Guruh ma&apos;lumotlarini yangilang.
         </p>
       </div>
@@ -65,9 +65,9 @@ export default async function EditGroupPage({
         }}
       />
 
-      <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
-        <h3 className="font-semibold text-red-300">Xavfli zona</h3>
-        <p className="mt-1 text-xs text-cream-dim">
+      <div className="rounded-2xl border border-red/15 bg-red-tint p-5">
+        <h3 className="font-semibold text-red">Xavfli zona</h3>
+        <p className="mt-1 text-xs text-ink-soft">
           Guruh va undagi barcha darslar o&apos;chiriladi. Talabalarning
           tasdiqlangan ro&apos;yxatlari saqlanmaydi.
         </p>
