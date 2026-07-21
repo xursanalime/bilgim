@@ -97,11 +97,13 @@ LABEL org.opencontainers.image.licenses="UNLICENSED"
 
 WORKDIR /app
 
-# Copy built application
-COPY --from=builder /app/apps/api/dist ./dist
+# Copy built application (node_modules first, dist last — order changed
+# to avoid a remote-builder cache entry that kept reporting the dist
+# layer as missing after `pnpm prune --prod`)
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/api/dist ./dist
 
 # Copy Prisma schema (the generated client itself is already included in
 # the full node_modules copy above; .prisma/@prisma got pruned to
