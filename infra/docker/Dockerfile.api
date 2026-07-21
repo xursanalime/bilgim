@@ -1,7 +1,13 @@
 # Production Dockerfile for EduBridge API (NestJS)
 # Validates: Requirement 31.8
 #
-# Base image: Node 20 Alpine with pinned sha256 digest for reproducibility.
+# Base image: Node 20 on Debian bookworm-slim (glibc), pinned by sha256
+# digest. mediasoup (the SFU dependency used by the live-classroom
+# module) ships glibc-only prebuilt binaries and, when it has to
+# compile from source, needs a C/C++ toolchain + Python that Alpine's
+# musl-based image can't satisfy cleanly — bookworm-slim matches the
+# distroless-debian12 runtime below so no glibc/musl mismatch exists
+# between what's built and what's run.
 # Final stage: distroless Node.js image for minimal attack surface.
 #
 # Multi-stage build:
@@ -12,10 +18,12 @@
 # ─────────────────────────────────────────────────────────────────
 # Stage 1: Dependencies
 # ─────────────────────────────────────────────────────────────────
-# Node 20 Alpine pinned by sha256 digest (Req 31.8)
-FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS deps
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS deps
 
-RUN apk add --no-cache libc6-compat
+# Build toolchain for native addons (mediasoup, argon2, msgpackr-extract)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -34,9 +42,10 @@ RUN pnpm install --frozen-lockfile --prod --filter @edubridge/api...
 # Stage 1b: ffmpeg — static binaries for video transcoding
 # (distroless has no package manager, so this is copied in pre-built)
 # ─────────────────────────────────────────────────────────────────
-FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS ffmpeg
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS ffmpeg
 
-RUN apk add --no-cache curl xz \
+RUN apt-get update && apt-get install -y --no-install-recommends curl xz-utils \
+    && rm -rf /var/lib/apt/lists/* \
     && curl -sSL -o /tmp/ffmpeg.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
     && mkdir -p /tmp/ffmpeg-extract \
     && tar -xJf /tmp/ffmpeg.tar.xz -C /tmp/ffmpeg-extract \
@@ -47,9 +56,11 @@ RUN apk add --no-cache curl xz \
 # ─────────────────────────────────────────────────────────────────
 # Stage 2: Builder
 # ─────────────────────────────────────────────────────────────────
-FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS builder
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS builder
 
-RUN apk add --no-cache libc6-compat
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
