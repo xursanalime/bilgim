@@ -76,10 +76,14 @@ LABEL org.opencontainers.image.licenses="UNLICENSED"
 RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
 
-# Copy Next.js standalone output
-COPY --from=builder /app/apps/web/public ./public
+# Copy Next.js standalone output. This is a monorepo build, so the
+# standalone tree preserves the workspace path: server.js lands at
+# apps/web/server.js (not ./server.js), and Next.js looks for its own
+# .next/static relative to server.js's own directory — so static and
+# public both have to be nested under apps/web/, not at the image root.
+COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 
 # Switch to non-root user
 USER nextjs:nodejs
