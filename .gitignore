@@ -41,3 +41,6 @@ infra/local/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# TypeScript incremental build cache — machine-specific, never commit
+*.tsbuildinfo
