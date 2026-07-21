@@ -13,7 +13,7 @@
 # Stage 1: Dependencies
 # ─────────────────────────────────────────────────────────────────
 # Node 20 Alpine pinned by sha256 digest (Req 31.8)
-FROM node:20-alpine@sha256:2f46fd49c767554c089a5eb219115313b72748d0f3f4b1c608f5c1466a5ec8c1 AS deps
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS deps
 
 RUN apk add --no-cache libc6-compat
 
@@ -34,7 +34,7 @@ RUN pnpm install --frozen-lockfile --prod --filter @edubridge/api...
 # Stage 1b: ffmpeg — static binaries for video transcoding
 # (distroless has no package manager, so this is copied in pre-built)
 # ─────────────────────────────────────────────────────────────────
-FROM node:20-alpine@sha256:2f46fd49c767554c089a5eb219115313b72748d0f3f4b1c608f5c1466a5ec8c1 AS ffmpeg
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS ffmpeg
 
 RUN apk add --no-cache curl xz \
     && curl -sSL -o /tmp/ffmpeg.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
@@ -47,7 +47,7 @@ RUN apk add --no-cache curl xz \
 # ─────────────────────────────────────────────────────────────────
 # Stage 2: Builder
 # ─────────────────────────────────────────────────────────────────
-FROM node:20-alpine@sha256:2f46fd49c767554c089a5eb219115313b72748d0f3f4b1c608f5c1466a5ec8c1 AS builder
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS builder
 
 RUN apk add --no-cache libc6-compat
 
