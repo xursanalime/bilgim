@@ -60,7 +60,13 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm run db:generate
 
 # Build the API
-RUN pnpm --filter @edubridge/api build && ls -la /app/apps/api/dist/main.js
+RUN pnpm --filter @edubridge/api build; \
+    echo "=== nest build exit code: $? ==="; \
+    echo "=== /app/apps/api contents: ==="; \
+    ls -la /app/apps/api/; \
+    echo "=== /app/apps/api/dist contents (or absence): ==="; \
+    ls -la /app/apps/api/dist/ 2>&1 || true; \
+    test -f /app/apps/api/dist/main.js
 
 # NOTE: `pnpm prune --prod` used to run here to drop devDependencies
 # before the final COPY, but on Railway's remote builder it silently
