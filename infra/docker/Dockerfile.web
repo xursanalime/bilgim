@@ -49,7 +49,15 @@ COPY packages/ ./packages/
 # Install all dependencies (including devDependencies for build)
 RUN pnpm install --frozen-lockfile
 
-# Build Next.js with standalone output
+# Build Next.js with standalone output. NEXT_PUBLIC_* vars are inlined
+# into the client bundle at build time, so they must arrive as build
+# ARGs (Railway auto-supplies a matching build arg for any ARG whose
+# name matches a service variable) — a runtime-only ENV/service
+# variable never reaches this RUN step.
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_LIVEKIT_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_LIVEKIT_URL=${NEXT_PUBLIC_LIVEKIT_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @edubridge/web build
 
