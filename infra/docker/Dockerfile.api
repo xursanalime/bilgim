@@ -80,8 +80,15 @@ RUN pnpm run db:generate
 # Build the API
 RUN pnpm --filter @edubridge/api build
 
-# Prune dev dependencies after build
-RUN pnpm prune --prod
+# NOTE: `pnpm prune --prod` used to run here to drop devDependencies
+# before the final COPY, but on Railway's remote builder it silently
+# corrupted the layer (prompts "remove and reinstall node_modules from
+# scratch", which is a full reinstall, not a plain prune) and the
+# following COPY --from=builder .../dist steps then failed with
+# "not found" — reproducible even after reordering/cache-busting.
+# Devdependency bloat in node_modules is an acceptable trade-off for a
+# reliable build; the distroless runner still drops everything not
+# explicitly COPYed (source, build tools, apt caches).
 
 # ─────────────────────────────────────────────────────────────────
 # Stage 3: Runner (distroless)
