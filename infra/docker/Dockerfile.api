@@ -86,13 +86,15 @@ LABEL org.opencontainers.image.licenses="UNLICENSED"
 
 WORKDIR /app
 
-# Copy built application (node_modules first, dist last — order changed
-# to avoid a remote-builder cache entry that kept reporting the dist
-# layer as missing after `pnpm prune --prod`)
+# Copy built application. dist is kept at apps/api/dist (not flattened
+# to ./dist) because pnpm hoists @nestjs/* etc. into apps/api/node_modules
+# as symlinks into the root .pnpm store, not into root node_modules
+# directly — Node's require() resolution walks up from the entry file's
+# own directory, so main.js has to live under apps/api/ to see them.
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/apps/api/dist ./dist
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
 # Copy Prisma schema (the generated client itself is already included in
 # the full node_modules copy above; .prisma/@prisma got pruned to
@@ -118,4 +120,4 @@ ENV FFMPEG_PATH=/usr/local/bin/ffmpeg
 ENV FFPROBE_PATH=/usr/local/bin/ffprobe
 
 # Start the application
-CMD ["dist/main.js"]
+CMD ["apps/api/dist/main.js"]
