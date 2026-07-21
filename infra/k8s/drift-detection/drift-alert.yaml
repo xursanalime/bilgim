@@ -1,0 +1,339 @@
+# Infrastructure Drift Detection + Alert + Automatic Rollback
+# Requirement 31.10: Manual o'zgarishlar aniqlansa alert yuborish va avtomatik rollback
+# Requirement 31.4: Immutable infrastructure — faqat GitOps orqali o'zgarish
+---
+# ServiceAccount for drift detection CronJob
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: drift-detector
+  namespace: edubridge-production
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    app.kubernetes.io/component: drift-detection
+---
+# ClusterRole — read access to detect drift
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: edubridge-drift-detector
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    app.kubernetes.io/component: drift-detection
+rules:
+  - apiGroups: ["", "apps", "networking.k8s.io", "batch"]
+    resources:
+      - deployments
+      - statefulsets
+      - services
+      - configmaps
+      - secrets
+      - networkpolicies
+      - pods
+      - namespaces
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications"]
+    verbs: ["get", "list", "patch"]
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: edubridge-drift-detector-binding
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    app.kubernetes.io/component: drift-detection
+subjects:
+  - kind: ServiceAccount
+    name: drift-detector
+    namespace: edubridge-production
+roleRef:
+  kind: ClusterRole
+  name: edubridge-drift-detector
+  apiGroup: rbac.authorization.k8s.io
+---
+# ConfigMap: Drift detection script
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: drift-detection-script
+  namespace: edubridge-production
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    app.kubernetes.io/component: drift-detection
+data:
+  detect-drift.sh: |
+    #!/bin/sh
+    set -e
+
+    echo "=== EduBridge Infrastructure Drift Detection ==="
+    echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo ""
+
+    DRIFT_DETECTED=0
+    ALERT_PAYLOAD=""
+
+    # 1. Check ArgoCD application sync status
+    echo "[1/5] Checking ArgoCD sync status..."
+    APPS=$(kubectl get applications.argoproj.io -n argocd \
+      -l app.kubernetes.io/part-of=edubridge \
+      -o jsonpath='{range .items[*]}{.metadata.name}:{.status.sync.status}:{.status.health.status}{"\n"}{end}')
+
+    for APP_INFO in $APPS; do
+      APP_NAME=$(echo "$APP_INFO" | cut -d: -f1)
+      SYNC_STATUS=$(echo "$APP_INFO" | cut -d: -f2)
+      HEALTH_STATUS=$(echo "$APP_INFO" | cut -d: -f3)
+
+      if [ "$SYNC_STATUS" != "Synced" ]; then
+        echo "  DRIFT DETECTED: $APP_NAME is $SYNC_STATUS (expected: Synced)"
+        DRIFT_DETECTED=1
+        ALERT_PAYLOAD="${ALERT_PAYLOAD}ArgoCD app '$APP_NAME' out of sync: $SYNC_STATUS\n"
+      fi
+
+      if [ "$HEALTH_STATUS" != "Healthy" ]; then
+        echo "  HEALTH ISSUE: $APP_NAME health is $HEALTH_STATUS"
+        ALERT_PAYLOAD="${ALERT_PAYLOAD}ArgoCD app '$APP_NAME' unhealthy: $HEALTH_STATUS\n"
+      fi
+    done
+
+    # 2. Check for pods running as root (PSS violation)
+    echo "[2/5] Checking for root-running containers..."
+    ROOT_PODS=$(kubectl get pods -n edubridge-production \
+      -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .spec.containers[*]}{.securityContext.runAsNonRoot}{" "}{end}{"\n"}{end}' \
+      2>/dev/null | grep -v "true" | grep -v "^$" || true)
+
+    if [ -n "$ROOT_PODS" ]; then
+      echo "  DRIFT DETECTED: Pods running without runAsNonRoot=true"
+      echo "  $ROOT_PODS"
+      DRIFT_DETECTED=1
+      ALERT_PAYLOAD="${ALERT_PAYLOAD}PSS violation: pods without runAsNonRoot detected\n"
+    fi
+
+    # 3. Check for privileged containers
+    echo "[3/5] Checking for privileged containers..."
+    PRIV_PODS=$(kubectl get pods -n edubridge-production \
+      -o jsonpath='{range .items[*]}{range .spec.containers[*]}{.name}:{.securityContext.privileged}{"\n"}{end}{end}' \
+      2>/dev/null | grep "true" || true)
+
+    if [ -n "$PRIV_PODS" ]; then
+      echo "  DRIFT DETECTED: Privileged containers found!"
+      DRIFT_DETECTED=1
+      ALERT_PAYLOAD="${ALERT_PAYLOAD}CRITICAL: Privileged containers detected: $PRIV_PODS\n"
+    fi
+
+    # 4. Check network policies exist
+    echo "[4/5] Verifying network policies..."
+    NP_COUNT=$(kubectl get networkpolicies -n edubridge-production --no-headers 2>/dev/null | wc -l)
+    if [ "$NP_COUNT" -lt 4 ]; then
+      echo "  DRIFT DETECTED: Expected >=4 network policies, found $NP_COUNT"
+      DRIFT_DETECTED=1
+      ALERT_PAYLOAD="${ALERT_PAYLOAD}Network policies missing: found $NP_COUNT (expected >=4)\n"
+    fi
+
+    # 5. Check namespace PSS labels
+    echo "[5/5] Verifying PSS namespace labels..."
+    PSS_ENFORCE=$(kubectl get namespace edubridge-production \
+      -o jsonpath='{.metadata.labels.pod-security\.kubernetes\.io/enforce}' 2>/dev/null)
+
+    if [ "$PSS_ENFORCE" != "restricted" ]; then
+      echo "  DRIFT DETECTED: PSS enforce label is '$PSS_ENFORCE' (expected: restricted)"
+      DRIFT_DETECTED=1
+      ALERT_PAYLOAD="${ALERT_PAYLOAD}PSS label drift: enforce='$PSS_ENFORCE' (expected: restricted)\n"
+    fi
+
+    # Results
+    echo ""
+    echo "=== Drift Detection Results ==="
+    if [ "$DRIFT_DETECTED" -eq 1 ]; then
+      echo "STATUS: DRIFT DETECTED — triggering alert and rollback"
+
+      # Send alert to Slack/PagerDuty
+      if [ -n "$SLACK_WEBHOOK_URL" ]; then
+        curl -s -X POST "$SLACK_WEBHOOK_URL" \
+          -H 'Content-Type: application/json' \
+          -d "{
+            \"channel\": \"#edubridge-security-alerts\",
+            \"username\": \"Drift Detector\",
+            \"icon_emoji\": \":rotating_light:\",
+            \"text\": \":warning: *Infrastructure Drift Detected*\n\nTimestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)\nNamespace: edubridge-production\n\nDetails:\n${ALERT_PAYLOAD}\n\n*Action:* ArgoCD self-heal triggered for automatic rollback.\"
+          }"
+        echo "  Alert sent to Slack"
+      fi
+
+      # Send PagerDuty alert for critical drift
+      if [ -n "$PAGERDUTY_ROUTING_KEY" ]; then
+        curl -s -X POST "https://events.pagerduty.com/v2/enqueue" \
+          -H 'Content-Type: application/json' \
+          -d "{
+            \"routing_key\": \"$PAGERDUTY_ROUTING_KEY\",
+            \"event_action\": \"trigger\",
+            \"payload\": {
+              \"summary\": \"EduBridge Infrastructure Drift Detected\",
+              \"severity\": \"critical\",
+              \"source\": \"drift-detector-cronjob\",
+              \"custom_details\": {
+                \"namespace\": \"edubridge-production\",
+                \"drift_details\": \"${ALERT_PAYLOAD}\"
+              }
+            }
+          }"
+        echo "  PagerDuty alert triggered"
+      fi
+
+      # Trigger ArgoCD hard refresh + sync (automatic rollback)
+      echo "  Triggering ArgoCD sync for rollback..."
+      for APP_INFO in $APPS; do
+        APP_NAME=$(echo "$APP_INFO" | cut -d: -f1)
+        SYNC_STATUS=$(echo "$APP_INFO" | cut -d: -f2)
+        if [ "$SYNC_STATUS" != "Synced" ]; then
+          kubectl patch applications.argoproj.io "$APP_NAME" -n argocd \
+            --type merge \
+            -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' \
+            2>/dev/null || true
+          echo "  Triggered hard refresh for: $APP_NAME"
+        fi
+      done
+
+      exit 1
+    else
+      echo "STATUS: NO DRIFT — infrastructure matches Git state"
+      exit 0
+    fi
+---
+# CronJob: Run drift detection every 5 minutes
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: drift-detection
+  namespace: edubridge-production
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    app.kubernetes.io/component: drift-detection
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: edubridge
+        app.kubernetes.io/component: drift-detection
+    spec:
+      activeDeadlineSeconds: 120
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: edubridge
+            app.kubernetes.io/component: drift-detection
+        spec:
+          serviceAccountName: drift-detector
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            fsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: drift-detector
+              image: bitnami/kubectl:1.30
+              command: ["/bin/sh", "/scripts/detect-drift.sh"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              env:
+                - name: SLACK_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: drift-detection-secrets
+                      key: slack-webhook-url
+                      optional: true
+                - name: PAGERDUTY_ROUTING_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: drift-detection-secrets
+                      key: pagerduty-routing-key
+                      optional: true
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: scripts
+              configMap:
+                name: drift-detection-script
+                defaultMode: 0555
+            - name: tmp
+              emptyDir:
+                sizeLimit: 10Mi
+---
+# PrometheusRule: Alert on drift detection job failures
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: drift-detection-alerts
+  namespace: edubridge-production
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    app.kubernetes.io/component: drift-detection
+    prometheus: kube-prometheus
+spec:
+  groups:
+    - name: edubridge.drift
+      rules:
+        - alert: InfrastructureDriftDetected
+          expr: |
+            kube_job_status_failed{
+              namespace="edubridge-production",
+              job_name=~"drift-detection-.*"
+            } > 0
+          for: 1m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Infrastructure drift detected in EduBridge production"
+            description: "The drift detection CronJob has failed, indicating manual changes were made outside of GitOps. ArgoCD self-heal should auto-rollback."
+            runbook_url: "https://docs.edubridge.uz/runbooks/drift-detected"
+        - alert: DriftDetectionNotRunning
+          expr: |
+            time() - kube_cronjob_status_last_schedule_time{
+              namespace="edubridge-production",
+              cronjob="drift-detection"
+            } > 600
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Drift detection CronJob not running"
+            description: "The drift detection CronJob has not run in the last 10 minutes. Verify the CronJob is healthy."
+        - alert: ArgoCDOutOfSync
+          expr: |
+            argocd_app_info{
+              sync_status!="Synced",
+              project="edubridge"
+            } == 1
+          for: 5m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "ArgoCD application {{ $labels.name }} is out of sync"
+            description: "Application {{ $labels.name }} has been out of sync for more than 5 minutes. This may indicate drift or a failed deployment."

@@ -1,0 +1,95 @@
+# Dependabot configuration for EduBridge
+# Validates: Requirement 31.1
+#
+# Automatically creates PRs for dependency updates across all ecosystems.
+# Security updates are prioritized and grouped by ecosystem.
+
+version: 2
+
+updates:
+  # ─────────────────────────────────────────────────────────────────
+  # npm (pnpm) — root and all workspace packages
+  # ─────────────────────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Tashkent"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "edubridge/security-team"
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      production-deps:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "@types/*"
+          - "eslint*"
+          - "prettier*"
+          - "jest*"
+          - "vitest*"
+          - "@testing-library/*"
+        update-types:
+          - "minor"
+          - "patch"
+      dev-deps:
+        patterns:
+          - "@types/*"
+          - "eslint*"
+          - "prettier*"
+          - "jest*"
+          - "vitest*"
+          - "@testing-library/*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Security updates always create individual PRs
+    security-updates:
+      open-pull-requests-limit: 20
+
+  # ─────────────────────────────────────────────────────────────────
+  # Docker — production Dockerfiles
+  # ─────────────────────────────────────────────────────────────────
+  - package-ecosystem: "docker"
+    directory: "/infra/docker"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+      timezone: "Asia/Tashkent"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "edubridge/security-team"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "security"
+    commit-message:
+      prefix: "docker"
+
+  # ─────────────────────────────────────────────────────────────────
+  # GitHub Actions — workflow dependencies
+  # ─────────────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "06:00"
+      timezone: "Asia/Tashkent"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "edubridge/security-team"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci"

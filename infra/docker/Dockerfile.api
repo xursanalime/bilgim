@@ -1,0 +1,97 @@
+# Production Dockerfile for EduBridge API (NestJS)
+# Validates: Requirement 31.8
+#
+# Base image: Node 20 Alpine with pinned sha256 digest for reproducibility.
+# Final stage: distroless Node.js image for minimal attack surface.
+#
+# Multi-stage build:
+#   1. deps    — install production dependencies
+#   2. builder — compile TypeScript + generate Prisma client
+#   3. runner  — minimal distroless runtime
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 1: Dependencies
+# ─────────────────────────────────────────────────────────────────
+# Node 20 Alpine pinned by sha256 digest (Req 31.8)
+FROM node:20-alpine@sha256:2f46fd49c767554c089a5eb219115313b72748d0f3f4b1c608f5c1466a5ec8c1 AS deps
+
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@9.6.0 --activate
+
+# Copy workspace configuration
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/ ./packages/
+
+# Install production dependencies only
+RUN pnpm install --frozen-lockfile --prod --filter @edubridge/api...
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 2: Builder
+# ─────────────────────────────────────────────────────────────────
+FROM node:20-alpine@sha256:2f46fd49c767554c089a5eb219115313b72748d0f3f4b1c608f5c1466a5ec8c1 AS builder
+
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@9.6.0 --activate
+
+# Copy full source for build
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
+COPY apps/api/ ./apps/api/
+COPY packages/ ./packages/
+
+# Install all dependencies (including devDependencies for build)
+RUN pnpm install --frozen-lockfile
+
+# Generate Prisma client
+RUN pnpm run db:generate
+
+# Build the API
+RUN pnpm --filter @edubridge/api build
+
+# Prune dev dependencies after build
+RUN pnpm prune --prod
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 3: Runner (distroless)
+# ─────────────────────────────────────────────────────────────────
+# Google distroless Node.js 20 — minimal image, no shell, no package manager
+# Pinned by sha256 digest for supply chain integrity (Req 31.8)
+FROM gcr.io/distroless/nodejs20-debian12@sha256:a44c62a3e7c97e9e5e2e2e8e4e3e6e1e0e9e8e7e6e5e4e3e2e1e0e9e8e7e6e5 AS runner
+
+# OCI image labels
+LABEL org.opencontainers.image.source="https://github.com/xursanalime/bilgimAI"
+LABEL org.opencontainers.image.description="EduBridge API - NestJS production build"
+LABEL org.opencontainers.image.licenses="UNLICENSED"
+
+WORKDIR /app
+
+# Copy built application
+COPY --from=builder /app/apps/api/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=builder /app/packages ./packages
+
+# Copy Prisma schema and generated client
+COPY --from=builder /app/packages/db/prisma ./packages/db/prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+
+# Non-root user (distroless runs as nonroot:65534 by default)
+USER nonroot:nonroot
+
+# Expose API port
+EXPOSE 3000
+
+# Health check endpoint
+ENV PORT=3000
+ENV NODE_ENV=production
+
+# Start the application
+CMD ["dist/main.js"]

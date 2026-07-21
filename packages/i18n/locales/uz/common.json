@@ -1,0 +1,67 @@
+{
+  "app_name": "Bilgim",
+  "welcome": "Xush kelibsiz",
+  "login": "Kirish",
+  "register": "Ro'yxatdan o'tish",
+  "logout": "Chiqish",
+  "dashboard": "Boshqaruv paneli",
+  "courses": "Kurslar",
+  "groups": "Guruhlar",
+  "lessons": "Darslar",
+  "students": "Talabalar",
+  "teachers": "O'qituvchilar",
+  "settings": "Sozlamalar",
+  "common": {
+    "save": "Saqlash",
+    "cancel": "Bekor qilish",
+    "delete": "O'chirish",
+    "edit": "Tahrirlash",
+    "create": "Yaratish",
+    "publish": "Nashr qilish",
+    "back": "Orqaga",
+    "next": "Keyingisi",
+    "loading": "Yuklanmoqda...",
+    "saving": "Saqlanmoqda...",
+    "error_generic": "Server bilan aloqa xatosi"
+  },
+  "dashboard_page": {
+    "title": "Boshqaruv paneli",
+    "active_students": "Faol talabalar",
+    "upcoming_lessons": "Yaqin darslar",
+    "pending_homework": "Tekshirilmagan vazifalar",
+    "month_revenue": "Bu oydagi tushum",
+    "recent_courses": "So'nggi kurslar",
+    "view_all": "Barchasini ko'rish",
+    "create_first_course": "Birinchi kursni yarating"
+  },
+  "onboarding": {
+    "title": "Sizga mos yo'nalishni topamiz",
+    "subtitle": "Bir nechta savollarga javob bering va platforma sizga maxsus dashboard sozlab beradi.",
+    "finish": "Yakunlash",
+    "loading": "Savollar yuklanmoqda..."
+  },
+  "auth": {
+    "errors": {
+      "EMAIL_ALREADY_EXISTS": "Bu email allaqachon ro'yxatdan o'tgan. Kirishga harakat qilib ko'ring.",
+      "USERNAME_ALREADY_EXISTS": "Bu username band. Boshqa username tanlang.",
+      "WEAK_PASSWORD": "Parol juda zaif. Kamida 8 belgi, harf va raqam aralashmasini kiriting.",
+      "VALIDATION_FAILED": "Ma'lumotlar to'g'ri formatda emas. Maydonlarni tekshiring.",
+      "EMAIL_NOT_VERIFIED": "Email tasdiqlangan emas. Pochta qutingizdagi havolani bosing.",
+      "ACCOUNT_NOT_VERIFIED": "Email tasdiqlangan emas. Pochta qutingizdagi havolani bosing.",
+      "INVALID_CREDENTIALS": "Email yoki parol noto'g'ri.",
+      "UNAUTHENTICATED": "Email yoki parol noto'g'ri.",
+      "ACCOUNT_LOCKED": "Hisob vaqtincha bloklangan. 15 daqiqadan so'ng qayta urinib ko'ring.",
+      "TOKEN_EXPIRED": "Havola muddati tugagan. Yangi havola so'rang.",
+      "TOKEN_INVALID": "Havola yaroqsiz. Yangi havola so'rang.",
+      "INVALID_OR_EXPIRED_TOKEN": "Havola yaroqsiz yoki muddati tugagan. Yangi havola so'rang.",
+      "INVALID_REFRESH_TOKEN": "Sessiya tugagan. Iltimos, qaytadan kiring.",
+      "TOKEN_FAMILY_COMPROMISED": "Xavfsizlik chorasi: barcha qurilmalardan chiqarildi. Iltimos, qaytadan kiring.",
+      "RATE_LIMITED": "So'rovlar juda tez yuborilmoqda. Bir oz kuting va qayta urinib ko'ring.",
+      "TOO_MANY_REQUESTS": "So'rovlar juda tez yuborilmoqda. Bir oz kuting va qayta urinib ko'ring.",
+      "NETWORK_ERROR": "Internet bilan aloqa muammosi. Ulanishni tekshiring.",
+      "INTERNAL_ERROR": "Server xatoligi. Bir oz kuting va qayta urinib ko'ring.",
+      "UPSTREAM_ERROR": "Tashqi xizmat bilan aloqa xatosi. Bir oz kuting va qayta urinib ko'ring.",
+      "UNKNOWN_ERROR": "Kutilmagan xato yuz berdi. Iltimos, qayta urinib ko'ring."
+    }
+  }
+}

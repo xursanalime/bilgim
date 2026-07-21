@@ -1,0 +1,98 @@
+# Local development services for EduBridge
+# Usage: docker compose -f infra/docker/docker-compose.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: edubridge-postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: edubridge
+      POSTGRES_PASSWORD: edubridge_dev
+      POSTGRES_DB: edubridge
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U edubridge"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: edubridge-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6380:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-edubridge_dev}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-edubridge_dev}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: edubridge-minio
+    restart: unless-stopped
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    environment:
+      MINIO_ROOT_USER: edubridge
+      MINIO_ROOT_PASSWORD: edubridge_dev
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # MailHog — local SMTP catcher used to inspect outgoing transactional
+  # email (registration verification, password reset etc.). Emails are
+  # never sent to real recipients in dev.
+  #   SMTP    : localhost:1025
+  #   Web UI  : http://localhost:8025
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: edubridge-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8025/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # LiveKit — local WebRTC SFU for live classes.
+  #   Websocket : ws://localhost:7880
+  #   API       : http://localhost:7880
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: edubridge-livekit
+    restart: unless-stopped
+    command: --dev
+    environment:
+      LIVEKIT_KEYS: "devkey: secret"
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7880/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

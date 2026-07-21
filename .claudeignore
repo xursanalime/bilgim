@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Flutter
+build/
+.dart_tool/
+*.g.dart
+*.freezed.dart
+
+# Umumiy
+.git/
+*.log
+*.lock
+.env
+.env*
+node_modules/
+
+# Ma'lumotlar bazasi
+*.db
+*.sqlite
