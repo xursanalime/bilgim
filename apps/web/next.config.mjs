@@ -20,7 +20,9 @@ const nextConfig = {
       },
     ],
   },
-  // Removed standalone output for testing
+  // Required for infra/docker/Dockerfile.web's runner stage, which only
+  // copies .next/standalone (not the full node_modules tree).
+  output: 'standalone',
 };
 
 export default withNextIntl(nextConfig);

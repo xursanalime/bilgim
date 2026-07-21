@@ -103,10 +103,11 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder /app/packages ./packages
 
-# Copy Prisma schema and generated client
+# Copy Prisma schema (the generated client itself is already included in
+# the full node_modules copy above; .prisma/@prisma got pruned to
+# non-existent paths by `pnpm prune --prod` in some layouts, so copying
+# them again here as a separate step is both redundant and fragile).
 COPY --from=builder /app/packages/db/prisma ./packages/db/prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Statically-linked ffmpeg/ffprobe for video transcoding (Req 8.3-8.5) —
 # distroless has no apk/apt, so these are copied in pre-built.
