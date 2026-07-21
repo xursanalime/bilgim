@@ -11,35 +11,17 @@
 # Final stage: distroless Node.js image for minimal attack surface.
 #
 # Multi-stage build:
-#   1. deps    — install production dependencies
-#   2. builder — compile TypeScript + generate Prisma client
-#   3. runner  — minimal distroless runtime
+#   1. builder — compile TypeScript + generate Prisma client
+#   2. runner  — minimal distroless runtime
+#
+# (There used to be a separate "deps" prod-only-install stage, but
+# nothing ever copied from it — dead weight that shared identical
+# early layers with "builder" on the same base image, which is a
+# plausible contributor to a Railway remote-builder cache-key bug that
+# made COPY --from=builder .../dist intermittently fail. Removed.)
 
 # ─────────────────────────────────────────────────────────────────
-# Stage 1: Dependencies
-# ─────────────────────────────────────────────────────────────────
-FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS deps
-
-# Build toolchain for native addons (mediasoup, argon2, msgpackr-extract)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 make g++ ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@9.6.0 --activate
-
-# Copy workspace configuration
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY apps/api/package.json ./apps/api/
-COPY packages/ ./packages/
-
-# Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod --filter @edubridge/api...
-
-# ─────────────────────────────────────────────────────────────────
-# Stage 1b: ffmpeg — static binaries for video transcoding
+# Stage 1: ffmpeg — static binaries for video transcoding
 # (distroless has no package manager, so this is copied in pre-built)
 # ─────────────────────────────────────────────────────────────────
 FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS ffmpeg
@@ -78,7 +60,7 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm run db:generate
 
 # Build the API
-RUN pnpm --filter @edubridge/api build
+RUN pnpm --filter @edubridge/api build && ls -la /app/apps/api/dist/main.js
 
 # NOTE: `pnpm prune --prod` used to run here to drop devDependencies
 # before the final COPY, but on Railway's remote builder it silently
