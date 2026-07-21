@@ -18,6 +18,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: '*.r2.cloudflarestorage.com',
       },
+      {
+        protocol: 'https',
+        hostname: '*.up.railway.app',
+      },
     ],
   },
   // Required for infra/docker/Dockerfile.web's runner stage, which only
