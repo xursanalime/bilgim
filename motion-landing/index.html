@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bilgim — Ta'limning yangi yorug'ligi</title>
+  <meta name="description" content="Kurs yarating, jonli efir o'ting, AI yordamchi bilan o'rganing — bir tizimda. O'zbekiston uchun ta'lim platformasi." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0A0A0F;
+      --bg-soft: #0E0E16;
+      --violet: #6C63FF;
+      --violet-soft: #8B7CFF;
+      --blue: #4FA8F7;
+      --ink: #F4F4FA;
+      --ink-soft: rgba(244, 244, 250, 0.64);
+      --ink-faint: rgba(244, 244, 250, 0.38);
+      --line: rgba(255, 255, 255, 0.08);
+      --glass: rgba(255, 255, 255, 0.04);
+      --glass-strong: rgba(255, 255, 255, 0.07);
+      --radius: 22px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    h1, h2, h3, .display { font-family: 'Space Grotesk', 'Inter', sans-serif; }
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; cursor: pointer; }
+    img, video { max-width: 100%; display: block; }
+    .container { width: min(1180px, calc(100% - 48px)); margin-inline: auto; }
+    @media (max-width: 640px) { .container { width: calc(100% - 36px); } }
+
+    ::selection { background: rgba(108, 99, 255, 0.45); color: #fff; }
+
+    /* ───────────── Cursor spotlight ───────────── */
+    #spotlight {
+      position: fixed; inset: 0; pointer-events: none; z-index: 3;
+      background: radial-gradient(560px circle at var(--mx, 50%) var(--my, 30%), rgba(108, 99, 255, 0.09), transparent 65%);
+      transition: background 0.12s linear;
+    }
+    @media (hover: none) { #spotlight { display: none; } }
+
+    /* ───────────── Grain overlay ───────────── */
+    body::after {
+      content: ''; position: fixed; inset: -50%; z-index: 2; pointer-events: none; opacity: 0.05;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      animation: grain 9s steps(10) infinite;
+    }
+    @keyframes grain {
+      0%,100% { transform: translate(0,0); } 20% { transform: translate(-4%,3%); }
+      40% { transform: translate(3%,-4%); } 60% { transform: translate(-2%,-2%); } 80% { transform: translate(4%,2%); }
+    }
+
+    /* ───────────── Header ───────────── */
+    header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      transition: background 0.4s ease, border-color 0.4s ease, backdrop-filter 0.4s ease;
+      border-bottom: 1px solid transparent;
+    }
+    header.scrolled {
+      background: rgba(10, 10, 15, 0.72);
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      border-bottom-color: var(--line);
+    }
+    .nav { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+    .logo { display: flex; align-items: center; gap: 10px; font-family: 'Space Grotesk'; font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
+    .logo-mark {
+      width: 34px; height: 34px; border-radius: 10px; position: relative; overflow: hidden;
+      background: linear-gradient(135deg, var(--violet), #4438d6);
+      box-shadow: 0 0 24px rgba(108, 99, 255, 0.55);
+    }
+    .logo-mark::after {
+      content: ''; position: absolute; left: 50%; top: -20%; width: 3px; height: 140%;
+      background: linear-gradient(180deg, transparent, #fff 40%, transparent);
+      transform: translateX(-50%); opacity: 0.9; filter: blur(0.5px);
+      animation: beam-pulse 3.2s ease-in-out infinite;
+    }
+    @keyframes beam-pulse { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
+    .nav-links { display: flex; gap: 30px; font-size: 14.5px; font-weight: 500; color: var(--ink-soft); }
+    .nav-links a { transition: color 0.25s; position: relative; }
+    .nav-links a::after {
+      content: ''; position: absolute; left: 0; bottom: -6px; height: 2px; width: 0;
+      background: linear-gradient(90deg, var(--violet), var(--blue)); border-radius: 2px; transition: width 0.3s ease;
+    }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-links a:hover::after { width: 100%; }
+    @media (max-width: 860px) { .nav-links { display: none; } }
+    .nav-cta {
+      padding: 11px 22px; border-radius: 999px; font-size: 14px; font-weight: 600; color: #fff;
+      background: linear-gradient(135deg, var(--violet), #5348e8);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 0 0 0 rgba(108, 99, 255, 0.5); transition: box-shadow 0.35s, transform 0.35s;
+    }
+    .nav-cta:hover { box-shadow: 0 0 34px 4px rgba(108, 99, 255, 0.45); transform: translateY(-1px); }
+
+    /* ───────────── Video layers ───────────── */
+    .video-bg { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
+    .video-bg video {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+      transform: scale(1.04);
+    }
+    .video-bg .veil { position: absolute; inset: 0; z-index: 1; }
+
+    /* ───────────── Hero ───────────── */
+    .hero { position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 130px 0 90px; isolation: isolate; }
+    .hero .veil {
+      background:
+        radial-gradient(120% 70% at 50% 100%, rgba(10,10,15,0.35) 0%, transparent 55%),
+        linear-gradient(180deg, rgba(10,10,15,0.62) 0%, rgba(10,10,15,0.30) 38%, rgba(10,10,15,0.55) 74%, var(--bg) 100%);
+    }
+    .hero-inner { position: relative; z-index: 4; display: flex; flex-direction: column; align-items: center; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 10px; padding: 8px 18px 8px 9px; border-radius: 999px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.13);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      font-size: 13px; font-weight: 500; color: var(--ink-soft);
+    }
+    .badge .pill {
+      display: inline-flex; align-items: center; gap: 7px; background: var(--violet); color: #fff;
+      padding: 4px 11px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.18em;
+      font-family: 'Space Grotesk';
+    }
+    .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; position: relative; }
+    .badge .dot::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; background: rgba(255,255,255,0.6); animation: ping 1.6s cubic-bezier(0,0,0.2,1) infinite; }
+    @keyframes ping { 0% { transform: scale(0.6); opacity: 0.9; } 100% { transform: scale(2); opacity: 0; } }
+
+    .hero h1 {
+      margin-top: 30px; font-size: clamp(3rem, 8.5vw, 6.6rem); line-height: 1.02; letter-spacing: -0.045em; font-weight: 700;
+      text-wrap: balance;
+    }
+    .hero h1 .grad {
+      background: linear-gradient(112deg, #a89bff 0%, var(--violet) 38%, var(--blue) 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      text-shadow: 0 0 70px rgba(108, 99, 255, 0.5);
+    }
+    .hero p.sub {
+      margin-top: 26px; max-width: 560px; font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.65; color: var(--ink-soft); text-wrap: balance;
+    }
+    .hero p.sub strong { color: var(--ink); font-weight: 600; }
+
+    .hero-ctas { margin-top: 40px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+    .btn-primary {
+      position: relative; overflow: hidden; padding: 17px 36px; border-radius: 999px; border: none;
+      font-size: 15.5px; font-weight: 700; color: #fff; letter-spacing: 0.01em;
+      background: linear-gradient(135deg, #7d74ff, var(--violet) 45%, #4a3fe0);
+      box-shadow: 0 10px 40px rgba(108, 99, 255, 0.45), inset 0 1px 0 rgba(255,255,255,0.25);
+      transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s;
+    }
+    .btn-primary:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 18px 60px rgba(108, 99, 255, 0.6), inset 0 1px 0 rgba(255,255,255,0.25); }
+    .btn-primary::after {
+      content: ''; position: absolute; top: 0; left: -80%; width: 55%; height: 100%;
+      background: linear-gradient(100deg, transparent, rgba(255,255,255,0.35), transparent);
+      transform: skewX(-20deg); animation: shine 3.6s ease-in-out infinite;
+    }
+    @keyframes shine { 0%, 60% { left: -80%; } 100% { left: 140%; } }
+    .btn-ghost {
+      padding: 17px 34px; border-radius: 999px; font-size: 15.5px; font-weight: 600; color: var(--ink);
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.16);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      transition: background 0.3s, border-color 0.3s, transform 0.3s;
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
+
+    .hero-trust { margin-top: 34px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-faint); }
+    .hero-trust .stars { color: #FFD466; letter-spacing: 2px; font-size: 14px; }
+
+    .sound-toggle {
+      position: absolute; right: 26px; bottom: 26px; z-index: 6;
+      width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.16); color: var(--ink-soft);
+      backdrop-filter: blur(12px); transition: background 0.3s, color 0.3s;
+    }
+    .sound-toggle:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+    .scroll-hint {
+      position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 6;
+      width: 26px; height: 42px; border: 2px solid rgba(255,255,255,0.25); border-radius: 14px;
+    }
+    .scroll-hint::after {
+      content: ''; position: absolute; left: 50%; top: 8px; width: 4px; height: 8px; border-radius: 4px;
+      background: var(--violet-soft); transform: translateX(-50%); animation: wheel 1.9s ease-in-out infinite;
+    }
+    @keyframes wheel { 0% { top: 7px; opacity: 1; } 70% { top: 22px; opacity: 0; } 100% { top: 7px; opacity: 0; } }
+
+    /* ───────────── Reveal animations ───────────── */
+    .reveal { opacity: 0; transform: translateY(34px); transition: opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1), transform 0.9s cubic-bezier(0.16, 1, 0.3, 1); }
+    .reveal.in { opacity: 1; transform: none; }
+    .reveal[data-d="1"] { transition-delay: 0.08s; } .reveal[data-d="2"] { transition-delay: 0.16s; }
+    .reveal[data-d="3"] { transition-delay: 0.24s; } .reveal[data-d="4"] { transition-delay: 0.32s; }
+    .reveal[data-d="5"] { transition-delay: 0.40s; }
+
+    /* ───────────── Sections generic ───────────── */
+    section { position: relative; padding: 110px 0; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px; font-family: 'Space Grotesk'; font-size: 11.5px; font-weight: 700;
+      letter-spacing: 0.24em; text-transform: uppercase; color: var(--violet-soft);
+    }
+    .eyebrow::before { content: ''; width: 26px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--violet), transparent); }
+    .sec-title { margin-top: 18px; font-size: clamp(2rem, 4.6vw, 3.4rem); letter-spacing: -0.035em; line-height: 1.08; font-weight: 700; text-wrap: balance; }
+    .sec-sub { margin-top: 16px; max-width: 620px; color: var(--ink-soft); font-size: 1.05rem; line-height: 1.7; }
+
+    /* ───────────── Stats ───────────── */
+    .stats { padding: 70px 0 30px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+    @media (max-width: 860px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    .stat { text-align: center; padding: 30px 12px; border-radius: var(--radius); background: var(--glass); border: 1px solid var(--line); }
+    .stat b { display: block; font-family: 'Space Grotesk'; font-size: clamp(2.1rem, 4.5vw, 3.2rem); font-weight: 700; letter-spacing: -0.04em;
+      background: linear-gradient(180deg, #fff, #b9b2ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .stat span { display: block; margin-top: 8px; font-size: 13.5px; color: var(--ink-faint); font-weight: 500; }
+
+    /* ───────────── Marquee ───────────── */
+    .marquee-wrap { padding: 44px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden;
+      mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+    .marquee { display: flex; gap: 70px; width: max-content; animation: scroll-x 30s linear infinite; }
+    .marquee span { font-family: 'Space Grotesk'; font-size: 19px; font-weight: 600; color: var(--ink-faint); white-space: nowrap; letter-spacing: 0.02em; }
+    @keyframes scroll-x { to { transform: translateX(-50%); } }
+
+    /* ───────────── Bento ───────────── */
+    .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 18px; margin-top: 60px; }
+    .card {
+      position: relative; overflow: hidden; border-radius: var(--radius); padding: 34px 30px;
+      background: var(--glass); border: 1px solid var(--line);
+      transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.45s, background 0.45s;
+    }
+    .card:hover { transform: translateY(-6px); border-color: rgba(108, 99, 255, 0.4); background: var(--glass-strong); }
+    .card::before {
+      content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity 0.5s;
+      background: radial-gradient(400px circle at var(--cx, 50%) var(--cy, 0%), rgba(108, 99, 255, 0.14), transparent 60%);
+    }
+    .card:hover::before { opacity: 1; }
+    .card .icon {
+      width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-size: 21px;
+      background: linear-gradient(135deg, rgba(108,99,255,0.25), rgba(79,168,247,0.12));
+      border: 1px solid rgba(108, 99, 255, 0.3); margin-bottom: 20px;
+    }
+    .card h3 { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
+    .card p { margin-top: 10px; font-size: 14.5px; line-height: 1.65; color: var(--ink-soft); }
+    .card .tag { position: absolute; top: 24px; right: 24px; font-family: 'Space Grotesk'; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; color: var(--violet-soft); opacity: 0.8; }
+    .c-3 { grid-column: span 3; } .c-2 { grid-column: span 2; } .c-4 { grid-column: span 4; }
+    @media (max-width: 860px) { .c-3, .c-2, .c-4 { grid-column: span 6; } }
+
+    /* ───────────── Live showcase (phone + kling video) ───────────── */
+    .live { overflow: clip; }
+    .live-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 70px; align-items: center; margin-top: 20px; }
+    @media (max-width: 940px) { .live-grid { grid-template-columns: 1fr; gap: 50px; } }
+    .phone {
+      position: relative; width: min(330px, 82vw); margin-inline: auto; aspect-ratio: 9 / 19; border-radius: 46px; padding: 12px;
+      background: linear-gradient(160deg, #23232e, #101018);
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: 0 40px 90px rgba(0,0,0,0.6), 0 0 80px rgba(108, 99, 255, 0.22);
+      transform: rotate(2.2deg);
+      transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .phone:hover { transform: rotate(0deg) scale(1.015); }
+    .phone .screen { position: relative; width: 100%; height: 100%; border-radius: 36px; overflow: hidden; background: #000; }
+    .phone .screen video { width: 100%; height: 100%; object-fit: cover; }
+    .phone .notch { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); width: 34%; height: 22px; border-radius: 999px; background: #0a0a0f; z-index: 3; border: 1px solid rgba(255,255,255,0.06); }
+    .phone .screen-ui {
+      position: absolute; left: 14px; right: 14px; bottom: 16px; z-index: 3; border-radius: 18px; padding: 13px 15px;
+      background: rgba(12, 12, 20, 0.62); border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    }
+    .screen-ui .row { display: flex; align-items: center; justify-content: space-between; }
+    .screen-ui b { font-size: 13px; font-weight: 600; }
+    .screen-ui .live-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: #ff6b6b; }
+    .screen-ui .live-pill i { width: 7px; height: 7px; border-radius: 50%; background: #ff5252; animation: ping-s 1.4s ease-in-out infinite; font-style: normal; }
+    @keyframes ping-s { 50% { opacity: 0.35; } }
+    .screen-ui small { display: block; margin-top: 4px; font-size: 11px; color: var(--ink-faint); }
+    .live-feats { margin-top: 40px; display: flex; flex-direction: column; gap: 0; }
+    .live-feat { display: flex; gap: 18px; padding: 22px 4px; border-top: 1px solid var(--line); transition: padding-left 0.35s ease; }
+    .live-feat:last-child { border-bottom: 1px solid var(--line); }
+    .live-feat:hover { padding-left: 14px; }
+    .live-feat .n { font-family: 'Space Grotesk'; font-size: 13px; font-weight: 700; color: var(--violet-soft); padding-top: 3px; }
+    .live-feat h4 { font-size: 16.5px; font-weight: 600; }
+    .live-feat p { margin-top: 5px; font-size: 14px; color: var(--ink-soft); line-height: 1.6; }
+
+    /* ───────────── AI section — video bg ───────────── */
+    .ai { isolation: isolate; padding: 150px 0; }
+    .ai .veil { background: linear-gradient(180deg, var(--bg) 0%, rgba(10,10,15,0.68) 22%, rgba(10,10,15,0.68) 78%, var(--bg) 100%); }
+    .ai-content { position: relative; z-index: 4; text-align: center; display: flex; flex-direction: column; align-items: center; }
+    .ai-quote { margin-top: 26px; font-size: clamp(1.5rem, 3.6vw, 2.6rem); font-family: 'Space Grotesk'; font-weight: 600; letter-spacing: -0.03em; line-height: 1.25; max-width: 17ch; text-wrap: balance; }
+    .ai-quote em { font-style: normal; background: linear-gradient(100deg, var(--violet-soft), var(--blue)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .ai-grid { margin-top: 60px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; width: 100%; }
+    @media (max-width: 940px) { .ai-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 540px) { .ai-grid { grid-template-columns: 1fr; } }
+    .ai-card {
+      padding: 26px 22px; border-radius: 18px; text-align: left;
+      background: rgba(14, 14, 24, 0.55); border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      transition: transform 0.4s cubic-bezier(0.16,1,0.3,1), border-color 0.4s;
+    }
+    .ai-card:hover { transform: translateY(-5px); border-color: rgba(108,99,255,0.45); }
+    .ai-card .emoji { font-size: 24px; }
+    .ai-card h4 { margin-top: 14px; font-size: 15.5px; font-weight: 600; }
+    .ai-card p { margin-top: 7px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; }
+
+    /* ───────────── Roles ───────────── */
+    .roles-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 60px; }
+    @media (max-width: 940px) { .roles-grid { grid-template-columns: 1fr; } }
+    .role {
+      position: relative; overflow: hidden; padding: 40px 32px; border-radius: var(--radius);
+      background: var(--glass); border: 1px solid var(--line);
+      transition: transform 0.45s cubic-bezier(0.16,1,0.3,1), border-color 0.45s;
+    }
+    .role:hover { transform: translateY(-7px); border-color: rgba(108,99,255,0.45); }
+    .role::after {
+      content: ''; position: absolute; top: -60px; left: 50%; transform: translateX(-50%);
+      width: 2px; height: 90px; opacity: 0; transition: opacity 0.5s;
+      background: linear-gradient(180deg, transparent, var(--violet-soft), transparent); filter: blur(0.5px);
+    }
+    .role:hover::after { opacity: 1; }
+    .role .who { font-family: 'Space Grotesk'; font-size: 11px; font-weight: 700; letter-spacing: 0.22em; color: var(--violet-soft); text-transform: uppercase; }
+    .role h3 { margin-top: 16px; font-size: 24px; letter-spacing: -0.025em; }
+    .role p { margin-top: 12px; font-size: 14.5px; line-height: 1.7; color: var(--ink-soft); }
+    .role .link { display: inline-flex; align-items: center; gap: 8px; margin-top: 24px; font-size: 14px; font-weight: 600; color: var(--violet-soft); transition: gap 0.3s; }
+    .role .link:hover { gap: 13px; }
+
+    /* ───────────── Pricing ───────────── */
+    .price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 60px; align-items: stretch; }
+    @media (max-width: 940px) { .price-grid { grid-template-columns: 1fr; } }
+    .plan {
+      position: relative; padding: 38px 32px; border-radius: var(--radius); display: flex; flex-direction: column;
+      background: var(--glass); border: 1px solid var(--line);
+      transition: transform 0.45s cubic-bezier(0.16,1,0.3,1), border-color 0.45s, box-shadow 0.45s;
+    }
+    .plan:hover { transform: translateY(-6px); }
+    .plan.featured {
+      background: linear-gradient(170deg, rgba(108,99,255,0.16), rgba(108,99,255,0.04) 55%);
+      border-color: rgba(108, 99, 255, 0.5);
+      box-shadow: 0 24px 80px rgba(108, 99, 255, 0.22);
+    }
+    .plan .flag {
+      position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+      padding: 6px 16px; border-radius: 999px; font-family: 'Space Grotesk'; font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em;
+      background: linear-gradient(135deg, var(--violet), #5348e8); color: #fff; white-space: nowrap;
+      box-shadow: 0 6px 24px rgba(108,99,255,0.5);
+    }
+    .plan .name { font-family: 'Space Grotesk'; font-weight: 700; font-size: 17px; letter-spacing: 0.02em; }
+    .plan .amount { margin-top: 18px; display: flex; align-items: baseline; gap: 8px; }
+    .plan .amount b { font-family: 'Space Grotesk'; font-size: clamp(2rem, 3.4vw, 2.7rem); font-weight: 700; letter-spacing: -0.03em; }
+    .plan .amount span { font-size: 13px; color: var(--ink-faint); }
+    .plan .desc { margin-top: 10px; font-size: 14px; color: var(--ink-soft); line-height: 1.6; }
+    .plan ul { margin: 26px 0 30px; list-style: none; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+    .plan li { display: flex; gap: 11px; font-size: 14px; color: var(--ink-soft); line-height: 1.5; }
+    .plan li::before { content: '✓'; color: var(--violet-soft); font-weight: 700; }
+    .plan .plan-cta {
+      display: block; text-align: center; padding: 15px; border-radius: 999px; font-size: 14.5px; font-weight: 700;
+      border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.05); color: var(--ink);
+      transition: background 0.3s, transform 0.3s, box-shadow 0.3s;
+    }
+    .plan .plan-cta:hover { background: rgba(255,255,255,0.11); transform: translateY(-2px); }
+    .plan.featured .plan-cta { background: linear-gradient(135deg, #7d74ff, var(--violet) 45%, #4a3fe0); border-color: rgba(255,255,255,0.2); box-shadow: 0 10px 34px rgba(108,99,255,0.4); }
+    .plan.featured .plan-cta:hover { box-shadow: 0 16px 50px rgba(108,99,255,0.55); }
+
+    /* ───────────── Testimonials ───────────── */
+    .quotes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 60px; }
+    @media (max-width: 940px) { .quotes { grid-template-columns: 1fr; } }
+    .quote { padding: 32px 28px; border-radius: var(--radius); background: var(--glass); border: 1px solid var(--line); transition: transform 0.4s cubic-bezier(0.16,1,0.3,1), border-color 0.4s; }
+    .quote:hover { transform: translateY(-5px); border-color: rgba(108,99,255,0.35); }
+    .quote .q-mark { font-family: 'Space Grotesk'; font-size: 44px; line-height: 0.6; color: var(--violet); opacity: 0.7; }
+    .quote p { margin-top: 18px; font-size: 15px; line-height: 1.7; color: var(--ink-soft); }
+    .quote footer { margin-top: 22px; display: flex; align-items: center; gap: 13px; }
+    .quote .ava { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-family: 'Space Grotesk'; font-weight: 700; font-size: 15px; color: #fff;
+      background: linear-gradient(135deg, var(--violet), #4438d6); border: 1px solid rgba(255,255,255,0.2); }
+    .quote b { display: block; font-size: 14.5px; }
+    .quote small { color: var(--ink-faint); font-size: 12.5px; }
+
+    /* ───────────── FAQ ───────────── */
+    .faq-list { margin-top: 50px; max-width: 780px; }
+    .faq-item { border-bottom: 1px solid var(--line); }
+    .faq-item:first-child { border-top: 1px solid var(--line); }
+    .faq-q {
+      width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 20px;
+      background: none; border: none; color: var(--ink); text-align: left;
+      padding: 26px 6px; font-size: 16.5px; font-weight: 600; letter-spacing: -0.01em; font-family: 'Inter';
+      transition: color 0.3s;
+    }
+    .faq-q:hover { color: var(--violet-soft); }
+    .faq-q .plus { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; border: 1px solid rgba(255,255,255,0.2); font-size: 17px; font-weight: 400; transition: transform 0.4s cubic-bezier(0.16,1,0.3,1), background 0.3s; }
+    .faq-item.open .plus { transform: rotate(45deg); background: var(--violet); border-color: var(--violet); }
+    .faq-a { max-height: 0; overflow: hidden; transition: max-height 0.5s cubic-bezier(0.16,1,0.3,1); }
+    .faq-a p { padding: 0 40px 26px 6px; font-size: 14.5px; line-height: 1.75; color: var(--ink-soft); }
+
+    /* ───────────── Final CTA — video bg ───────────── */
+    .final { isolation: isolate; padding: 170px 0; text-align: center; }
+    .final .veil { background: linear-gradient(180deg, var(--bg) 0%, rgba(10,10,15,0.55) 30%, rgba(10,10,15,0.55) 70%, var(--bg) 100%); }
+    .final-inner { position: relative; z-index: 4; display: flex; flex-direction: column; align-items: center; }
+    .final h2 { font-size: clamp(2.4rem, 6vw, 4.6rem); letter-spacing: -0.04em; line-height: 1.05; font-weight: 700; max-width: 16ch; text-wrap: balance; }
+    .final h2 .grad { background: linear-gradient(112deg, #a89bff, var(--violet) 45%, var(--blue)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .final p { margin-top: 22px; color: var(--ink-soft); font-size: 1.08rem; max-width: 480px; line-height: 1.7; }
+    .final .hero-ctas { margin-top: 38px; }
+    .final small { margin-top: 20px; color: var(--ink-faint); font-size: 13px; }
+
+    /* ───────────── Footer ───────────── */
+    footer.site {
+      border-top: 1px solid var(--line); padding: 60px 0 40px; position: relative; overflow: hidden;
+    }
+    footer.site::before {
+      content: ''; position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+      width: 60%; height: 1px; background: linear-gradient(90deg, transparent, rgba(108,99,255,0.7), transparent);
+    }
+    .foot-grid { display: flex; justify-content: space-between; align-items: flex-start; gap: 40px; flex-wrap: wrap; }
+    .foot-brand p { margin-top: 14px; max-width: 300px; font-size: 13.5px; color: var(--ink-faint); line-height: 1.7; }
+    .foot-cols { display: flex; gap: 70px; flex-wrap: wrap; }
+    .foot-col b { display: block; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; margin-bottom: 16px; color: var(--ink); }
+    .foot-col a { display: block; font-size: 13.5px; color: var(--ink-faint); margin-bottom: 11px; transition: color 0.25s; }
+    .foot-col a:hover { color: var(--violet-soft); }
+    .foot-base { margin-top: 52px; padding-top: 26px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-faint); }
+
+    .wordmark-giant {
+      margin-top: 60px; text-align: center; font-family: 'Space Grotesk'; font-weight: 700;
+      font-size: clamp(4rem, 16vw, 13rem); line-height: 0.9; letter-spacing: -0.05em; user-select: none;
+      background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.015));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+
+    /* ───────────── Reduced motion ───────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+      html { scroll-behavior: auto; }
+      .reveal { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="spotlight" aria-hidden="true"></div>
+
+  <!-- ═══════════ HEADER ═══════════ -->
+  <header id="header">
+    <div class="container nav">
+      <a class="logo" href="#top" aria-label="Bilgim bosh sahifa">
+        <span class="logo-mark" aria-hidden="true"></span>
+        Bilgim
+      </a>
+      <nav class="nav-links" aria-label="Asosiy navigatsiya">
+        <a href="#imkoniyatlar">Imkoniyatlar</a>
+        <a href="#jonli">Jonli darslar</a>
+        <a href="#ai">AI yordamchi</a>
+        <a href="#narxlar">Narxlar</a>
+        <a href="#faq">Savollar</a>
+      </nav>
+      <a class="nav-cta" href="#boshlash">Bepul boshlash</a>
+    </div>
+  </header>
+
+  <!-- ═══════════ HERO — Kling 3.0 / Seedance 2.0 motion background ═══════════ -->
+  <section class="hero" id="top">
+    <div class="video-bg">
+      <video id="heroVideo" autoplay muted loop playsinline preload="auto"
+        poster=""
+        src="https://d8j0ntlcm91z4.cloudfront.net/user_3F1edIJ4thxir6zZ4DMwJMyXf7c/hf_20260722_164103_b8f02d60-f336-47f4-847c-65fcb39eaed7.mp4"></video>
+      <div class="veil"></div>
+    </div>
+
+    <div class="container hero-inner">
+      <div class="badge reveal in">
+        <span class="pill"><span class="dot"></span>BETA</span>
+        O'zbekiston uchun ta'lim platformasi
+      </div>
+
+      <h1 class="reveal in" data-d="1">
+        Ta'limning<br />
+        <span class="grad">yangi yorug'ligi</span>
+      </h1>
+
+      <p class="sub reveal in" data-d="2">
+        Kurs yarating, jonli efir o'ting, AI yordamchi bilan o'rganing —
+        <strong>hammasi bir tizimda</strong>.
+      </p>
+
+      <div class="hero-ctas reveal in" data-d="3">
+        <button class="btn-primary">14 kun bepul boshlash</button>
+        <button class="btn-ghost">Jonli demo ko'rish</button>
+      </div>
+
+      <div class="hero-trust reveal in" data-d="4">
+        <span class="stars" aria-hidden="true">★★★★★</span>
+        Karta kerak emas · 2 daqiqada tayyor
+      </div>
+    </div>
+
+    <button class="sound-toggle" id="soundBtn" aria-label="Ovozni yoqish" title="Ovozni yoqish/o'chirish">
+      <svg id="soundIcon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>
+      </svg>
+    </button>
+    <div class="scroll-hint" aria-hidden="true"></div>
+  </section>
+
+  <!-- ═══════════ STATS ═══════════ -->
+  <section class="stats" aria-label="Statistika">
+    <div class="container stats-grid">
+      <div class="stat reveal"><b><span class="count" data-to="10000" data-suffix="+">0</span></b><span>O'qituvchilar</span></div>
+      <div class="stat reveal" data-d="1"><b><span class="count" data-to="120000" data-suffix="+">0</span></b><span>Talabalar</span></div>
+      <div class="stat reveal" data-d="2"><b><span class="count" data-to="500" data-suffix="">0</span></b><span>Bir efirda talaba</span></div>
+      <div class="stat reveal" data-d="3"><b><span class="count" data-to="99" data-suffix=".9%">0</span></b><span>Ishonchlilik</span></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ MARQUEE ═══════════ -->
+  <div class="marquee-wrap" aria-hidden="true">
+    <div class="marquee" id="marquee">
+      <span>IT Park</span><span>Cambridge Learning</span><span>Profi Education</span><span>IELTS Zone</span>
+      <span>Everest Education</span><span>Registon LC</span><span>Smart School</span><span>English House</span>
+    </div>
+  </div>
+
+  <!-- ═══════════ FEATURES BENTO ═══════════ -->
+  <section id="imkoniyatlar">
+    <div class="container">
+      <span class="eyebrow reveal">Imkoniyatlar</span>
+      <h2 class="sec-title reveal" data-d="1">Bitta tizim, barcha asboblar</h2>
+      <p class="sec-sub reveal" data-d="2">Kursdan to'lovgacha — barcha kerakli asboblar zamonaviy va sodda interfeysda.</p>
+
+      <div class="bento">
+        <div class="card c-3 reveal">
+          <span class="tag">JONLI EFIR</span>
+          <div class="icon">🎥</div>
+          <h3>Sinfdek tajriba, lekin onlayn</h3>
+          <p>500 talabagacha bir vaqtda. Toza video va ovoz. Har bir dars avtomatik yozib olinadi — keyin qaytib ko'rsa bo'ladi.</p>
+        </div>
+        <div class="card c-3 reveal" data-d="1">
+          <span class="tag">AI</span>
+          <div class="icon">✨</div>
+          <h3>Tushuntiradi, javob bermaydi</h3>
+          <p>AI yordamchi mavzuni qadamma-qadam ochib beradi, misol keltiradi — lekin yakuniy javobni talaba o'zi topadi.</p>
+        </div>
+        <div class="card c-2 reveal">
+          <span class="tag">VAZIFALAR</span>
+          <div class="icon">📝</div>
+          <h3>10+ vazifa turlari</h3>
+          <p>O'qish, yozish, eshitish, gapirish — hammasi avtomatik tekshiruv bilan.</p>
+        </div>
+        <div class="card c-2 reveal" data-d="1">
+          <span class="tag">KURSLAR</span>
+          <div class="icon">📚</div>
+          <h3>Cheksiz kurs va guruh</h3>
+          <p>Video darslar, materiallar, testlar — barchasi tartibli modullar ichida.</p>
+        </div>
+        <div class="card c-2 reveal" data-d="2">
+          <span class="tag">PROFIL</span>
+          <div class="icon">🔍</div>
+          <h3>Sizni topishadi</h3>
+          <p>Ochiq o'qituvchi sahifangiz qidiruvda ko'rinadi — yangi talabalar o'zi keladi.</p>
+        </div>
+        <div class="card c-2 reveal">
+          <span class="tag">JADVAL</span>
+          <div class="icon">🔔</div>
+          <h3>Avtomatik xabarnoma</h3>
+          <p>Jadvalni o'zgartirsangiz — hammaga darhol xabar boradi.</p>
+        </div>
+        <div class="card c-2 reveal" data-d="1">
+          <span class="tag">TO'LOVLAR</span>
+          <div class="icon">💳</div>
+          <h3>Payme bilan to'g'ridan-to'g'ri</h3>
+          <p>Obuna va kurs to'lovlari avtomatik. Tushum hisobotlari panelda.</p>
+        </div>
+        <div class="card c-2 reveal" data-d="2">
+          <span class="tag">MOBIL</span>
+          <div class="icon">📱</div>
+          <h3>iOS va Android</h3>
+          <p>Push xabarnoma, oflayn rejimda dars ko'rish, Telegram bot.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ LIVE SHOWCASE — Kling 3.0 vertical video in phone ═══════════ -->
+  <section class="live" id="jonli">
+    <div class="container">
+      <span class="eyebrow reveal">Jonli darslar</span>
+      <div class="live-grid">
+        <div>
+          <h2 class="sec-title reveal" data-d="1">Har bir dars — sahnadagidek</h2>
+          <p class="sec-sub reveal" data-d="2">500 talabagacha bir vaqtda. Toza video va ovoz bilan. Har bir dars avtomatik yozib olinadi — keyin qaytib ko'rsa bo'ladi.</p>
+          <div class="live-feats">
+            <div class="live-feat reveal">
+              <span class="n">01</span>
+              <div><h4>Speaking Club</h4><p>Kichik guruhlarda gaplashish amaliyoti — kamera va mikrofon bir bosishda.</p></div>
+            </div>
+            <div class="live-feat reveal" data-d="1">
+              <span class="n">02</span>
+              <div><h4>IELTS Writing jonli tahlil</h4><p>O'qituvchi ekranini ulashadi, talabalar real vaqtda savol beradi.</p></div>
+            </div>
+            <div class="live-feat reveal" data-d="2">
+              <span class="n">03</span>
+              <div><h4>Avtomatik yozib olish</h4><p>Darsni o'tkazib yubordingizmi? Yozuv darhol kurs ichida paydo bo'ladi.</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal" data-d="2">
+          <div class="phone">
+            <div class="notch" aria-hidden="true"></div>
+            <div class="screen">
+              <video autoplay muted loop playsinline preload="metadata"
+                src="https://d8j0ntlcm91z4.cloudfront.net/user_3F1edIJ4thxir6zZ4DMwJMyXf7c/hf_20260722_164650_09fd0553-fd9a-46ce-9dce-fdb91b762a53.mp4"></video>
+              <div class="screen-ui">
+                <div class="row">
+                  <b>IELTS Writing</b>
+                  <span class="live-pill"><i></i>EFIRDA</span>
+                </div>
+                <small>42 ishtirokchi · Bugun 14:00</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ AI SECTION — Seedance 2.0 motion background ═══════════ -->
+  <section class="ai" id="ai">
+    <div class="video-bg">
+      <video autoplay muted loop playsinline preload="metadata"
+        src="https://d8j0ntlcm91z4.cloudfront.net/user_3F1edIJ4thxir6zZ4DMwJMyXf7c/hf_20260722_163204_51c375aa-0f6a-4c74-8f2a-486131221ed9.mp4"></video>
+      <div class="veil"></div>
+    </div>
+    <div class="container ai-content">
+      <span class="eyebrow reveal">Bilgim AI</span>
+      <h2 class="ai-quote reveal" data-d="1">AI <em>tushuntiradi</em>, javobni yozib bermaydi</h2>
+      <p class="sec-sub reveal" data-d="2" style="text-align:center; margin-inline:auto;">Bu bizning eng muhim qoidamiz: talaba javobni o'zi o'ylab topadi — AI faqat yo'l ko'rsatadi.</p>
+      <div class="ai-grid">
+        <div class="ai-card reveal">
+          <span class="emoji">💡</span>
+          <h4>Tushuntirish va misollar</h4>
+          <p>Mavzularni qadamma-qadam ochib berish — talaba o'rganadi.</p>
+        </div>
+        <div class="ai-card reveal" data-d="1">
+          <span class="emoji">🌐</span>
+          <h4>So'z tarjimasi</h4>
+          <p>O'qish paytida so'z ustiga bosgan zahoti tarjima ko'rinadi.</p>
+        </div>
+        <div class="ai-card reveal" data-d="2">
+          <span class="emoji">🛡️</span>
+          <h4>Halollik tekshiruvi</h4>
+          <p>Talaba vazifasini AI yozmaganligini tekshirish imkoni.</p>
+        </div>
+        <div class="ai-card reveal" data-d="3">
+          <span class="emoji">✅</span>
+          <h4>Baholash yordami</h4>
+          <p>O'qituvchiga xato belgilash va sharh berishda yordam.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ROLES ═══════════ -->
+  <section id="rollar">
+    <div class="container">
+      <span class="eyebrow reveal">Kimlar uchun</span>
+      <h2 class="sec-title reveal" data-d="1">Har bir rol uchun maxsus vosita</h2>
+      <p class="sec-sub reveal" data-d="2">O'qituvchi, talaba yoki administrator — har bir rol uchun maxsus tayyorlangan ish vositasi.</p>
+      <div class="roles-grid">
+        <div class="role reveal">
+          <span class="who">O'qituvchi</span>
+          <h3>Daromad oling</h3>
+          <p>Kurs yarating, jonli dars o'ting, Payme orqali to'lov qabul qiling. Ochiq sahifangiz orqali yangi talabalar sizni o'zi topadi.</p>
+          <a class="link" href="#boshlash">Bepul boshlash <span aria-hidden="true">→</span></a>
+        </div>
+        <div class="role reveal" data-d="1">
+          <span class="who">Talaba</span>
+          <h3>Sifatli o'rganing</h3>
+          <p>Eng yaxshi o'qituvchilardan kurslar, jonli darslar va AI yordamchi bilan ingliz tilini samarali o'rganing.</p>
+          <a class="link" href="#boshlash">Talabalar uchun <span aria-hidden="true">→</span></a>
+        </div>
+        <div class="role reveal" data-d="2">
+          <span class="who">Administrator</span>
+          <h3>Boshqaruv panel</h3>
+          <p>O'quv markazingizni bir joydan boshqaring: guruhlar, jadval, tushum va hisobotlar — hammasi ko'z oldingizda.</p>
+          <a class="link" href="#boshlash">Admin panel <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ PRICING ═══════════ -->
+  <section id="narxlar">
+    <div class="container">
+      <span class="eyebrow reveal">Narxlar</span>
+      <h2 class="sec-title reveal" data-d="1">Oddiy va halol narxlar</h2>
+      <p class="sec-sub reveal" data-d="2">14 kun hamma imkoniyat bepul. Karta kerak emas.</p>
+      <div class="price-grid">
+        <div class="plan reveal">
+          <span class="name">Trial</span>
+          <div class="amount"><b>Bepul</b><span>14 kun</span></div>
+          <p class="desc">Barcha imkoniyatlar 14 kun davomida bepul.</p>
+          <ul>
+            <li>Cheksiz kurs va guruh</li>
+            <li>Jonli darslar</li>
+            <li>AI yordamchi</li>
+            <li>Vazifa baholash va chat</li>
+          </ul>
+          <a class="plan-cta" href="#boshlash">Bepul boshlash</a>
+        </div>
+        <div class="plan featured reveal" data-d="1">
+          <span class="flag">ENG OMMABOP</span>
+          <span class="name">Starter</span>
+          <div class="amount"><b>199 000</b><span>so'm / oy</span></div>
+          <p class="desc">100 ta talabagacha, cheksiz jonli efir.</p>
+          <ul>
+            <li>100 tagacha talaba</li>
+            <li>Cheksiz jonli efir va yozuvlar</li>
+            <li>Payme to'lovlari</li>
+            <li>Mobil ilova va Telegram bot</li>
+          </ul>
+          <a class="plan-cta" href="#boshlash">14 kun bepul</a>
+        </div>
+        <div class="plan reveal" data-d="2">
+          <span class="name">Pro</span>
+          <div class="amount"><b>399 000</b><span>so'm / oy</span></div>
+          <p class="desc">Cheksiz talaba, kengaytirilgan analitika.</p>
+          <ul>
+            <li>Cheksiz talaba</li>
+            <li>Kengaytirilgan analitika</li>
+            <li>Ustuvor qo'llab-quvvatlash</li>
+            <li>Tashkilotlar uchun boshqaruv</li>
+          </ul>
+          <a class="plan-cta" href="#boshlash">14 kun bepul</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ TESTIMONIALS ═══════════ -->
+  <section id="fikrlar">
+    <div class="container">
+      <span class="eyebrow reveal">Fikrlar</span>
+      <h2 class="sec-title reveal" data-d="1">Ustozlar nima deydi</h2>
+      <p class="sec-sub reveal" data-d="2">O'zbekistondagi yetakchi murabbiylar va tashkilotlar bilan tajriba almashing.</p>
+      <div class="quotes">
+        <div class="quote reveal">
+          <span class="q-mark" aria-hidden="true">"</span>
+          <p>Jonli efir va avtomatik yozib olish bilan har bir darsim qaytadan tomosha qilinadi. Talabalar soni 2x oshdi.</p>
+          <footer>
+            <span class="ava">AK</span>
+            <div><b>Aziza Karimova</b><small>IELTS Coach</small></div>
+          </footer>
+        </div>
+        <div class="quote reveal" data-d="1">
+          <span class="q-mark" aria-hidden="true">"</span>
+          <p>AI yordamchi talabalarga javobni yozib bermaydi — shuning uchun ishonaman. Ular chindan o'rganyapti.</p>
+          <footer>
+            <span class="ava">OR</span>
+            <div><b>Otabek Rashidov</b><small>Business English · IT Park</small></div>
+          </footer>
+        </div>
+        <div class="quote reveal" data-d="2">
+          <span class="q-mark" aria-hidden="true">"</span>
+          <p>Markazimizdagi barcha guruhlar, jadval va to'lovlar bir panelda. Endi Excel'ga qaytmaymiz.</p>
+          <footer>
+            <span class="ava">PE</span>
+            <div><b>Profi Education</b><small>Tashkilot · Samarqand</small></div>
+          </footer>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ FAQ ═══════════ -->
+  <section id="faq">
+    <div class="container">
+      <span class="eyebrow reveal">Savol-javob</span>
+      <h2 class="sec-title reveal" data-d="1">Ko'p so'raladigan savollar</h2>
+      <div class="faq-list">
+        <div class="faq-item reveal">
+          <button class="faq-q">Bilgim kimlar uchun?<span class="plus">+</span></button>
+          <div class="faq-a"><p>Bilgim — O'zbekistondagi onlayn ingliz tili o'qituvchilari va talabalari uchun. O'qituvchilar kurs yaratadi, jonli darslar o'tkazadi, vazifa beradi va to'lov qabul qiladi. Talabalar kurslarga qo'shilib, AI yordamchi bilan ingliz tilini o'rganadilar.</p></div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-q">14 kun bepul davrida nima bor?<span class="plus">+</span></button>
+          <div class="faq-a"><p>Bepul davrida barcha asosiy imkoniyatlar — cheksiz kurs/guruh, jonli darslar, AI yordamchi, vazifa baholash, chat, jadval — ochiq. 14 kundan so'ng Starter yoki Pro tarifiga o'tasiz, yoki to'xtatib qo'yasiz. Karta kerak emas.</p></div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-q">AI yordamchi talabaga vazifa javobini yozib beradimi?<span class="plus">+</span></button>
+          <div class="faq-a"><p>Yo'q. Bu eng muhim qoida. AI faqat tushuntiradi, misol keltiradi va o'rgatadi — lekin yakuniy javobni yozib bermaydi. Talaba o'zi o'ylab javob topadi.</p></div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-q">Jonli darsda qancha talaba bo'lishi mumkin?<span class="plus">+</span></button>
+          <div class="faq-a"><p>Bizning tizimimiz 500 ta talabani bir vaqtda qo'llab-quvvatlaydi. Video sifati eng yuqori darajada, ovoz toza, kechikish minimal. Har bir dars avtomatik yozib olinadi.</p></div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-q">To'lovni qanday qabul qilaman?<span class="plus">+</span></button>
+          <div class="faq-a"><p>Payme orqali to'g'ridan-to'g'ri talabalardan to'lov qabul qilasiz. Obuna va kurs to'lovlari avtomatik. Tushum, qaytarish va soliq hisobotlari boshqaruv panelida.</p></div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-q">Mobil ilova bormi?<span class="plus">+</span></button>
+          <div class="faq-a"><p>Ha, iOS va Android uchun ilova mavjud. Push xabarnoma, oflayn rejimda dars ko'rish, sinxronlash — barchasi ishlaydi.</p></div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-q">Ma'lumotlarim xavfsizmi?<span class="plus">+</span></button>
+          <div class="faq-a"><p>Ha. Barcha ma'lumotlar shifrlangan, xavfsiz aloqa kanali orqali uzatiladi. Ko'p bosqichli autentifikatsiya, audit jurnali va O'zbekiston shaxsiy ma'lumotlar himoyasi qonuniga moslashtirilgan.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ FINAL CTA — Seedance 2.0 motion background ═══════════ -->
+  <section class="final" id="boshlash">
+    <div class="video-bg">
+      <video autoplay muted loop playsinline preload="metadata"
+        src="https://d8j0ntlcm91z4.cloudfront.net/user_3F1edIJ4thxir6zZ4DMwJMyXf7c/hf_20260722_163540_fbb2fb4f-939e-4777-a13f-1f1699069e98.mp4"></video>
+      <div class="veil"></div>
+    </div>
+    <div class="container final-inner">
+      <h2 class="reveal">Bilim yo'lingizni <span class="grad">bugun yoriting</span></h2>
+      <p class="reveal" data-d="1">14 kun barcha imkoniyatlar bepul. Karta kerak emas — 2 daqiqada birinchi kursingizni yarating.</p>
+      <div class="hero-ctas reveal" data-d="2">
+        <button class="btn-primary">Bepul boshlash</button>
+        <button class="btn-ghost">Savol berish</button>
+      </div>
+      <small class="reveal" data-d="3">10 000+ o'qituvchi allaqachon Bilgim'da</small>
+    </div>
+  </section>
+
+  <!-- ═══════════ FOOTER ═══════════ -->
+  <footer class="site">
+    <div class="container">
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <a class="logo" href="#top"><span class="logo-mark" aria-hidden="true"></span>Bilgim</a>
+          <p>O'zbekiston uchun zamonaviy ta'lim platformasi. Kurs, jonli dars, AI yordamchi va to'lovlar — bir tizimda.</p>
+        </div>
+        <div class="foot-cols">
+          <div class="foot-col">
+            <b>Platforma</b>
+            <a href="#imkoniyatlar">Imkoniyatlar</a>
+            <a href="#jonli">Jonli darslar</a>
+            <a href="#ai">AI yordamchi</a>
+            <a href="#narxlar">Narxlar</a>
+          </div>
+          <div class="foot-col">
+            <b>Rollar</b>
+            <a href="#rollar">O'qituvchilar</a>
+            <a href="#rollar">Talabalar</a>
+            <a href="#rollar">Markazlar</a>
+          </div>
+          <div class="foot-col">
+            <b>Yordam</b>
+            <a href="#faq">Savol-javob</a>
+            <a href="#boshlash">Bog'lanish</a>
+            <a href="#top">Telegram</a>
+          </div>
+        </div>
+      </div>
+      <div class="wordmark-giant" aria-hidden="true">Bilgim</div>
+      <div class="foot-base">
+        <span id="copy">© Bilgim. Barcha huquqlar himoyalangan.</span>
+        <span>O'zbekistonda ❤ bilan yaratildi</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ── Year in footer
+    document.getElementById('copy').textContent = '© ' + new Date().getFullYear() + " Bilgim. Barcha huquqlar himoyalangan.";
+
+    // ── Header scroll state
+    const header = document.getElementById('header');
+    addEventListener('scroll', () => header.classList.toggle('scrolled', scrollY > 30), { passive: true });
+
+    // ── Cursor spotlight + card glow tracking
+    const spot = document.getElementById('spotlight');
+    addEventListener('pointermove', (e) => {
+      spot.style.setProperty('--mx', e.clientX + 'px');
+      spot.style.setProperty('--my', e.clientY + 'px');
+    }, { passive: true });
+    document.querySelectorAll('.card').forEach((card) => {
+      card.addEventListener('pointermove', (e) => {
+        const r = card.getBoundingClientRect();
+        card.style.setProperty('--cx', (e.clientX - r.left) + 'px');
+        card.style.setProperty('--cy', (e.clientY - r.top) + 'px');
+      });
+    });
+
+    // ── Scroll reveal
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll('.reveal:not(.in)').forEach((el) => io.observe(el));
+
+    // ── Animated counters
+    const nice = (n) => n >= 1000 ? Math.round(n / 1000) + 'K' : String(n);
+    const cio = new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        if (!en.isIntersecting) return;
+        cio.unobserve(en.target);
+        const el = en.target, to = +el.dataset.to, suf = el.dataset.suffix || '';
+        const t0 = performance.now(), dur = 1600;
+        const tick = (t) => {
+          const p = Math.min((t - t0) / dur, 1);
+          const eased = 1 - Math.pow(1 - p, 4);
+          el.textContent = nice(Math.round(to * eased)) + suf;
+          if (p < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+    }, { threshold: 0.6 });
+    document.querySelectorAll('.count').forEach((el) => cio.observe(el));
+
+    // ── Marquee: duplicate content for seamless loop
+    const mq = document.getElementById('marquee');
+    mq.innerHTML += mq.innerHTML;
+
+    // ── FAQ accordion
+    document.querySelectorAll('.faq-item').forEach((item) => {
+      const btn = item.querySelector('.faq-q');
+      const panel = item.querySelector('.faq-a');
+      btn.addEventListener('click', () => {
+        const isOpen = item.classList.contains('open');
+        document.querySelectorAll('.faq-item.open').forEach((o) => {
+          o.classList.remove('open');
+          o.querySelector('.faq-a').style.maxHeight = '0px';
+        });
+        if (!isOpen) {
+          item.classList.add('open');
+          panel.style.maxHeight = panel.scrollHeight + 'px';
+        }
+      });
+    });
+
+    // ── Hero sound toggle (videos are generated with audio — Kling 3.0 / Seedance 2.0)
+    const heroVideo = document.getElementById('heroVideo');
+    const soundBtn = document.getElementById('soundBtn');
+    const iconOn = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>';
+    const iconOff = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>';
+    soundBtn.addEventListener('click', () => {
+      heroVideo.muted = !heroVideo.muted;
+      document.getElementById('soundIcon').innerHTML = heroVideo.muted ? iconOff : iconOn;
+      soundBtn.setAttribute('aria-label', heroVideo.muted ? "Ovozni yoqish" : "Ovozni o'chirish");
+      if (!heroVideo.muted) heroVideo.play();
+    });
+
+    // ── Subtle hero parallax (transform only)
+    const heroInner = document.querySelector('.hero-inner');
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduced) {
+      addEventListener('scroll', () => {
+        const y = Math.min(scrollY, innerHeight);
+        heroInner.style.transform = 'translateY(' + y * 0.18 + 'px)';
+        heroInner.style.opacity = String(1 - (y / innerHeight) * 0.9);
+      }, { passive: true });
+    }
+
+    // ── Pause offscreen videos to save battery
+    const vio = new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        const v = en.target;
+        if (en.isIntersecting) { v.play().catch(() => {}); }
+        else { v.pause(); }
+      });
+    }, { threshold: 0.05 });
+    document.querySelectorAll('video').forEach((v) => vio.observe(v));
+  </script>
+</body>
+</html>
