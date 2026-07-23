@@ -13,7 +13,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  PAID: 'bg-green/10 text-green',
+  PAID: 'bg-teal/10 text-teal',
   PENDING: 'bg-yellow-400/10 text-yellow-600',
   CANCELED: 'bg-red/10 text-red',
   REFUNDED: 'bg-orange/10 text-orange',

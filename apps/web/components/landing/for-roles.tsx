@@ -20,7 +20,7 @@ export function ForRoles({ locale }: { locale: string }) {
           eyebrow="Har kim uchun"
           title={
             <>
-              EduBridge —{' '}
+              Bilgim —{' '}
               <span className="italic text-hero-gradient">siz</span> uchun
             </>
           }

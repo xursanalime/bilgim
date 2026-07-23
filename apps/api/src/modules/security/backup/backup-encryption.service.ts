@@ -16,7 +16,7 @@ const IV_BYTES = 12;
 const TAG_BYTES = 16;
 /**
  * Wire format magic header. Lets a future format version evolve
- * without ambiguity, and lets `decryptStream` reject non-EduBridge
+ * without ambiguity, and lets `decryptStream` reject non-Bilgim
  * archives early instead of producing garbage.
  *
  *   bytes 0..3   `EBBK`            (magic)

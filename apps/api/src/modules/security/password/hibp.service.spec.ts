@@ -144,7 +144,7 @@ describe('HibpService', () => {
         expect.objectContaining({
           method: 'GET',
           headers: expect.objectContaining({
-            'User-Agent': 'EduBridge-PasswordPolicy/1.0',
+            'User-Agent': 'Bilgim-PasswordPolicy/1.0',
             'Add-Padding': 'true',
           }),
         }),

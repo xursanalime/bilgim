@@ -131,7 +131,7 @@ export interface CreatePrismaClientOptions {
 }
 
 /**
- * Build a `PrismaClient` with the EduBridge defaults applied:
+ * Build a `PrismaClient` with the Bilgim defaults applied:
  *   * `connection_limit` injected into the datasource URL.
  *   * `query` event channel forwarded to a slow-query listener that
  *     prints redacted SQL for anything taking >500ms.

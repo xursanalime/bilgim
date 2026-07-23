@@ -74,8 +74,8 @@ export function Faq() {
 
 const FAQS = [
   {
-    q: 'EduBridge kimlar uchun?',
-    a: "EduBridge — O'zbekistondagi onlayn ingliz tili o'qituvchilari va talabalari uchun. O'qituvchilar ingliz tili kurslarini yaratadi, jonli darslar o'tkazadi, vazifa beradi va to'lov qabul qiladi. Talabalar kurslarga qo'shilib, AI yordamchi bilan ingliz tilini o'rganadilar.",
+    q: 'Bilgim kimlar uchun?',
+    a: "Bilgim — O'zbekistondagi onlayn ingliz tili o'qituvchilari va talabalari uchun. O'qituvchilar ingliz tili kurslarini yaratadi, jonli darslar o'tkazadi, vazifa beradi va to'lov qabul qiladi. Talabalar kurslarga qo'shilib, AI yordamchi bilan ingliz tilini o'rganadilar.",
   },
   {
     q: '14 kun bepul davrida nima bor?',
@@ -86,7 +86,7 @@ const FAQS = [
     a: "Yo'q. Bu eng muhim qoida. AI faqat tushuntiradi, misol keltiradi va o'rgatadi — lekin yakuniy javobni yozib bermaydi. Talaba o'zi o'ylab javob topadi.",
   },
   {
-    q: 'Jonli darsda qancha talaba bo&apos;lishi mumkin?',
+    q: "Jonli darsda qancha talaba bo'lishi mumkin?",
     a: "Bizning tizimimiz 500 ta talabani bir vaqtda qo'llab-quvvatlaydi. Video sifati eng yuqori darajada, ovoz toza, kechikish minimal. Har bir dars avtomatik yozib olinadi.",
   },
   {

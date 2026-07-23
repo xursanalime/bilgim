@@ -49,7 +49,7 @@ export default function AdminUsersPage() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
               <input 
                 type="text" 
-                placeholder="Ism yoki email bo&apos;yicha qidiruv..." 
+                placeholder="Ism yoki email bo'yicha qidiruv..."
                 className="h-12 w-full rounded-2xl border border-rim bg-white pl-11 pr-4 text-sm font-bold outline-none focus:border-blue sm:w-64"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -105,7 +105,7 @@ export default function AdminUsersPage() {
                 <td className="px-6 py-5">
                   <span className={cn(
                     "inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest",
-                    user.status === 'ACTIVE' ? "bg-green/10 text-green" : 
+                    user.status === 'ACTIVE' ? "bg-teal/10 text-teal" :
                     user.status === 'SUSPENDED' ? "bg-red/10 text-red" : "bg-orange/10 text-orange"
                   )}>
                     {user.status}
@@ -127,7 +127,7 @@ export default function AdminUsersPage() {
                     ) : (
                        <button 
                          onClick={() => updateStatusMutation.mutate({ id: user.id, status: 'ACTIVE' })}
-                         className="h-9 w-9 rounded-xl hover:bg-green/10 flex items-center justify-center text-green transition-all"
+                         className="h-9 w-9 rounded-xl hover:bg-teal/10 flex items-center justify-center text-teal transition-all"
                          title="Aktivlashtirish"
                        >
                          <UserCheck className="h-4 w-4" />

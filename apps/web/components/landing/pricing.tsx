@@ -99,7 +99,7 @@ const PLANS: Plan[] = [
       'Kengaytirilgan analitika',
       'AI grading assistant',
       'Custom branding',
-      'Priority qo&apos;llab-quvvatlash',
+      "Priority qo'llab-quvvatlash",
       'API kirish',
     ],
     cta: '14 kun bepul',

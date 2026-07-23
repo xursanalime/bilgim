@@ -13,7 +13,7 @@ export const envSchema = z.object({
   /**
    * Comma-separated list of origins permitted by the CORS layer.
    * Defaults to APP_URL + the local Next dev server. Values like
-   * `https://edubridge.uz,https://www.edubridge.uz` lock down the
+   * `https://bilgim.uz,https://www.bilgim.uz` lock down the
    * production allowlist.
    */
   WEB_ORIGIN: z
@@ -806,7 +806,7 @@ export const envSchema = z.object({
    * Issuer string embedded in `otpauth://` URIs. Authenticator apps
    * use this as the account label prefix.
    */
-  MFA_TOTP_ISSUER: z.string().default('EduBridge'),
+  MFA_TOTP_ISSUER: z.string().default('Bilgim'),
   /**
    * WebAuthn relying-party id (eTLD+1 of APP_URL). Defaults to
    * `localhost` so dev works out of the box.
@@ -815,7 +815,7 @@ export const envSchema = z.object({
   /**
    * WebAuthn relying-party name shown to users during enrollment.
    */
-  MFA_WEBAUTHN_RP_NAME: z.string().default('EduBridge'),
+  MFA_WEBAUTHN_RP_NAME: z.string().default('Bilgim'),
   /**
    * Origin(s) the WebAuthn response must originate from.
    * Comma-separated list. Defaults to APP_URL when unset.
@@ -902,7 +902,7 @@ export const envSchema = z.object({
   SMTP_PORT: z.coerce.number().default(1025),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  EMAIL_FROM: z.string().default('noreply@edubridge.uz'),
+  EMAIL_FROM: z.string().default('noreply@bilgim.uz'),
 
   /**
    * Dev/test toggle — when `true`, newly registered users are created

@@ -63,6 +63,7 @@ export interface DiscoveryTeacherRow {
   fullName: string | null;
   headline: string | null;
   coverUrl: string | null;
+  themeColor: string | null;
   rating: Prisma.Decimal | null;
   studentsCount: number;
   createdAt: Date;
@@ -309,6 +310,7 @@ export class DiscoveryRepository {
         fullName: true,
         headline: true,
         coverUrl: true,
+        themeColor: true,
         rating: true,
         studentsCount: true,
         createdAt: true,
@@ -330,5 +332,19 @@ export class DiscoveryRepository {
         },
       },
     });
+  }
+
+  /**
+   * Lightweight "is this slug claimed" existence check for the Next.js
+   * middleware's subdomain routing (a teacher who just enabled their
+   * public profile but hasn't published a course yet still resolves —
+   * unlike `searchTeachers`, this does NOT require a discoverable course).
+   */
+  async existsByPublicSlug(slug: string): Promise<boolean> {
+    const row = await this.prisma.teacherProfile.findUnique({
+      where: { publicSlug: slug },
+      select: { userId: true },
+    });
+    return row !== null;
   }
 }

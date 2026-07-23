@@ -86,7 +86,7 @@ export function DashboardTopNav({
         </Link>
 
         <div className="flex items-center gap-3">
-          <XpBadge locale={locale} />
+          {role !== 'TEACHER' && <XpBadge locale={locale} />}
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue/10 text-[10px] font-black text-blue">
             {email[0]?.toUpperCase()}
           </div>

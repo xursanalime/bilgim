@@ -19,7 +19,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { defaultLocale } from '@edubridge/i18n';
 
-const ACCESS_TOKEN_COOKIE = 'edubridge_access_token';
+const ACCESS_TOKEN_COOKIE = 'bilgim_access_token';
 
 export type UserRole = 'STUDENT' | 'TEACHER' | 'ADMIN';
 

@@ -447,6 +447,58 @@ describe('MediaService', () => {
   });
 
   // ---------------------------------------------------------------
+  // getPublicImageUrl (Task 5/6 — "Mening maktabim" cover photo proxy)
+  // ---------------------------------------------------------------
+  describe('getPublicImageUrl', () => {
+    it('returns a freshly-signed URL for an UPLOADED image asset', async () => {
+      assets.findById.mockResolvedValue(
+        buildAsset({ kind: 'IMAGE', status: 'UPLOADED', originalKey: 'media/owner/image/cover.jpg' }),
+      );
+      r2.signObjectGet.mockResolvedValue('https://r2.example/signed?x=1');
+
+      const url = await mediaService.getPublicImageUrl(assetId, 300);
+
+      expect(url).toBe('https://r2.example/signed?x=1');
+      expect(r2.signObjectGet).toHaveBeenCalledWith('media/owner/image/cover.jpg', 300);
+    });
+
+    it('accepts a READY image asset too', async () => {
+      assets.findById.mockResolvedValue(buildAsset({ kind: 'IMAGE', status: 'READY' }));
+      r2.signObjectGet.mockResolvedValue('https://r2.example/signed');
+
+      await expect(mediaService.getPublicImageUrl(assetId, 300)).resolves.toBe(
+        'https://r2.example/signed',
+      );
+    });
+
+    it('throws NotFoundException when the asset does not exist', async () => {
+      assets.findById.mockResolvedValue(null);
+
+      await expect(mediaService.getPublicImageUrl(assetId, 300)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(r2.signObjectGet).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException for a non-IMAGE asset (never proxies video/doc/audio)', async () => {
+      assets.findById.mockResolvedValue(buildAsset({ kind: 'VIDEO', status: 'READY' }));
+
+      await expect(mediaService.getPublicImageUrl(assetId, 300)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(r2.signObjectGet).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException while the image is still uploading', async () => {
+      assets.findById.mockResolvedValue(buildAsset({ kind: 'IMAGE', status: 'UPLOADING' }));
+
+      await expect(mediaService.getPublicImageUrl(assetId, 300)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------
   describe('sanitizeFileName', () => {

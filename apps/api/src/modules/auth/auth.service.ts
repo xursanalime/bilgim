@@ -264,7 +264,7 @@ export class AuthService {
   /**
    * Provision the single English specialty for a freshly-activated teacher.
    *
-   * EduBridge is an English-only platform, so there is no onboarding quiz:
+   * Bilgim is an English-only platform, so there is no onboarding quiz:
    * every teacher teaches English. We assign the seeded `english` specialty
    * and stamp `onboardingCompletedAt` so downstream guards
    * (group creation, homework modules — `ONBOARDING_REQUIRED`) pass without

@@ -67,7 +67,7 @@ export default async function CourseDetailPage({
           <div className="min-w-0 flex-1 space-y-5">
             <div className="flex flex-wrap items-center gap-2.5">
               {course.isPublished ? (
-                <span className="flex h-6 items-center rounded-full bg-green/5 px-3 text-[10px] font-bold uppercase tracking-wider text-green border border-green/10">
+                <span className="flex h-6 items-center rounded-full bg-teal/5 px-3 text-[10px] font-bold uppercase tracking-wider text-teal border border-teal/10">
                   <Signal className="mr-1.5 h-3 w-3 animate-pulse" />
                   Nashrda
                 </span>

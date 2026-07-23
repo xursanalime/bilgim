@@ -486,6 +486,9 @@ model TeacherProfile {
   rating        Decimal? @db.Decimal(3, 2)
   studentsCount Int      @default(0)
 
+  // "Mening maktabim" subdomain branding (Phase 6 — {slug}.bilgim.uz)
+  themeColor String? @default("#2563eb")
+
   subscriptions     Subscription[]
   courses           Course[]
   onboardingAnswers OnboardingAnswer[]

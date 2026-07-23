@@ -16,7 +16,7 @@ interface DiscoverFiltersProps {
  * submits the form. The Server Component re-runs and the page re-renders
  * with the new results.
  *
- * EduBridge is English-only, so there is no subject/specialty filter — the
+ * Bilgim is English-only, so there is no subject/specialty filter — the
  * search is a simple name/headline query.
  */
 export function DiscoverFilters({

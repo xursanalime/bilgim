@@ -56,7 +56,7 @@ export function AuroraAuthLayout({
               className="text-lg font-extrabold tracking-tight text-ink-strong"
               style={{ letterSpacing: '-0.025em' }}
             >
-              EduBridge
+              Bilgim
             </span>
           </Link>
         </header>
@@ -86,7 +86,7 @@ export function AuroraAuthLayout({
                 className="text-lg font-extrabold tracking-tight text-ink-strong"
                 style={{ letterSpacing: '-0.025em' }}
               >
-                EduBridge
+                Bilgim
               </span>
             </Link>
 
@@ -129,7 +129,7 @@ export function AuroraAuthLayout({
         </main>
 
         <footer className="relative z-10 px-6 py-6 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-ink-soft/50 sm:px-10">
-          © {new Date().getFullYear()} EduBridge · O&apos;zbekiston uchun ingliz tili platformasi
+          © {new Date().getFullYear()} Bilgim · O&apos;zbekiston uchun ingliz tili platformasi
         </footer>
       </div>
     </div>
@@ -196,7 +196,7 @@ function BrandPanel({ locale }: { locale: string }) {
             <Logo />
           </span>
           <span className="text-lg font-extrabold tracking-tight text-white" style={{ letterSpacing: '-0.025em' }}>
-            EduBridge
+            Bilgim
           </span>
         </Link>
 

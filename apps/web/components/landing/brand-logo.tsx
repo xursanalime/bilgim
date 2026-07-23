@@ -1,5 +1,5 @@
 /**
- * BrandLogo — single source of truth for the EduBridge wordmark + icon.
+ * BrandLogo — single source of truth for the Bilgim wordmark + icon.
  *
  * Used in the Aurora header, footer, and any other surface that needs
  * the brand identity. Renders a square gradient tile with a stylized

@@ -112,7 +112,7 @@ export default async function GroupDetailPage({
 
               {group.capacity != null && (
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-green/5 text-green">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal/5 text-teal">
                     <Users className="h-4.5 w-4.5" />
                   </div>
                   <div>
@@ -207,23 +207,21 @@ export default async function GroupDetailPage({
             </Link>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-[2rem] border border-rim bg-white shadow-soft">
-            <ul className="divide-y divide-rim">
-              {lessons
-                .slice()
-                .sort((a, b) => a.position - b.position)
-                .map((lesson) => (
-                  <li key={lesson.id} className="transition-colors hover:bg-tint/30">
-                    <LessonRow
-                      lesson={lesson}
-                      locale={locale}
-                      courseId={courseId}
-                      groupId={groupId}
-                    />
-                  </li>
-                ))}
-            </ul>
-          </div>
+          <ul className="space-y-4">
+            {lessons
+              .slice()
+              .sort((a, b) => a.position - b.position)
+              .map((lesson) => (
+                <li key={lesson.id}>
+                  <LessonRow
+                    lesson={lesson}
+                    locale={locale}
+                    courseId={courseId}
+                    groupId={groupId}
+                  />
+                </li>
+              ))}
+          </ul>
         )}
       </section>
     </div>

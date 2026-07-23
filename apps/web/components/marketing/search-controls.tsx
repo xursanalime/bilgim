@@ -32,7 +32,7 @@ interface SearchControlsProps {
  *     once user stops typing.
  *   - The tab switcher (Teachers | Courses) — flips `?tab=...`.
  *   - The filter sidebar (level, min/max price) — only applied to
- *     courses. EduBridge is English-only, so there is no subject filter.
+ *     courses. Bilgim is English-only, so there is no subject filter.
  *   - "Filtrlarni tozalash" CTA wired to the empty-state reset link.
  *
  * Why client-only: filters need to update the URL on user input. The
@@ -181,7 +181,7 @@ export function SearchControls({
       </form>
 
       {/* Filter sidebar — only courses have filters (level / price).
-          EduBridge is English-only, so there is no subject filter. */}
+          Bilgim is English-only, so there is no subject filter. */}
       {tab === 'courses' && (
         <aside className="w-full shrink-0 rounded-2xl border border-rim bg-canvas p-5 shadow-soft lg:w-80">
           <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-faint">

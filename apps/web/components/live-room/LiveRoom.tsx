@@ -353,14 +353,14 @@ function InnerRoom({ lessonId, role, onLeave }: InnerRoomProps) {
         title={lessonTitle}
         teacherName={isWaiting ? 'Kutilmoqda...' : sessionData?.session?.status === 'LIVE' ? 'Jonli dars' : 'Yuklanmoqda...'}
         viewerCount={participants.length}
-        isRecording={false}
+        isRecording={sessionData?.session?.status === 'LIVE'}
         startedAt={sessionData?.session?.startedAt ?? null}
         isWaiting={isWaiting}
         raisedHandCount={raisedHands.size}
       />
 
-      <main className="flex h-full flex-col pt-[72px] pb-[88px] relative z-20">
-        <div className="flex flex-1 gap-4 h-full overflow-hidden px-4 py-3">
+      <main className="flex h-full flex-col pt-[104px] pb-[76px] relative z-20 sm:pt-[72px] sm:pb-[88px]">
+        <div className="flex flex-1 gap-0 md:gap-4 h-full overflow-hidden px-2 py-2 sm:px-4 sm:py-3">
 
           {/* Main video/whiteboard stage — a white platform-style card (border-rim +
               shadow-soft) framing the video, which stays dark (#111118) since that's

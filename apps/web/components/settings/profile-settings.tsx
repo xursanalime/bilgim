@@ -226,7 +226,7 @@ export function ProfileSettings({ email, role, initialUsername = '' }: ProfileSe
         </section>
 
         {error && <div className="text-sm font-medium text-red-500 text-right">{error}</div>}
-        {successMsg && <div className="text-sm font-medium text-green-500 text-right">{successMsg}</div>}
+        {successMsg && <div className="text-sm font-medium text-teal text-right">{successMsg}</div>}
 
         <div className="flex justify-end pt-2 pb-6">
           <button

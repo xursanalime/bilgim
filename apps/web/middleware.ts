@@ -2,9 +2,13 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import createMiddleware from 'next-intl/middleware';
 import { supportedLocales, defaultLocale } from '@edubridge/i18n';
+import { cookieDomainFor, mapTeacherHomePath, resolveTeacherSlug, rootHostFor } from './lib/tenant';
 
-const AUTH_COOKIE = 'edubridge_access_token';
-const REFRESH_COOKIE = 'edubridge_refresh_token';
+const TEACHER_SLUG_HEADER = 'x-teacher-slug';
+const PREVIEW_QUERY_PARAM = 'preview';
+
+const AUTH_COOKIE = 'bilgim_access_token';
+const REFRESH_COOKIE = 'bilgim_refresh_token';
 const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -132,9 +136,30 @@ async function refreshTokens(
   }
 }
 
+/**
+ * Whether `slug` is actually claimed by a TeacherProfile — backs the
+ * "unclaimed subdomain → redirect to the root domain" rule (Task 6). Fails
+ * OPEN (treats the slug as claimed) on a network/API error so a transient
+ * API outage doesn't take down every teacher's subdomain at once; the page
+ * itself still 404s gracefully if something is genuinely wrong.
+ */
+async function slugIsClaimed(slug: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/v1/discovery/teachers/slug/${encodeURIComponent(slug)}/exists`,
+    );
+    if (!res.ok) return true;
+    const data = (await res.json()) as { exists?: boolean };
+    return data.exists !== false;
+  } catch {
+    return true;
+  }
+}
+
 function setAuthCookies(
   response: NextResponse,
   tokens: { accessToken: string; refreshToken: string },
+  domain: string | undefined,
 ): void {
   const secure = process.env.NODE_ENV === 'production';
   const common = {
@@ -142,6 +167,7 @@ function setAuthCookies(
     maxAge: COOKIE_MAX_AGE,
     sameSite: 'lax' as const,
     secure,
+    ...(domain && { domain }),
   };
   response.cookies.set(AUTH_COOKIE, tokens.accessToken, common);
   response.cookies.set(REFRESH_COOKIE, tokens.refreshToken, common);
@@ -158,6 +184,32 @@ export async function middleware(request: NextRequest) {
   ) {
     return NextResponse.next();
   }
+
+  // Multi-tenant subdomain routing: "{slug}.bilgim.uz" is a teacher's public
+  // "onlayn maktab". Mutate the incoming request's headers (not a clone) so
+  // every downstream response construction in this function — including
+  // next-intl's own `NextResponse.rewrite(url, { request: { headers } })`,
+  // which clones `request.headers` at call time — forwards the slug to the
+  // Server Component render, readable via `headers().get('x-teacher-slug')`.
+  const teacherSlug = resolveTeacherSlug(request.headers.get('host'));
+  if (teacherSlug) {
+    request.headers.set(TEACHER_SLUG_HEADER, teacherSlug);
+
+    // Unclaimed subdomain (publicSlug not yet set on any TeacherProfile) →
+    // bounce to the root domain, UNLESS this is a "Ko'rib chiqish" preview
+    // request (Task 6) — those intentionally target a slug that may not be
+    // saved yet, and the signed preview token is its own authorization.
+    const isPreview = request.nextUrl.searchParams.has(PREVIEW_QUERY_PARAM);
+    if (!isPreview && !(await slugIsClaimed(teacherSlug))) {
+      const rootUrl = new URL(request.nextUrl);
+      rootUrl.host = rootHostFor(request.headers.get('host'));
+      rootUrl.pathname = '/';
+      rootUrl.search = '';
+      return NextResponse.redirect(rootUrl, 302);
+    }
+  }
+
+  const cookieDomain = cookieDomainFor(request.headers.get('host'));
 
   // Check authentication for protected routes (dashboard, courses, etc.)
   if (isProtectedPath(pathname)) {
@@ -180,7 +232,7 @@ export async function middleware(request: NextRequest) {
         // Re-run the i18n middleware to build the normal response, then
         // attach the rotated cookies so the browser keeps the new session.
         const response = intlMiddleware(request) ?? NextResponse.next();
-        setAuthCookies(response, refreshed);
+        setAuthCookies(response, refreshed, cookieDomain);
         return response;
       }
     }
@@ -190,10 +242,25 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL(`/${locale}/login`, request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
     const redirect = NextResponse.redirect(loginUrl);
-    // Clear any stale auth cookies so we don't loop.
-    redirect.cookies.set(AUTH_COOKIE, '', { path: '/', maxAge: 0 });
-    redirect.cookies.set(REFRESH_COOKIE, '', { path: '/', maxAge: 0 });
+    // Clear any stale auth cookies so we don't loop. Must repeat the same
+    // `domain` the cookie was set with — otherwise the browser drops a new
+    // host-only cookie alongside the old domain-scoped one instead of
+    // clearing it.
+    const clear = { path: '/', maxAge: 0, ...(cookieDomain && { domain: cookieDomain }) };
+    redirect.cookies.set(AUTH_COOKIE, '', clear);
+    redirect.cookies.set(REFRESH_COOKIE, '', clear);
     return redirect;
+  }
+
+  // Teacher subdomain home page: internally rewrite "/" (or a locale root
+  // like "/ru") to the existing `/teachers/[publicSlug]` route so the
+  // browser URL stays "aziz.bilgim.uz/" while next-intl's own rewrite (see
+  // the header-forwarding comment above) renders that page underneath.
+  if (teacherSlug) {
+    const mapped = mapTeacherHomePath(pathname, teacherSlug);
+    if (mapped) {
+      request.nextUrl.pathname = mapped;
+    }
   }
 
   // Apply i18n middleware for all other routes

@@ -33,4 +33,8 @@ export {
   type ListCoursesParams,
 } from './api/discovery';
 
-export { serverDiscovery, ServerDiscoveryError } from './server-discovery';
+export {
+  serverDiscovery,
+  ServerDiscoveryError,
+  type PreviewProfileResponse,
+} from './server-discovery';

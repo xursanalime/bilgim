@@ -51,7 +51,7 @@ export function LandingHeader({ locale }: { locale: string }) {
           >
             <Logo />
           </span>
-          <span>EduBridge</span>
+          <span>Bilgim</span>
         </Link>
 
         {/* Center nav (desktop) */}

@@ -192,7 +192,7 @@ function SpecialtyCard({
         </div>
         <div className={cn(
           "rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest",
-          specialty?.isActive ? "bg-green/10 text-green" : "bg-red/10 text-red"
+          specialty?.isActive ? "bg-teal/10 text-teal" : "bg-red/10 text-red"
         )}>
           {specialty?.isActive ? 'Aktiv' : 'Nofaol'}
         </div>

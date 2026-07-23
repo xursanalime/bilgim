@@ -166,7 +166,7 @@ function KpiSection({ data, isLoading, error }: KpiSectionProps) {
               <div className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-lg shadow-sm sm:h-12 sm:w-12 sm:rounded-2xl",
                 kpi.color === 'blue' && "bg-blue/5 text-blue",
-                kpi.color === 'green' && "bg-green/5 text-green",
+                kpi.color === 'green' && "bg-teal/5 text-teal",
                 kpi.color === 'purple' && "bg-purple/5 text-purple",
                 kpi.color === 'orange' && "bg-orange/5 text-orange",
               )}>
@@ -439,7 +439,7 @@ function StudentTableSection({
                       ) : (
                         <span className={cn(
                           "font-black",
-                          row.averageGrade >= 80 ? "text-green" : row.averageGrade >= 60 ? "text-orange" : "text-red"
+                          row.averageGrade >= 80 ? "text-teal" : row.averageGrade >= 60 ? "text-orange" : "text-red"
                         )}>
                           {row.averageGrade.toFixed(1)}
                         </span>

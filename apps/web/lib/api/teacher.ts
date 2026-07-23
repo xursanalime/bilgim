@@ -35,6 +35,8 @@ export interface PublicProfileStatus {
   publicSlug: string | null;
   headline: string | null;
   fullName: string | null;
+  coverUrl: string | null;
+  themeColor: string | null;
   discoverableCourseCount: number;
   profileUrlPath: string | null;
 }
@@ -42,6 +44,25 @@ export interface PublicProfileStatus {
 export interface UpdatePublicProfileDto {
   isPublic: boolean;
   headline?: string;
+  publicSlug?: string;
+  coverUrl?: string;
+  themeColor?: string;
+}
+
+export type SlugAvailability =
+  | { available: true }
+  | { available: false; reason: 'invalid' | 'reserved' | 'taken' };
+
+export interface CreatePreviewTokenDto {
+  slug: string;
+  headline?: string;
+  coverUrl?: string;
+  themeColor?: string;
+}
+
+export interface CreatePreviewTokenResult {
+  previewToken: string;
+  expiresInSeconds: number;
 }
 
 export const teacherApi = {
@@ -53,4 +74,10 @@ export const teacherApi = {
     apiClient.get<PublicProfileStatus>('/teacher/profile/public'),
   updatePublicProfile: (dto: UpdatePublicProfileDto) =>
     apiClient.patch<PublicProfileStatus>('/teacher/profile/public', dto),
+  checkPublicSlug: (slug: string) =>
+    apiClient.get<SlugAvailability>(
+      `/teacher/profile/public-slug/check?slug=${encodeURIComponent(slug)}`,
+    ),
+  createPreviewToken: (dto: CreatePreviewTokenDto) =>
+    apiClient.post<CreatePreviewTokenResult>('/teacher/profile/public-slug/preview-token', dto),
 };

@@ -106,7 +106,7 @@ async function bootstrap() {
   await app.listen(port);
 
   const logger = new Logger('Bootstrap');
-  logger.log(`🚀 EduBridge API running on http://localhost:${port}`);
+  logger.log(`🚀 Bilgim API running on http://localhost:${port}`);
   logger.log(`📋 Health check: http://localhost:${port}/health`);
 }
 

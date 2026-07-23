@@ -108,8 +108,8 @@ export function FaqSection() {
 
 const FAQS = [
   {
-    q: 'EduBridge nima va kimlar uchun?',
-    a: 'EduBridge — O‘zbekistondagi onlayn o‘qituvchilar va talabalarni bog‘lovchi platforma. O‘qituvchilar kurs yaratadi, jonli efir o‘tkazadi, vazifa beradi va to‘lov qabul qiladi. Talabalar esa kurslarga qo‘shilib, AI yordamchi bilan o‘rganadilar.',
+    q: 'Bilgim nima va kimlar uchun?',
+    a: 'Bilgim — O‘zbekistondagi onlayn o‘qituvchilar va talabalarni bog‘lovchi platforma. O‘qituvchilar kurs yaratadi, jonli efir o‘tkazadi, vazifa beradi va to‘lov qabul qiladi. Talabalar esa kurslarga qo‘shilib, AI yordamchi bilan o‘rganadilar.',
   },
   {
     q: '14 kun bepul davrida nima bor?',

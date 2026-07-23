@@ -4,7 +4,16 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
-import { Loader2, Send, ChevronRight, AlertCircle, Radio } from 'lucide-react';
+import {
+  Loader2,
+  Send,
+  ChevronRight,
+  AlertCircle,
+  Radio,
+  PlayCircle,
+  Layers,
+  FileText,
+} from 'lucide-react';
 
 import { lessonsApi, type Lesson } from '../../lib/api/catalog';
 import { ApiClientError } from '../../lib/api-client';
@@ -24,10 +33,24 @@ const LESSON_TYPE_LABEL: Record<Lesson['type'], string> = {
   TEXT_ONLY: 'Matn',
 };
 
+const LESSON_TYPE_ICON: Record<Lesson['type'], typeof PlayCircle> = {
+  RECORDED: PlayCircle,
+  LIVE: Radio,
+  HYBRID: Layers,
+  TEXT_ONLY: FileText,
+};
+
+const LESSON_TYPE_COLOR: Record<Lesson['type'], string> = {
+  RECORDED: 'bg-blue-tint text-blue',
+  LIVE: 'bg-purple-tint text-purple',
+  HYBRID: 'bg-orange-tint text-orange',
+  TEXT_ONLY: 'bg-teal-tint text-teal',
+};
+
 const LESSON_STATUS_BADGE: Record<Lesson['status'], string> = {
-  DRAFT: 'bg-soft text-ink-soft',
-  READY: 'bg-green-tint text-green',
-  ARCHIVED: 'bg-red-tint text-red',
+  DRAFT: 'border-rim bg-tint text-ink-faint',
+  READY: 'border-transparent bg-teal text-white',
+  ARCHIVED: 'border-red/10 bg-red-tint text-red',
 };
 
 const LESSON_STATUS_LABEL: Record<Lesson['status'], string> = {
@@ -54,31 +77,37 @@ export function LessonRow({
     },
   });
 
+  const TypeIcon = LESSON_TYPE_ICON[lesson.type];
+
   return (
-    <div className="flex items-center justify-between gap-6 px-6 py-5">
+    <div className="group relative flex items-center gap-5 rounded-3xl border border-rim bg-canvas p-5 shadow-soft transition-all hover:-translate-y-1 hover:shadow-medium hover:border-blue/20">
+      <div
+        className={cn(
+          'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-colors',
+          LESSON_TYPE_COLOR[lesson.type],
+        )}
+      >
+        <TypeIcon className="h-5 w-5" />
+      </div>
+
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex items-center gap-2.5">
           <span
             className={cn(
-              'rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border',
-              lesson.status === 'READY' ? 'bg-green/5 text-green border-green/10' :
-              lesson.status === 'DRAFT' ? 'bg-tint text-ink-faint border-rim' :
-              'bg-red/5 text-red border-red/10'
+              'rounded-full border px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider',
+              LESSON_STATUS_BADGE[lesson.status],
             )}
           >
             {LESSON_STATUS_LABEL[lesson.status]}
           </span>
-          <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-ink-faint/60">
-            <span className="h-1 w-1 rounded-full bg-rim" />
+          <span className="text-[9px] font-bold uppercase tracking-widest text-ink-faint">
             {LESSON_TYPE_LABEL[lesson.type]}
-          </div>
+          </span>
         </div>
-        
+
         <Link
-          href={lesson.type === 'LIVE'
-            ? `/${locale}/live/${lesson.id}?groupId=${groupId}&courseId=${courseId}`
-            : `/${locale}/dashboard/courses/${courseId}/groups/${groupId}/lessons/${lesson.id}`}
-          className="group/link flex items-center gap-2"
+          href={`/${locale}/dashboard/courses/${courseId}/groups/${groupId}/lessons/${lesson.id}`}
+          className="group/link inline-flex items-center gap-1.5"
         >
           <h4 className="text-[15px] font-bold text-ink-strong group-hover/link:text-blue transition-colors">
             {lesson.title}
@@ -87,11 +116,11 @@ export function LessonRow({
         </Link>
 
         {lesson.description && (
-          <p className="line-clamp-1 text-xs text-ink-soft opacity-70">
+          <p className="line-clamp-1 text-xs text-ink-soft">
             {lesson.description}
           </p>
         )}
-        
+
         {error && (
           <p className="flex items-center gap-1.5 text-[10px] font-bold text-red">
             <AlertCircle className="h-3 w-3" />
@@ -104,7 +133,7 @@ export function LessonRow({
         {lesson.type === 'LIVE' && (
           <Link
             href={`/${locale}/live/${lesson.id}?groupId=${groupId}&courseId=${courseId}`}
-            className="inline-flex h-9 items-center gap-2 rounded-xl bg-purple/10 px-4 text-xs font-bold text-purple transition-all hover:bg-purple/20 active:scale-[0.98]"
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-purple-tint px-4 text-xs font-bold text-purple transition-all hover:bg-purple/20 active:scale-[0.98]"
           >
             <Radio className="h-3.5 w-3.5" />
             Efirga kirish

@@ -1,10 +1,13 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 import { createPrismaClient } from '../../infra/prisma';
 
 import { AuthModule } from '../auth/auth.module';
 import { TeacherController } from './teacher.controller';
 import { TeacherAnalyticsController } from './teacher-analytics.controller';
+import { TeacherPreviewController } from './public-preview.controller';
 import { OnboardingService } from './onboarding.service';
 import { SpecialtyService } from './specialty.service';
 import { TeacherAnalyticsService } from './teacher-analytics.service';
@@ -31,8 +34,22 @@ import { TeacherProfileRepository } from './repositories/teacher-profile.reposit
  * the lookup logic.
  */
 @Module({
-  imports: [forwardRef(() => AuthModule)],
-  controllers: [TeacherController, TeacherAnalyticsController],
+  imports: [
+    forwardRef(() => AuthModule),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.getOrThrow<string>('JWT_SECRET'),
+        // Task 6 "Ko'rib chiqish" preview tokens — signed with the same
+        // secret as auth JWTs but carry a `purpose` claim so they can
+        // never be mistaken for an access token (see public-profile.service.ts).
+        signOptions: { algorithm: 'HS256' },
+        verifyOptions: { algorithms: ['HS256'] },
+      }),
+    }),
+  ],
+  controllers: [TeacherController, TeacherAnalyticsController, TeacherPreviewController],
   providers: [
     OnboardingService,
     SpecialtyService,

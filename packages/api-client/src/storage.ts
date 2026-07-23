@@ -122,11 +122,11 @@ export function createLocalStorageAdapter(): TokenStorageAdapter {
  */
 export const StorageKeys = {
   /** Short-lived JWT (~15m). Sent as `Authorization: Bearer …`. */
-  ACCESS_TOKEN: 'edubridge_access_token',
+  ACCESS_TOKEN: 'bilgim_access_token',
   /** Opaque refresh token (~30d). Rotated on each `/auth/refresh`. */
-  REFRESH_TOKEN: 'edubridge_refresh_token',
+  REFRESH_TOKEN: 'bilgim_refresh_token',
   /** Cached `LoginResponse.user` JSON — UI shell only, never trusted. */
-  USER: 'edubridge_user',
+  USER: 'bilgim_user',
 } as const;
 
 export type StorageKey = (typeof StorageKeys)[keyof typeof StorageKeys];

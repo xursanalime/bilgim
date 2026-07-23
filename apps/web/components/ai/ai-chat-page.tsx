@@ -432,7 +432,7 @@ export function AiChatPage({ locale }: { locale: string }) {
             <div>
               <p className="text-sm font-black text-ink-strong leading-none">{activeTitle ?? 'BilgimAI'}</p>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-green animate-pulse" />
+                <span className="h-1.5 w-1.5 rounded-full bg-teal animate-pulse" />
                 <span className="text-[10px] font-bold text-ink-faint uppercase tracking-widest">Faol</span>
               </div>
             </div>
@@ -468,8 +468,8 @@ export function AiChatPage({ locale }: { locale: string }) {
                 <div className="h-24 w-24 rounded-[2rem] bg-gradient-to-br from-purple to-blue flex items-center justify-center shadow-[0_20px_60px_-10px_rgba(0,113,227,0.5)]">
                   <Sparkles className="h-12 w-12 text-white" />
                 </div>
-                <div className="absolute -bottom-2 -right-2 h-8 w-8 rounded-xl bg-green/10 border-2 border-white flex items-center justify-center">
-                  <span className="h-2.5 w-2.5 rounded-full bg-green animate-pulse" />
+                <div className="absolute -bottom-2 -right-2 h-8 w-8 rounded-xl bg-teal/10 border-2 border-white flex items-center justify-center">
+                  <span className="h-2.5 w-2.5 rounded-full bg-teal animate-pulse" />
                 </div>
               </div>
 

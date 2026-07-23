@@ -65,7 +65,7 @@ export function OnboardingWizard({ locale }: OnboardingWizardProps) {
   
   // After the first question (subject selection), determine which specialty
   // was chosen by matching the selected option's slug to specialty questions.
-  // EduBridge is English-only — every onboarding question is universal
+  // Bilgim is English-only — every onboarding question is universal
   // (specialtyId === null) and all option weights resolve to the single
   // "english" specialty. There is no per-subject branching anymore, so we
   // simply present every active question in order.

@@ -1,5 +1,5 @@
 /**
- * Authentication utilities for EduBridge web app.
+ * Authentication utilities for Bilgim web app.
  * Handles JWT token storage, retrieval, and refresh logic.
  *
  * Tokens are stored in both:
@@ -7,8 +7,10 @@
  * - httpOnly cookies (for middleware/SSR auth checks)
  */
 
-const ACCESS_TOKEN_KEY = 'edubridge_access_token';
-const REFRESH_TOKEN_KEY = 'edubridge_refresh_token';
+import { cookieDomainFor } from './tenant';
+
+const ACCESS_TOKEN_KEY = 'bilgim_access_token';
+const REFRESH_TOKEN_KEY = 'bilgim_refresh_token';
 
 /** Cookie lifetime — outlives the short JWT `exp` so the middleware can use
  * the refresh token to mint a new access token instead of forcing re-login. */
@@ -40,16 +42,23 @@ function readCookie(name: string): string | null {
 function writeCookie(name: string, value: string, maxAgeSec?: number): void {
   if (typeof document === 'undefined') return;
   const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  // Scope to the root domain (".bilgim.uz") so the session set on the main
+  // app is also valid on every teacher's "{slug}.bilgim.uz" — enrollment,
+  // payment, live-join, and homework submission all live on the subdomain.
+  const domain = cookieDomainFor(window.location.hostname);
+  const domainAttr = domain ? `; domain=${domain}` : '';
   // Omitting max-age makes it a session cookie — deleted when the browser closes.
   const maxAge = typeof maxAgeSec === 'number' ? `; max-age=${maxAgeSec}` : '';
   document.cookie = `${name}=${encodeURIComponent(
     value,
-  )}; path=/${maxAge}; SameSite=Lax${secure}`;
+  )}; path=/${maxAge}; SameSite=Lax${secure}${domainAttr}`;
 }
 
 function deleteCookie(name: string): void {
   if (typeof document === 'undefined') return;
-  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+  const domain = cookieDomainFor(window.location.hostname);
+  const domainAttr = domain ? `; domain=${domain}` : '';
+  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax${domainAttr}`;
 }
 
 // --- Token Storage ---

@@ -59,23 +59,23 @@ export function LiveTopBar({
     : 'text-ink-faint';
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-50 px-3 py-2 pointer-events-none">
-      <div className="flex items-center justify-between gap-3 h-[56px]">
+    <div className="absolute top-0 left-0 right-0 z-50 px-2 sm:px-3 py-2 pointer-events-none">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:h-[56px] sm:flex-nowrap">
 
         {/* Left: title */}
-        <div className="pointer-events-auto flex items-center gap-3 bg-white border border-rim px-5 py-3 rounded-3xl shadow-soft max-w-xs">
-          <div className="h-9 w-9 shrink-0 rounded-2xl bg-blue flex items-center justify-center shadow-[0_4px_12px_-2px_rgba(0,113,227,0.4)]">
+        <div className="pointer-events-auto order-1 flex min-w-0 max-w-[55vw] items-center gap-2 rounded-2xl border border-rim bg-white px-3 py-2 shadow-soft sm:max-w-xs sm:gap-3 sm:rounded-3xl sm:px-5 sm:py-3">
+          <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-blue shadow-[0_4px_12px_-2px_rgba(0,113,227,0.4)] sm:flex">
             <Info className="h-4 w-4 text-white" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-sm font-black text-ink-strong leading-none mb-0.5 truncate">{title}</h1>
-            <p className="text-[10px] text-ink-soft font-bold uppercase tracking-[0.12em] truncate">{teacherName}</p>
+            <h1 className="text-xs font-black text-ink-strong leading-none mb-0.5 truncate sm:text-sm">{title}</h1>
+            <p className="hidden truncate text-[10px] font-bold uppercase tracking-[0.12em] text-ink-soft sm:block">{teacherName}</p>
           </div>
         </div>
 
         {/* Center: LIVE/waiting badge + timer */}
-        <div className="absolute left-1/2 -translate-x-1/2 pointer-events-auto">
-          <div className="flex items-center gap-3 bg-white border border-rim px-4 py-2 rounded-full shadow-soft">
+        <div className="pointer-events-auto order-3 w-full sm:absolute sm:left-1/2 sm:order-none sm:w-auto sm:-translate-x-1/2">
+          <div className="flex w-fit items-center gap-2 rounded-full border border-rim bg-white px-3 py-1.5 shadow-soft mx-auto sm:mx-0 sm:gap-3 sm:px-4 sm:py-2">
             {isWaiting ? (
               <>
                 <span className="h-2 w-2 rounded-full bg-orange" />
@@ -96,11 +96,11 @@ export function LiveTopBar({
         </div>
 
         {/* Right: stats */}
-        <div className="pointer-events-auto flex items-center gap-2">
-          <div className="flex items-center gap-4 bg-white border border-rim px-4 py-3 rounded-3xl shadow-soft">
+        <div className="pointer-events-auto order-2 flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-2 rounded-2xl border border-rim bg-white px-2.5 py-2 shadow-soft sm:gap-4 sm:rounded-3xl sm:px-4 sm:py-3">
             {/* Participants */}
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-tint rounded-lg">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="p-1 sm:p-1.5 bg-tint rounded-lg">
                 <Users className="h-3.5 w-3.5 text-ink-soft" />
               </div>
               <span className="text-xs font-black text-ink-strong">{viewerCount}</span>
@@ -111,12 +111,12 @@ export function LiveTopBar({
               <>
                 <div className="h-4 w-px bg-rim" />
                 <motion.div
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-1.5 sm:gap-2"
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                 >
-                  <div className="p-1.5 bg-orange-tint rounded-lg">
+                  <div className="p-1 sm:p-1.5 bg-orange-tint rounded-lg">
                     <Hand className="h-3.5 w-3.5 text-orange" />
                   </div>
                   <span className="text-xs font-black text-orange">{raisedHandCount}</span>
@@ -127,24 +127,24 @@ export function LiveTopBar({
             <div className="h-4 w-px bg-rim" />
 
             {/* Network quality */}
-            <div className="flex items-center gap-2">
-              <div className={cn('p-1.5 rounded-lg', quality === ConnectionQuality.Poor ? 'bg-red-tint' : 'bg-tint')}>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className={cn('p-1 sm:p-1.5 rounded-lg', quality === ConnectionQuality.Poor ? 'bg-red-tint' : 'bg-tint')}>
                 <Signal className={cn('h-3.5 w-3.5', qualityColor)} />
               </div>
-              <span className={cn('text-[10px] font-bold uppercase tracking-widest', qualityColor)}>
+              <span className={cn('hidden text-[10px] font-bold uppercase tracking-widest sm:inline', qualityColor)}>
                 {qualityLabel}
               </span>
             </div>
           </div>
 
           {isRecording && (
-            <div className="flex items-center gap-2 bg-red-tint border border-red/20 px-3 py-2 rounded-2xl">
+            <div className="flex items-center gap-1.5 rounded-2xl border border-red/20 bg-red-tint px-2 py-1.5 sm:gap-2 sm:px-3 sm:py-2">
               <div className="h-2 w-2 rounded-full bg-red animate-pulse" />
-              <span className="text-[10px] font-black text-red uppercase tracking-wider">REC</span>
+              <span className="hidden text-[10px] font-black uppercase tracking-wider text-red sm:inline">REC</span>
             </div>
           )}
 
-          <button className="h-11 w-11 bg-white border border-rim rounded-[1.25rem] flex items-center justify-center text-ink-soft hover:text-ink-strong hover:bg-tint transition-all shadow-soft">
+          <button className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-[1.25rem] border border-rim bg-white text-ink-soft shadow-soft transition-all hover:bg-tint hover:text-ink-strong sm:flex">
             <MoreHorizontal className="h-5 w-5" />
           </button>
         </div>

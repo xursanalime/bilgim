@@ -35,6 +35,7 @@ export interface DiscoveryTeacherSummary {
   fullName: string | null;
   headline: string | null;
   avatarUrl: string | null;
+  themeColor: string | null;
   rating: number | null;
   studentsCount: number;
   courseCount: number;

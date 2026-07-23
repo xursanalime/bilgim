@@ -6,6 +6,7 @@ import { createPrismaClient } from '../../infra/prisma';
 import { R2Module } from '../../infra/r2/r2.module';
 import { MediaAccessService } from './media-access.service';
 import { MediaAssetsController } from './media-assets.controller';
+import { MediaPublicController } from './media-public.controller';
 import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
 import { MediaAssetRepository } from './repositories/media-asset.repository';
@@ -41,7 +42,7 @@ import { VideoTranscodeProcessor } from './transcoding/transcode.processor';
  */
 @Module({
   imports: [ConfigModule, R2Module],
-  controllers: [MediaController, MediaAssetsController],
+  controllers: [MediaController, MediaAssetsController, MediaPublicController],
   providers: [
     MediaService,
     MediaAccessService,

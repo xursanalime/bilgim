@@ -30,7 +30,7 @@ export class StructuredLogger
   private readonly jsonMode: boolean;
 
   constructor(context?: string, options?: { jsonMode?: boolean }) {
-    super(context ?? 'EduBridge');
+    super(context ?? 'Bilgim');
     this.jsonMode =
       options?.jsonMode ??
       (process.env.NODE_ENV === 'production' ||

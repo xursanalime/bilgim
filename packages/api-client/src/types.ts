@@ -57,7 +57,7 @@ export interface CursorPage<T> {
 
 /**
  * Per-request options. The transport accepts any `RequestInit` field
- * plus the EduBridge-specific extras below. `body` is `unknown` so
+ * plus the Bilgim-specific extras below. `body` is `unknown` so
  * callers can pass arbitrary JSON-serialisable payloads without
  * stringifying upfront.
  */

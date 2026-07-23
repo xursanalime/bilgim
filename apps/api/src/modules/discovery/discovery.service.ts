@@ -62,6 +62,7 @@ export interface DiscoveryTeacherSummary {
   fullName: string | null;
   headline: string | null;
   avatarUrl: string | null;
+  themeColor: string | null;
   rating: number | null;
   studentsCount: number;
   courseCount: number;
@@ -204,6 +205,19 @@ export class DiscoveryService {
     });
   }
 
+  /**
+   * Backs the Next.js middleware's subdomain redirect (Task 6): a request
+   * to `{slug}.bilgim.uz` where `slug` isn't claimed by any TeacherProfile
+   * gets bounced to the root domain. Cached briefly since it's called on
+   * every subdomain page load.
+   */
+  async slugExists(slug: string): Promise<boolean> {
+    const cacheKey = `discovery:teacher-slug-exists:${slug}`;
+    return this.cache.getOrSet(cacheKey, LIST_CACHE_TTL_SECONDS, () =>
+      this.repository.existsByPublicSlug(slug),
+    );
+  }
+
   // ==================================================================
   // System Settings (Public)
   // ==================================================================
@@ -299,6 +313,7 @@ function toTeacherSummary(row: DiscoveryTeacherRow): DiscoveryTeacherSummary {
     fullName: row.fullName,
     headline: row.headline,
     avatarUrl: row.coverUrl,
+    themeColor: row.themeColor,
     rating: row.rating !== null ? Number(row.rating) : null,
     studentsCount: row.studentsCount,
     courseCount: row._count.courses,

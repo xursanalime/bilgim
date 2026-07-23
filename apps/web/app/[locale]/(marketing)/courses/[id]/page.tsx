@@ -29,15 +29,15 @@ export async function generateMetadata({
   const course = await safeFetchCourse(id);
   if (!course) {
     return {
-      title: 'Kurs topilmadi | EduBridge',
+      title: 'Kurs topilmadi | Bilgim',
       description: "Bu kurs mavjud emas yoki ochiq emas. Boshqa kurslarni ko'rib chiqing.",
     };
   }
   const teacherName = course.teacher.fullName ?? 'Ustoz';
-  const title = `${course.title} | EduBridge`;
+  const title = `${course.title} | Bilgim`;
   const description =
     course.description?.slice(0, 200) ??
-    `${teacherName} tomonidan o'qitiladigan kurs. EduBridge platformasida.`;
+    `${teacherName} tomonidan o'qitiladigan kurs. Bilgim platformasida.`;
   const url = `/${locale}/courses/${id}`;
 
   return {
@@ -49,7 +49,7 @@ export async function generateMetadata({
       title,
       description,
       url,
-      siteName: 'EduBridge',
+      siteName: 'Bilgim',
       ...(course.coverUrl && {
         images: [{ url: course.coverUrl, alt: course.title }],
       }),

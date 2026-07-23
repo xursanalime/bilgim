@@ -30,7 +30,7 @@ export function InviteLinkButton({ groupId }: InviteLinkButtonProps) {
       {createInvite.isPending ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : copied ? (
-        <CheckCircle2 className="h-4 w-4 text-green" />
+        <CheckCircle2 className="h-4 w-4 text-teal" />
       ) : (
         <Share2 className="h-4 w-4 text-blue" />
       )}

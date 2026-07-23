@@ -416,6 +416,39 @@ export class MediaService {
     };
   }
 
+  /**
+   * Resolve a fresh signed GET URL for a PUBLIC, unauthenticated image
+   * proxy (`GET /media/public/:id`, Task 5/6 — "Mening maktabim" cover
+   * photos). This is the only media read path that skips
+   * `MediaAccessService.assertCanRead` — deliberately narrowed to
+   * `kind === 'IMAGE'` so paid video/document content always stays behind
+   * the authenticated `/media/assets/:id/url` path. Asset IDs are random
+   * UUIDs (unguessable), the same "unlisted" model most direct-image-link
+   * schemes rely on — acceptable for low-sensitivity branding images, not
+   * a substitute for real ACLs on anything else.
+   *
+   * `TeacherProfile.coverUrl` stores the STABLE proxy URL
+   * (`{API_URL}/api/v1/media/public/{assetId}`), never the signed URL
+   * itself — the signed URL is re-issued on every request here, so the
+   * stored value never expires even though each underlying signature does.
+   */
+  async getPublicImageUrl(assetId: string, expiresInSeconds: number): Promise<string> {
+    const asset = await this.assets.findById(assetId);
+    if (!asset || asset.kind !== 'IMAGE' || !asset.originalKey) {
+      throw new NotFoundException({
+        code: 'MEDIA_NOT_FOUND',
+        message: 'Image not found.',
+      });
+    }
+    if (asset.status !== 'UPLOADED' && asset.status !== 'READY') {
+      throw new NotFoundException({
+        code: 'MEDIA_NOT_FOUND',
+        message: 'Image not found.',
+      });
+    }
+    return this.r2.signObjectGet(asset.originalKey, expiresInSeconds);
+  }
+
   // ------------------------------------------------------------------
   // Playback (Req 8.3, 8.7, 8.8, 21.6)
   // ------------------------------------------------------------------

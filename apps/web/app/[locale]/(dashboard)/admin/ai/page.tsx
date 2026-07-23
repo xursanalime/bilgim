@@ -108,7 +108,7 @@ export default function AdminAiPromptsPage() {
                   <h3 className="text-lg font-black text-ink-strong">{prompt.key}</h3>
                   <span className={cn(
                     "rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider",
-                    prompt.isActive ? "bg-green/10 text-green" : "bg-red/10 text-red"
+                    prompt.isActive ? "bg-teal/10 text-teal" : "bg-red/10 text-red"
                   )}>
                     {prompt.isActive ? 'Aktiv' : 'Nofaol'}
                   </span>

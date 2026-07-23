@@ -38,7 +38,7 @@ export default function AdminAuditLogsPage() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-faint" />
               <input 
                 type="text" 
-                placeholder="Admin ID bo&apos;yicha..." 
+                placeholder="Admin ID bo'yicha..."
                 className="h-12 w-full rounded-2xl border border-rim bg-white pl-11 pr-4 text-sm font-bold outline-none focus:border-blue sm:w-64"
                 value={adminId}
                 onChange={(e) => setAdminId(e.target.value)}

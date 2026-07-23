@@ -13,6 +13,8 @@ import {
   Trash2,
   X,
   ExternalLink,
+  Radio,
+  Paperclip,
 } from 'lucide-react';
 
 import {
@@ -23,6 +25,8 @@ import {
   type Attachment,
 } from '../../lib/api/catalog';
 import { apiClient, ApiClientError } from '../../lib/api-client';
+import { resolveContentType } from '../../lib/media-content-type';
+import { cn } from '../../lib/utils';
 
 interface LessonMaterialsProps {
   lessonId: string;
@@ -43,6 +47,19 @@ interface PreviewState {
 }
 
 const PART_SIZE = 5 * 1024 * 1024; // 5 MiB
+
+const KIND_COLOR: Record<AttachmentKind, string> = {
+  VIDEO: 'bg-blue-tint text-blue',
+  RECORDING: 'bg-purple-tint text-purple',
+  AUDIO: 'bg-purple-tint text-purple',
+  IMAGE: 'bg-teal-tint text-teal',
+  PDF: 'bg-orange-tint text-orange',
+  DOC: 'bg-orange-tint text-orange',
+  SHEET: 'bg-teal-tint text-teal',
+  OTHER: 'bg-tint text-ink-soft',
+};
+
+const isVideoKind = (kind: AttachmentKind) => kind === 'VIDEO' || kind === 'RECORDING';
 
 export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
   const queryClient = useQueryClient();
@@ -135,7 +152,7 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
       try {
         const init = await mediaApi.initUpload({
           fileName: file.name,
-          contentType: file.type || 'application/octet-stream',
+          contentType: resolveContentType(file),
           sizeBytes: file.size,
           partsCount,
           kind,
@@ -235,20 +252,29 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
   );
 
   const attachments = attachmentsQuery.data ?? [];
+  const videoAttachments = attachments.filter((a) => isVideoKind(a.kind));
+  const otherAttachments = attachments.filter((a) => !isVideoKind(a.kind));
   const uploadEntries = Object.entries(uploads);
 
   return (
     <>
-      <section className="liquid-glass rounded-2xl p-6">
+      <section className="rounded-3xl border border-rim bg-canvas p-6 shadow-soft sm:p-7">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-ink-strong">Materiallar</h2>
-          <span className="text-xs text-ink-soft">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-tint">
+              <Paperclip className="h-4.5 w-4.5 text-blue" />
+            </div>
+            <h2 className="text-base font-extrabold tracking-tight text-ink-strong">
+              Materiallar
+            </h2>
+          </div>
+          <span className="text-xs font-bold uppercase tracking-wider text-ink-faint">
             {attachments.length} ta fayl
           </span>
         </div>
 
         {/* Description / notes for the lesson materials */}
-        <div className="mt-4">
+        <div className="mt-5">
           <textarea
             value={description}
             onChange={(e) => {
@@ -263,10 +289,10 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
             }}
             placeholder="Materiallar haqida izoh yozing... (masalan: 1-rasm grammatika qoidalari, 2-fayl mashqlar)"
             rows={2}
-            className="w-full rounded-xl border border-rim bg-canvas px-4 py-2.5 text-sm text-ink-strong placeholder-ink-faint outline-none focus:border-blue/40 focus:ring-2 focus:ring-blue/10 resize-none"
+            className="w-full rounded-2xl border border-rim bg-tint/40 px-4 py-3 text-sm text-ink-strong placeholder-ink-faint outline-none transition-colors focus:border-blue/40 focus:bg-canvas focus:ring-2 focus:ring-blue/10 resize-none"
           />
-          <div className="mt-1 flex items-center justify-between">
-            <span className="text-xs">
+          <div className="mt-1.5 flex items-center justify-between">
+            <span className="text-xs font-medium">
               {saveDescriptionMutation.isPending ? (
                 <span className="text-ink-soft">Saqlanmoqda…</span>
               ) : saveDescriptionMutation.isError ? (
@@ -274,7 +300,7 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
               ) : descDirty ? (
                 <span className="text-ink-soft">Saqlanmagan o&apos;zgarishlar</span>
               ) : descSaved ? (
-                <span className="text-green">✓ Izoh saqlandi</span>
+                <span className="text-teal">✓ Izoh saqlandi</span>
               ) : null}
             </span>
             {descDirty && (
@@ -299,11 +325,12 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`mt-4 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${
+          className={cn(
+            'mt-4 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all',
             isDragging
-              ? 'border-blue bg-blue-tint'
-              : 'border-rim hover:border-blue/40 hover:bg-blue-tint/40'
-          }`}
+              ? 'border-blue bg-blue-tint scale-[1.01]'
+              : 'border-rim hover:border-blue/40 hover:bg-blue-tint/40',
+          )}
         >
           <input
             ref={fileInputRef}
@@ -312,8 +339,10 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
             onChange={(e) => handleFiles(e.target.files)}
             className="hidden"
           />
-          <Upload className="h-8 w-8 text-ink-soft" />
-          <p className="mt-2 text-sm font-semibold text-ink-strong">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-tint">
+            <Upload className="h-5.5 w-5.5 text-blue" />
+          </div>
+          <p className="mt-3 text-sm font-bold text-ink-strong">
             Faylni bu yerga tashlang yoki bosing
           </p>
           <p className="mt-1 text-xs text-ink-soft">
@@ -325,12 +354,12 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
         {uploadEntries.length > 0 && (
           <ul className="mt-4 space-y-2">
             {uploadEntries.map(([key, progress]) => (
-              <li key={key} className="rounded-xl border border-rim bg-canvas p-3">
+              <li key={key} className="rounded-2xl border border-rim bg-tint/40 p-3.5">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="truncate text-sm font-medium text-ink-strong">
+                  <span className="truncate text-sm font-bold text-ink-strong">
                     {progress.fileName}
                   </span>
-                  <span className="shrink-0 text-xs text-ink-soft">
+                  <span className="shrink-0 text-xs font-bold text-ink-soft">
                     {statusLabel(progress)}
                   </span>
                 </div>
@@ -350,54 +379,6 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
           </ul>
         )}
 
-        {/* Existing attachments */}
-        {attachments.length > 0 && (
-          <ul className="mt-4 divide-y divide-rim">
-            {attachments.map((att) => (
-              <li
-                key={att.id}
-                className="flex items-center justify-between gap-3 py-3"
-              >
-                <button
-                  type="button"
-                  onClick={() => openPreview(att)}
-                  className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-left transition-colors hover:bg-blue-tint/50"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-tint text-blue">
-                    {loadingPreview === att.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      kindIcon(att.kind)
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink-strong">
-                      {fileName(att)}
-                    </p>
-                    <p className="text-xs text-ink-soft">
-                      {att.kind} · {formatBytes(att.asset.bytes)} ·{' '}
-                      <StatusBadge status={att.asset.status} />
-                    </p>
-                  </div>
-                  <ExternalLink className="ml-auto h-3.5 w-3.5 shrink-0 text-ink-faint" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteMutation.mutate(att.id);
-                  }}
-                  disabled={deleteMutation.isPending}
-                  className="shrink-0 rounded-lg p-2 text-ink-soft transition-colors hover:bg-red-tint hover:text-red"
-                  aria-label="O'chirish"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
         {attachmentsQuery.isLoading && (
           <p className="mt-4 text-sm text-ink-soft">Yuklanmoqda…</p>
         )}
@@ -409,6 +390,83 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
             </p>
           )}
       </section>
+
+      {/* Video lessons — recorded lesson video and any live-session recording,
+          played inline instead of being buried in the generic file list. */}
+      {videoAttachments.length > 0 && (
+        <section className="mt-6 space-y-4">
+          <h3 className="px-1 text-xs font-bold uppercase tracking-widest text-ink-faint">
+            Video darslar
+          </h3>
+          <div className="space-y-4">
+            {videoAttachments.map((att) => (
+              <VideoAttachmentCard
+                key={att.id}
+                attachment={att}
+                onDelete={() => deleteMutation.mutate(att.id)}
+                isDeleting={deleteMutation.isPending}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Everything else — images, docs, audio, sheets */}
+      {otherAttachments.length > 0 && (
+        <section className="mt-6 space-y-4">
+          <h3 className="px-1 text-xs font-bold uppercase tracking-widest text-ink-faint">
+            Boshqa fayllar
+          </h3>
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {otherAttachments.map((att) => (
+              <li key={att.id}>
+                <div className="group flex items-center justify-between gap-3 rounded-2xl border border-rim bg-canvas p-3.5 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-medium hover:border-blue/20">
+                  <button
+                    type="button"
+                    onClick={() => openPreview(att)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <span
+                      className={cn(
+                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                        KIND_COLOR[att.kind],
+                      )}
+                    >
+                      {loadingPreview === att.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        kindIcon(att.kind)
+                      )}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-ink-strong">
+                        {fileName(att)}
+                      </p>
+                      <p className="text-xs text-ink-soft">
+                        {formatBytes(att.asset.bytes)} ·{' '}
+                        <StatusBadge status={att.asset.status} />
+                      </p>
+                    </div>
+                    <ExternalLink className="ml-auto h-3.5 w-3.5 shrink-0 text-ink-faint opacity-0 transition-opacity group-hover:opacity-100" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteMutation.mutate(att.id);
+                    }}
+                    disabled={deleteMutation.isPending}
+                    className="shrink-0 rounded-lg p-2 text-ink-soft transition-colors hover:bg-red-tint hover:text-red"
+                    aria-label="O'chirish"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Preview Modal */}
       {preview && (
@@ -481,13 +539,97 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
   );
 }
 
+interface VideoAttachmentCardProps {
+  attachment: Attachment;
+  onDelete: () => void;
+  isDeleting: boolean;
+}
+
+function VideoAttachmentCard({
+  attachment,
+  onDelete,
+  isDeleting,
+}: VideoAttachmentCardProps) {
+  const isReady =
+    attachment.asset.status === 'READY' || attachment.asset.status === 'UPLOADED';
+
+  const urlQuery = useQuery({
+    queryKey: ['media-asset-url', attachment.assetId],
+    queryFn: () => apiClient.get<{ url: string }>(`/media/assets/${attachment.assetId}/url`),
+    enabled: isReady,
+  });
+
+  const isRecording = attachment.kind === 'RECORDING';
+
+  return (
+    <div className="overflow-hidden rounded-3xl border border-rim bg-canvas shadow-soft">
+      <div className="flex items-center justify-between gap-3 px-5 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className={cn(
+              'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+              isRecording ? 'bg-purple-tint text-purple' : 'bg-blue-tint text-blue',
+            )}
+          >
+            {isRecording ? (
+              <Radio className="h-4 w-4" />
+            ) : (
+              <FileVideo className="h-4 w-4" />
+            )}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-ink-strong">
+              {fileName(attachment)}
+            </p>
+            <p className="text-xs text-ink-soft">
+              {isRecording ? 'Efirdan yozib olingan' : 'Video dars'} ·{' '}
+              {formatBytes(attachment.asset.bytes)} ·{' '}
+              <StatusBadge status={attachment.asset.status} />
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={isDeleting}
+          className="shrink-0 rounded-lg p-2 text-ink-soft transition-colors hover:bg-red-tint hover:text-red"
+          aria-label="O'chirish"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      {isReady ? (
+        urlQuery.data ? (
+          <video
+            src={urlQuery.data.url}
+            controls
+            className="aspect-video w-full bg-black"
+          />
+        ) : (
+          <div className="flex aspect-video w-full items-center justify-center bg-ink-strong/95">
+            <Loader2 className="h-6 w-6 animate-spin text-white/70" />
+          </div>
+        )
+      ) : (
+        <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-tint">
+          <Loader2 className="h-5 w-5 animate-spin text-ink-faint" />
+          <p className="text-xs font-medium text-ink-soft">
+            Video qayta ishlanmoqda…
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
   const isReady = status === 'READY' || status === 'UPLOADED';
   return (
     <span
       className={
         isReady
-          ? 'text-green'
+          ? 'text-teal'
           : status === 'TRANSCODING'
             ? 'text-orange'
             : status === 'FAILED'
@@ -517,7 +659,7 @@ function statusLabel(p: UploadProgress): string {
 }
 
 function detectKind(file: File): AttachmentKind {
-  const t = file.type.toLowerCase();
+  const t = resolveContentType(file).toLowerCase();
   if (t.startsWith('video/')) return 'VIDEO';
   if (t.startsWith('audio/')) return 'AUDIO';
   if (t.startsWith('image/')) return 'IMAGE';
@@ -546,9 +688,13 @@ function kindIcon(kind: AttachmentKind) {
 }
 
 function fileName(att: Attachment): string {
-  const meta = att.asset.metadata;
-  if (meta && typeof meta === 'object' && 'fileName' in meta) {
-    return String((meta as Record<string, unknown>).fileName);
+  const meta = att.asset.metadata as Record<string, unknown> | null;
+  const multipart = meta?.multipart as Record<string, unknown> | undefined;
+  if (multipart && typeof multipart.fileName === 'string') {
+    return multipart.fileName;
+  }
+  if (meta && typeof meta.fileName === 'string') {
+    return meta.fileName;
   }
   return `${att.kind}-${att.id.slice(0, 8)}`;
 }

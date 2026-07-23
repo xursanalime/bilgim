@@ -409,7 +409,7 @@ export class OnboardingService {
    * Ensure the teacher has a profile assigned to the single English
    * specialty.
    *
-   * EduBridge is an English-only platform, so there is no subject quiz: every
+   * Bilgim is an English-only platform, so there is no subject quiz: every
    * teacher teaches English. This idempotently provisions (or repairs) the
    * TeacherProfile with the seeded `english` specialty and marks onboarding as
    * complete, so the dashboard never has to send the teacher through a quiz.

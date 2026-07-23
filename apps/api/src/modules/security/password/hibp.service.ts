@@ -72,7 +72,7 @@ export class HibpService {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'User-Agent': 'EduBridge-PasswordPolicy/1.0',
+          'User-Agent': 'Bilgim-PasswordPolicy/1.0',
           'Add-Padding': 'true', // Request padded responses for privacy
         },
         signal: controller.signal,

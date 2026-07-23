@@ -4,7 +4,6 @@ import { Hero } from '../../components/landing/hero';
 import { LogosStrip } from '../../components/landing/logos-strip';
 import { FeaturesBento } from '../../components/landing/features-bento';
 import { LiveShowcase } from '../../components/landing/live-showcase';
-import { Specialties } from '../../components/landing/specialties';
 import { AiSection } from '../../components/landing/ai-section';
 import { ForRoles } from '../../components/landing/for-roles';
 import { Pricing } from '../../components/landing/pricing';
@@ -45,7 +44,6 @@ export default async function LandingPage({ params: { locale } }: Props) {
         <LogosStrip />
         <FeaturesBento />
         <LiveShowcase />
-        <Specialties />
         <AiSection />
         <ForRoles locale={locale} />
         <Pricing locale={locale} />

@@ -2,8 +2,8 @@
  * CORS Policy Configuration (Task 29.5, Req 30.8).
  *
  * Strict CORS configuration that only allows requests from:
- *   - edubridge.uz (exact match)
- *   - *.edubridge.uz (any subdomain)
+ *   - bilgim.uz (exact match)
+ *   - *.bilgim.uz (any subdomain)
  *
  * All other origins are blocked. This prevents cross-origin attacks
  * from unauthorized domains.
@@ -11,18 +11,18 @@
 
 /**
  * Allowed origin patterns for CORS.
- * Only edubridge.uz and its subdomains are permitted.
+ * Only bilgim.uz and its subdomains are permitted.
  */
 export const ALLOWED_ORIGINS = [
-  'https://edubridge.uz',
-  'http://edubridge.uz',
+  'https://bilgim.uz',
+  'http://bilgim.uz',
 ] as const;
 
 /**
- * Regex pattern matching *.edubridge.uz subdomains.
- * Matches: https://app.edubridge.uz, https://api.edubridge.uz, etc.
+ * Regex pattern matching *.bilgim.uz subdomains.
+ * Matches: https://app.bilgim.uz, https://api.bilgim.uz, etc.
  */
-export const SUBDOMAIN_PATTERN = /^https?:\/\/([a-z0-9-]+\.)*edubridge\.uz$/i;
+export const SUBDOMAIN_PATTERN = /^https?:\/\/([a-z0-9-]+\.)*bilgim\.uz$/i;
 
 /**
  * Validates whether a given origin is allowed by the CORS policy.
@@ -35,13 +35,13 @@ export function isOriginAllowed(origin: string | undefined | null): boolean {
 
   // Exact match for base domain
   if (
-    origin === 'https://edubridge.uz' ||
-    origin === 'http://edubridge.uz'
+    origin === 'https://bilgim.uz' ||
+    origin === 'http://bilgim.uz'
   ) {
     return true;
   }
 
-  // Subdomain match (*.edubridge.uz)
+  // Subdomain match (*.bilgim.uz)
   return SUBDOMAIN_PATTERN.test(origin);
 }
 
@@ -77,7 +77,7 @@ export function corsOriginCallback(
 
 /**
  * Complete CORS configuration object for NestJS app.enableCors().
- * Implements Req 30.8: only edubridge.uz and *.edubridge.uz allowed.
+ * Implements Req 30.8: only bilgim.uz and *.bilgim.uz allowed.
  */
 export const CORS_CONFIG = {
   origin: corsOriginCallback,

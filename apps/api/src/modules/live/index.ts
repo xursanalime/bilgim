@@ -7,6 +7,7 @@ export type {
 } from './live.service';
 export {
   FakeRecorderAdapter,
+  LiveKitEgressRecorderAdapter,
   MediasoupRecorderAdapter,
   RECORDER_PORT,
   RecordingProcessor,

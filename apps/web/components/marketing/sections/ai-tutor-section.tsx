@@ -172,7 +172,7 @@ function ChatDemo() {
             <SparkIcon />
           </div>
           <div>
-            <p className="text-sm font-bold text-cream">EduBridge AI Tutor</p>
+            <p className="text-sm font-bold text-cream">Bilgim AI Tutor</p>
             <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-cream-dim">
               <span className="h-1.5 w-1.5 rounded-full bg-accent2-500" />
               Onlayn · Claude API
@@ -268,7 +268,7 @@ function ChatDemo() {
       <div className="border-t border-white/[0.07] bg-ink/40 px-5 py-3">
         <div className="flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3 py-2">
           <span className="flex-1 text-xs text-cream-dim">
-            EduBridge AI dan so&apos;rang...
+            Bilgim AI dan so&apos;rang...
           </span>
           <button className="flex h-7 w-7 items-center justify-center rounded-xl bg-accent2-500 text-ink">
             <svg

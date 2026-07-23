@@ -78,6 +78,27 @@ async function publicGet<T>(
   return (await response.json()) as T;
 }
 
+export interface PreviewProfileResponse {
+  teacher: {
+    id: string;
+    slug: string;
+    fullName: string | null;
+    headline: string | null;
+    avatarUrl: string | null;
+    themeColor: string | null;
+    rating: number | null;
+    studentsCount: number;
+  };
+  courses: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    level: string | null;
+    coverUrl: string | null;
+    fromPriceUzs: number | null;
+  }>;
+}
+
 export const serverDiscovery = {
   listTeachers(params: ListTeachersParams = {}) {
     return publicGet<CursorPage<DiscoveryTeacherSummary>>(
@@ -93,6 +114,15 @@ export const serverDiscovery = {
   },
   getCourse(id: string) {
     return publicGet<DiscoveryCourseSummary>(`/discovery/courses/${id}`);
+  },
+  /**
+   * Resolves a "Ko'rib chiqish" (Task 6) preview token into the draft
+   * profile + course data. Uses `/teacher-preview` — a route intentionally
+   * outside `/discovery/*` since it isn't part of that module (see
+   * `apps/api/src/modules/teacher/public-preview.controller.ts`).
+   */
+  getTeacherPreview(token: string) {
+    return publicGet<PreviewProfileResponse>('/teacher-preview', { token });
   },
 };
 

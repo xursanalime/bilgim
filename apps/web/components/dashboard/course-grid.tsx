@@ -51,7 +51,7 @@ export function CourseGrid({ courses, locale }: CourseGridProps) {
                   {course.level || 'Barcha darajalar'}
                 </span>
                 {course.isPublished ? (
-                  <span className="flex h-6 items-center rounded-full bg-green/5 px-2.5 text-[10px] font-bold uppercase tracking-wider text-green border border-green/10">
+                  <span className="flex h-6 items-center rounded-full bg-teal/5 px-2.5 text-[10px] font-bold uppercase tracking-wider text-teal border border-teal/10">
                     <Signal className="mr-1 h-2.5 w-2.5 animate-pulse" />
                     Nashrda
                   </span>

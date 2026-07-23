@@ -33,6 +33,7 @@ describe('DiscoveryService', () => {
       searchCourses: jest.fn(),
       findPublicCourseById: jest.fn(),
       searchTeachers: jest.fn(),
+      existsByPublicSlug: jest.fn(),
     } as any;
 
     cacheStore = new Map();
@@ -87,6 +88,7 @@ describe('DiscoveryService', () => {
       fullName: `Teacher ${userId}`,
       headline: 'Headline',
       coverUrl: null,
+      themeColor: null,
       rating: null,
       studentsCount: 10,
       createdAt: new Date(`2026-02-01T00:00:00Z`),
@@ -309,6 +311,22 @@ describe('DiscoveryService', () => {
       expect(key).toContain('pageSize=20');
       expect(key).not.toContain('q=');
       expect(key).not.toContain('specialtyId=');
+    });
+  });
+
+  // ==================================================================
+  // slugExists (Task 6 — middleware subdomain redirect)
+  // ==================================================================
+
+  describe('slugExists', () => {
+    it('returns true when a TeacherProfile has claimed the slug', async () => {
+      repository.existsByPublicSlug.mockResolvedValue(true);
+      await expect(service.slugExists('aziz')).resolves.toBe(true);
+    });
+
+    it('returns false when no TeacherProfile has claimed the slug', async () => {
+      repository.existsByPublicSlug.mockResolvedValue(false);
+      await expect(service.slugExists('unclaimed')).resolves.toBe(false);
     });
   });
 });

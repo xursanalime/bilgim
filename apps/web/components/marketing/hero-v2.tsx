@@ -179,7 +179,7 @@ export function HeroV2({ locale }: { locale: string }): JSX.Element {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mx-auto mt-7 max-w-2xl text-balance text-base leading-relaxed text-cream-dim sm:text-lg md:text-xl"
         >
-          EduBridge — o&apos;qituvchilar va talabalarni bog&apos;lovchi aqlli
+          Bilgim — o&apos;qituvchilar va talabalarni bog&apos;lovchi aqlli
           platforma. Jonli efir, AI yordamchi, vazifa baholash, ko&apos;p
           modulli ta&apos;lim — bir tizimda.
         </motion.p>

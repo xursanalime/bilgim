@@ -14,7 +14,7 @@ interface DashboardPageProps {
  * - STUDENT: renders the per-enrollment progress dashboard.
  * - TEACHER / ADMIN: renders the analytics dashboard.
  *
- * EduBridge is English-only, so teachers no longer go through a subject
+ * Bilgim is English-only, so teachers no longer go through a subject
  * onboarding quiz. The teacher profile (with the English specialty) is
  * provisioned lazily by the API on first access, so the dashboard renders
  * directly.

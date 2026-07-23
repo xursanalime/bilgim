@@ -10,7 +10,7 @@ import { MorphingShape, type ShapeVariant } from './effects/morphing-shape';
  * Chap tomonda particle-based morphing shape (kursorlar tugmasini bosganda
  * shakl o'zgaradi). O'ngda — slideable kartochkalar chiziq.
  *
- * EduBridge konteksti: ko'p tilli o'qitish, AI yordamchi, jonli efir,
+ * Bilgim konteksti: ko'p tilli o'qitish, AI yordamchi, jonli efir,
  * uy vazifa modullari, va h.k.
  */
 
@@ -133,7 +133,7 @@ export function ServicesShowcase() {
             </h2>
           </div>
           <p className="max-w-md text-base text-cream-dim sm:text-lg md:justify-self-end">
-            EduBridge — kurs yaratishdan boshlab, AI yordamida vazifa baholashga
+            Bilgim — kurs yaratishdan boshlab, AI yordamida vazifa baholashga
             qadar barcha imkoniyatlarni bir tizimda taqdim etadi.
           </p>
         </div>

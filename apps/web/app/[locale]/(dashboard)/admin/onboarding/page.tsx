@@ -155,7 +155,7 @@ export default function AdminOnboardingPage() {
                     <div className="flex items-center gap-3">
                       <span className={cn(
                         "rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider",
-                        question.isActive ? "bg-green/10 text-green" : "bg-red/10 text-red"
+                        question.isActive ? "bg-teal/10 text-teal" : "bg-red/10 text-red"
                       )}>
                         {question.isActive ? 'Aktiv' : 'Nofaol'}
                       </span>

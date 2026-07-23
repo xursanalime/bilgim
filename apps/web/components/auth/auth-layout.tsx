@@ -47,7 +47,7 @@ export function AuthLayout({
               <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
             </svg>
           </span>
-          EduBridge
+          Bilgim
         </Link>
       </header>
 
@@ -90,7 +90,7 @@ export function AuthLayout({
 
       {/* ── Bottom decoration ──────────────────────────────── */}
       <footer className="relative z-10 px-6 py-6 text-center font-mono text-[11px] uppercase tracking-[0.12em] text-cream-dim/50 sm:px-10">
-        © {new Date().getFullYear()} EduBridge. O&apos;zbekiston uchun
+        © {new Date().getFullYear()} Bilgim. O&apos;zbekiston uchun
         ta&apos;lim platformasi.
       </footer>
     </div>

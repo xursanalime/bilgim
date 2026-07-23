@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -23,8 +24,13 @@ import {
 import {
   TeacherPublicProfileService,
   PublicProfileStatus,
+  SlugAvailability,
 } from './public-profile.service';
 import {
+  CheckPublicSlugDto,
+  CheckPublicSlugSchema,
+  CreatePreviewTokenDto,
+  CreatePreviewTokenSchema,
   SubmitAnswersDto,
   SubmitAnswersSchema,
   UpdatePublicProfileDto,
@@ -52,7 +58,7 @@ export class TeacherController {
   /**
    * GET /teacher/profile/me
    *
-   * Returns the calling teacher's profile. EduBridge is English-only, so
+   * Returns the calling teacher's profile. Bilgim is English-only, so
    * instead of gating the dashboard behind a subject quiz we lazily ensure
    * the teacher is assigned the single English specialty on first access.
    * This makes the response always carry a `specialtyId`, so the dashboard
@@ -141,6 +147,40 @@ export class TeacherController {
     dto: UpdatePublicProfileDto,
   ): Promise<PublicProfileStatus> {
     return this.publicProfileService.setStatus(user.sub, dto);
+  }
+
+  /**
+   * GET /teacher/profile/public-slug/check?slug=…
+   *
+   * Debounced availability check for the "Mening maktabim" slug input —
+   * validates format, rejects reserved names (www/api/app/admin/cdn/mail/
+   * docs), and checks uniqueness. The caller's own current slug is always
+   * reported available.
+   */
+  @Get('profile/public-slug/check')
+  @HttpCode(HttpStatus.OK)
+  async checkPublicSlug(
+    @CurrentUser() user: JwtPayload,
+    @Query(new ZodValidationPipe(CheckPublicSlugSchema)) query: CheckPublicSlugDto,
+  ): Promise<SlugAvailability> {
+    return this.publicProfileService.checkSlugAvailability(user.sub, query.slug);
+  }
+
+  /**
+   * POST /teacher/profile/public-slug/preview-token
+   *
+   * Signs the draft slug/headline/coverUrl/themeColor currently held in the
+   * settings form (unsaved) into a short-lived (10 min) token, so the
+   * "Ko'rib chiqish" button can open `{slug}.bilgim.uz/?preview=<token>`
+   * before the teacher hits Save.
+   */
+  @Post('profile/public-slug/preview-token')
+  @HttpCode(HttpStatus.OK)
+  async createPreviewToken(
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(CreatePreviewTokenSchema)) dto: CreatePreviewTokenDto,
+  ): Promise<{ previewToken: string; expiresInSeconds: number }> {
+    return this.publicProfileService.createPreviewToken(user.sub, dto);
   }
 
   /**

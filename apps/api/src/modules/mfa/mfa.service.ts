@@ -212,7 +212,7 @@ export class MfaService {
       });
     }
 
-    const issuer = this.configService.get<string>('MFA_TOTP_ISSUER') ?? 'EduBridge';
+    const issuer = this.configService.get<string>('MFA_TOTP_ISSUER') ?? 'Bilgim';
     const secret = generateSecret();
     const otpauthUrl = generateURI({
       issuer,
@@ -387,7 +387,7 @@ export class MfaService {
   /** RP display name. */
   private rpName(): string {
     return (
-      this.configService.get<string>('MFA_WEBAUTHN_RP_NAME') ?? 'EduBridge'
+      this.configService.get<string>('MFA_WEBAUTHN_RP_NAME') ?? 'Bilgim'
     );
   }
 

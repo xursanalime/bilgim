@@ -35,7 +35,7 @@ export function ForRoles({ locale }: { locale: string }) {
               letterSpacing: '-0.04em',
             }}
           >
-            EduBridge — siz uchun
+            Bilgim — siz uchun
           </motion.h2>
         </div>
 

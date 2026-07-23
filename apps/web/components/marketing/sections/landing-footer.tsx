@@ -20,7 +20,7 @@ export function LandingFooter({ locale }: { locale: string }) {
               >
                 <Logo />
               </span>
-              EduBridge
+              Bilgim
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-cream-dim">
               O&apos;zbekiston uchun zamonaviy onlayn ta&apos;lim platformasi.
@@ -150,7 +150,7 @@ export function LandingFooter({ locale }: { locale: string }) {
         {/* Bottom bar */}
         <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-white/[0.07] pt-8 sm:flex-row">
           <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-cream-dim/60">
-            © {new Date().getFullYear()} EduBridge. Barcha huquqlar
+            © {new Date().getFullYear()} Bilgim. Barcha huquqlar
             himoyalangan.
           </p>
           <div className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-[0.12em] text-cream-dim/60">

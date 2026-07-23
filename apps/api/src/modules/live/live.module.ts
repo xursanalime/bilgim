@@ -12,6 +12,7 @@ import { LiveGateway } from './live.gateway';
 import { LiveSessionRepository } from './repositories/live-session.repository';
 import {
   FakeRecorderAdapter,
+  LiveKitEgressRecorderAdapter,
   MediasoupRecorderAdapter,
   RECORDER_PORT,
   RecordingProcessor,
@@ -40,9 +41,10 @@ import { AuthModule } from '../auth/auth.module';
     RecordingProcessor,
     FakeRecorderAdapter,
     MediasoupRecorderAdapter,
+    LiveKitEgressRecorderAdapter,
     {
       provide: RECORDER_PORT,
-      useExisting: MediasoupRecorderAdapter,
+      useExisting: LiveKitEgressRecorderAdapter,
     },
     {
       provide: PrismaClient,

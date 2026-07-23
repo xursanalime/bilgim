@@ -28,7 +28,7 @@ const HIGHLIGHTS = [
 /**
  * BrandPanel — left split of the auth screen on lg+ viewports.
  * Forest 800 background with animated orbs, brand mark, testimonial,
- * and feature highlights to anchor the user inside the EduBridge world.
+ * and feature highlights to anchor the user inside the Bilgim world.
  */
 export function BrandPanel({ locale }: BrandPanelProps) {
   return (
@@ -60,7 +60,7 @@ export function BrandPanel({ locale }: BrandPanelProps) {
         >
           <Logo />
         </motion.span>
-        EduBridge
+        Bilgim
       </Link>
 
       {/* Center: testimonial */}
@@ -72,7 +72,7 @@ export function BrandPanel({ locale }: BrandPanelProps) {
         >
           <div className="inline-flex items-center gap-2 rounded-full border border-pomelo-100/15 bg-pomelo-100/5 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-pomelo-100/70">
             <span className="h-1.5 w-1.5 rounded-full bg-gold-400" />
-            EduBridge
+            Bilgim
           </div>
 
           <h2 className="mt-6 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
@@ -125,7 +125,7 @@ export function BrandPanel({ locale }: BrandPanelProps) {
         className="relative z-10 mt-12 rounded-3xl border border-pomelo-100/10 bg-forest-700/40 p-5 backdrop-blur-sm"
       >
         <blockquote className="text-sm italic leading-relaxed text-pomelo-100/85">
-          &ldquo;EduBridge orqali 200 dan ortiq talabamga uzoqdan ta&apos;lim bera
+          &ldquo;Bilgim orqali 200 dan ortiq talabamga uzoqdan ta&apos;lim bera
           olmoqdaman. AI yordamchi vaqtimni qisqartirdi, jonli efirlar esa
           guruhlarni hayotga tatib qo&apos;ydi.&rdquo;
         </blockquote>

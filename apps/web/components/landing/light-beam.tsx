@@ -7,7 +7,15 @@ import { useEffect, useRef } from 'react';
  *
  * Light, fresh tones: sky blue → lavender → mint, with cream core.
  */
-export function LightBeam({ className = '' }: { className?: string }) {
+export function LightBeam({
+  className = '',
+  offsetX = 0,
+  scale = 1,
+}: {
+  className?: string;
+  offsetX?: number;
+  scale?: number;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -136,6 +144,9 @@ export function LightBeam({ className = '' }: { className?: string }) {
       ref={containerRef}
       aria-hidden
       className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}
+      style={{
+        transform: `translateX(${offsetX}px) scale(${scale})`,
+      }}
     >
       {/* ── Atmospheric haze (Brand Saturated) ──────────────── */}
       <div
@@ -230,8 +241,14 @@ export function LightBeam({ className = '' }: { className?: string }) {
         }}
       />
 
-      {/* ── Ground reflection (EduBridge brand colors) ───── */}
-      <div className="absolute inset-x-0 bottom-0 h-[45%] overflow-hidden">
+      {/* ── Ground reflection (Bilgim brand colors) ───── */}
+      <div
+        className="absolute inset-x-0 bottom-0 h-[45%] overflow-hidden"
+        style={{
+          maskImage: 'linear-gradient(to bottom, transparent 0%, black 35%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 35%)',
+        }}
+      >
         <div
           className="absolute left-1/2 top-0 h-full w-[160%] -translate-x-1/2"
           style={{
@@ -288,13 +305,13 @@ export function LightBeam({ className = '' }: { className?: string }) {
           }
         }
         @keyframes beam-breathe {
-          0%, 100% { 
-            opacity: 0.6; 
-            transform: translateX(-50%) rotate(var(--tilt, 0deg)) scaleX(1); 
+          0%, 100% {
+            opacity: 0.6;
+            transform: translateX(-50%) rotate(var(--tilt, 0deg)) scaleX(1);
           }
-          50% { 
-            opacity: 1;   
-            transform: translateX(-50%) rotate(var(--tilt, 0deg)) scaleX(1.2); 
+          50% {
+            opacity: 1;
+            transform: translateX(-50%) rotate(var(--tilt, 0deg)) scaleX(1.2);
           }
         }
         @media (prefers-reduced-motion: reduce) {

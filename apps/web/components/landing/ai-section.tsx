@@ -182,7 +182,7 @@ function ChatDemo() {
             <Sparkles className="h-4 w-4" strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-sm font-bold text-ink-strong">EduBridge AI</p>
+            <p className="text-sm font-bold text-ink-strong">Bilgim AI</p>
             <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-soft">
               <span className="h-1.5 w-1.5 rounded-full bg-green" />
               Onlayn
@@ -263,7 +263,7 @@ function ChatDemo() {
       <div className="border-t border-rim bg-canvas px-5 py-3">
         <div className="flex items-center gap-2 rounded-2xl border border-rim bg-tint px-3 py-2.5">
           <span className="flex-1 text-xs text-ink-soft">
-            EduBridge AI dan so&apos;rang...
+            Bilgim AI dan so&apos;rang...
           </span>
           <button className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple text-white">
             <Send className="h-3.5 w-3.5" strokeWidth={2.25} />

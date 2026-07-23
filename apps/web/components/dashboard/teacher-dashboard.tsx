@@ -174,7 +174,7 @@ function KpiGrid({ data, isLoading, error }: KpiGridProps) {
           ? null
           : `${data?.publishedCourses ?? 0} / ${data?.totalCourses ?? 0}`,
         hint: 'Nashr etilgan / jami',
-        color: 'text-green',
+        color: 'text-teal',
         icon: BookOpen,
       },
       {
@@ -386,8 +386,8 @@ function TopCoursesCard({
     <section className="flex h-full flex-col rounded-3xl border border-rim bg-canvas p-6 shadow-soft">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-tint">
-            <Trophy className="h-4.5 w-4.5 text-green" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-tint">
+            <Trophy className="h-4.5 w-4.5 text-orange" />
           </div>
           <div>
             <h2 className="text-base font-extrabold tracking-tight text-ink-strong">
@@ -662,8 +662,8 @@ function QuickActions({ locale }: { locale: string }) {
       title: 'Guruhlar',
       description: 'Talabalar',
       icon: Users,
-      color: 'text-green',
-      bgColor: 'bg-green-tint',
+      color: 'text-teal',
+      bgColor: 'bg-teal-tint',
     },
     {
       href: `/${locale}/homework`,

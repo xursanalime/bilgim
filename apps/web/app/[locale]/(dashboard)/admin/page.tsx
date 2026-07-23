@@ -47,7 +47,7 @@ export default function AdminDashboardPage({ params }: { params: { locale: strin
       color: 'blue',
     },
     {
-      label: 'O&apos;qituvchilar',
+      label: "O'qituvchilar",
       value: systemStats?.activeTeachers || 0,
       icon: GraduationCap,
       trend: '+2',
@@ -63,7 +63,7 @@ export default function AdminDashboardPage({ params }: { params: { locale: strin
       color: 'purple',
     },
     {
-      label: 'Kutilayotgan so&apos;rovlar',
+      label: "Kutilayotgan so'rovlar",
       value: systemStats?.pendingEnrollmentRequests || 0,
       icon: Clock,
       trend: 'Tezkor',
@@ -85,19 +85,19 @@ export default function AdminDashboardPage({ params }: { params: { locale: strin
           <div key={stat.label} className="group relative overflow-hidden rounded-[2rem] border border-rim bg-white p-8 shadow-sm transition-all hover:shadow-md active:scale-[0.98]">
             <div className={cn(
               "absolute top-0 right-0 h-32 w-32 -translate-y-12 translate-x-12 rounded-full opacity-[0.03] transition-transform group-hover:scale-110",
-              stat.color === 'blue' ? "bg-blue" : stat.color === 'green' ? "bg-green" : stat.color === 'orange' ? "bg-orange" : "bg-purple"
+              stat.color === 'blue' ? "bg-blue" : stat.color === 'green' ? "bg-teal" : stat.color === 'orange' ? "bg-orange" : "bg-purple"
             )} />
             
             <div className="flex items-center justify-between">
               <div className={cn(
                 "flex h-12 w-12 items-center justify-center rounded-2xl shadow-sm",
-                stat.color === 'blue' ? "bg-blue/10 text-blue" : stat.color === 'green' ? "bg-green/10 text-green" : stat.color === 'orange' ? "bg-orange/10 text-orange" : "bg-purple/10 text-purple"
+                stat.color === 'blue' ? "bg-blue/10 text-blue" : stat.color === 'green' ? "bg-teal/10 text-teal" : stat.color === 'orange' ? "bg-orange/10 text-orange" : "bg-purple/10 text-purple"
               )}>
                 <stat.icon className="h-6 w-6" />
               </div>
               <div className={cn(
                 "flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider",
-                stat.trendUp ? "bg-green/10 text-green" : "bg-red/10 text-red"
+                stat.trendUp ? "bg-teal/10 text-teal" : "bg-red/10 text-red"
               )}>
                 {stat.trendUp ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                 {stat.trend}
@@ -170,19 +170,19 @@ export default function AdminDashboardPage({ params }: { params: { locale: strin
               <div className="space-y-4">
                  <div className="flex items-center justify-between">
                     <span className="text-sm font-bold text-ink-soft">API Server</span>
-                    <span className="flex h-2 w-2 rounded-full bg-green animate-pulse shadow-[0_0_8px_rgba(52,199,89,0.8)]" />
+                    <span className="flex h-2 w-2 rounded-full bg-teal animate-pulse shadow-[0_0_8px_rgba(50,173,230,0.8)]" />
                  </div>
                  <div className="flex items-center justify-between">
                     <span className="text-sm font-bold text-ink-soft">Ma&apos;lumotlar bazasi</span>
-                    <span className="flex h-2 w-2 rounded-full bg-green" />
+                    <span className="flex h-2 w-2 rounded-full bg-teal" />
                  </div>
                  <div className="flex items-center justify-between">
                     <span className="text-sm font-bold text-ink-soft">Redis Cache</span>
-                    <span className="flex h-2 w-2 rounded-full bg-green" />
+                    <span className="flex h-2 w-2 rounded-full bg-teal" />
                  </div>
                  <div className="flex items-center justify-between">
                     <span className="text-sm font-bold text-ink-soft">LiveKit SFU</span>
-                    <span className="flex h-2 w-2 rounded-full bg-green shadow-[0_0_8px_rgba(52,199,89,0.8)]" />
+                    <span className="flex h-2 w-2 rounded-full bg-teal shadow-[0_0_8px_rgba(50,173,230,0.8)]" />
                  </div>
               </div>
 

@@ -1,5 +1,5 @@
 /**
- * Typed API client for EduBridge NestJS backend.
+ * Typed API client for Bilgim NestJS backend.
  * Handles authentication headers, token refresh, and error responses.
  */
 

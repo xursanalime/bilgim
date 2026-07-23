@@ -121,6 +121,22 @@ export class DiscoveryController {
     return this.discoveryService.listTeachers(query);
   }
 
+  /**
+   * GET /discovery/teachers/slug/:slug/exists
+   *
+   * Backs the Next.js middleware's subdomain routing: `{slug}.bilgim.uz`
+   * only renders when a TeacherProfile has actually claimed `slug` —
+   * everything else 302s to the root domain (Task 6).
+   */
+  @Public()
+  @Get('teachers/slug/:slug/exists')
+  @HttpCode(HttpStatus.OK)
+  @HttpCache({ maxAge: 60, staleWhileRevalidate: 300 })
+  @CacheTtl(60)
+  async teacherSlugExists(@Param('slug') slug: string): Promise<{ exists: boolean }> {
+    return { exists: await this.discoveryService.slugExists(slug.toLowerCase()) };
+  }
+
   /** GET /discovery/settings/:key — get public system setting. */
   @Public()
   @Get('settings/:key')

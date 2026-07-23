@@ -56,10 +56,11 @@ export class TeacherProfileRepository {
   }
 
   /**
-   * Patch the public-discovery fields (`publicSlug`, `headline`,
-   * `fullName`) on an existing TeacherProfile. Used by the "ochiq profil"
-   * settings toggle — `publicSlug: null` drops the teacher out of
-   * `/discovery/teachers`, a non-null value publishes them.
+   * Patch the public-discovery / "Mening maktabim" fields (`publicSlug`,
+   * `headline`, `fullName`, `coverUrl`, `themeColor`) on an existing
+   * TeacherProfile. Used by the "ochiq profil" settings toggle —
+   * `publicSlug: null` drops the teacher out of `/discovery/teachers` AND
+   * out of `{slug}.bilgim.uz`, a non-null value publishes both.
    */
   async updatePublicProfile(
     userId: string,
@@ -67,11 +68,26 @@ export class TeacherProfileRepository {
       publicSlug?: string | null;
       headline?: string | null;
       fullName?: string | null;
+      coverUrl?: string | null;
+      themeColor?: string | null;
     },
   ): Promise<TeacherProfile> {
     return this.prisma.teacherProfile.update({
       where: { userId },
       data,
     });
+  }
+
+  /**
+   * Case-sensitive exact lookup by `publicSlug`, used for uniqueness checks
+   * and the availability-check/preview endpoints. Returns only `userId` —
+   * callers that need the full profile should use `findByUserId`.
+   */
+  async findUserIdByPublicSlug(slug: string): Promise<string | null> {
+    const row = await this.prisma.teacherProfile.findUnique({
+      where: { publicSlug: slug },
+      select: { userId: true },
+    });
+    return row?.userId ?? null;
   }
 }

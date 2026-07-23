@@ -32,7 +32,7 @@ export function Hero({ locale, title, subtitle }: { locale: string; title?: stri
       <Backdrop />
 
       {/* Vertical light beam (Huly / Antimatter signature) */}
-      <LightBeam className="opacity-70" />
+      <LightBeam className="opacity-70" offsetX={-90} scale={1.2} />
 
       {/* Subtle dot grid */}
       <div className="pointer-events-none absolute inset-0 bg-dotgrid opacity-30" />
@@ -74,7 +74,7 @@ export function Hero({ locale, title, subtitle }: { locale: string; title?: stri
               }}
             >
               <span className="block">Ta&apos;limning</span>
-              <span className="relative inline-block pr-[0.15em] pb-[0.05em]">
+              <span className="relative inline-block pr-[0.3em] pb-[0.05em]">
                 <span
                   className="relative z-10 italic"
                   style={{
@@ -83,13 +83,13 @@ export function Hero({ locale, title, subtitle }: { locale: string; title?: stri
                     WebkitBackgroundClip: 'text',
                     backgroundClip: 'text',
                     color: 'transparent',
-                    paddingRight: '0.05em',
+                    paddingRight: '0.25em',
                   }}
                 >
                   yangi
                 </span>
                 <svg
-                  className="absolute -bottom-1 left-0 w-[calc(100%-0.15em)]"
+                  className="absolute -bottom-1 left-0 w-[calc(100%-0.3em)]"
                   viewBox="0 0 200 12"
                   fill="none"
                   aria-hidden
@@ -151,23 +151,6 @@ export function Hero({ locale, title, subtitle }: { locale: string; title?: stri
                 <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
               </Link>
-
-              {/* Secondary — Liquid Glass */}
-              <Link
-                href="#features"
-                className="liquid-glass group inline-flex items-center justify-center gap-2.5 rounded-full px-6 py-3.5 text-sm font-semibold text-ink-strong transition-all hover:bg-canvas/95 sm:text-base"
-              >
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-tint">
-                  <svg
-                    className="h-3 w-3 translate-x-[1px] text-blue"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <polygon points="5 3 19 12 5 21 5 3" />
-                  </svg>
-                </span>
-                Demo ko&apos;rish
-              </Link>
             </motion.div>
 
             {/* Trust */}
@@ -205,7 +188,14 @@ export function Hero({ locale, title, subtitle }: { locale: string; title?: stri
 
 function Backdrop() {
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+      style={{
+        maskImage: 'linear-gradient(to bottom, black 0%, black 70%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 70%, transparent 100%)',
+      }}
+    >
       <div
         className="absolute -left-[5%] -top-[5%] h-[65vh] w-[55vw] rounded-full"
         style={{

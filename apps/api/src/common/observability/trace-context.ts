@@ -13,7 +13,7 @@ import { randomUUID } from 'crypto';
  *   1. `X-Request-Id`  — the de-facto standard set by ingress / API
  *      gateways and the value most clients already send.
  *   2. `X-Trace-Id`    — legacy header used by older parts of the
- *      EduBridge fleet; kept for backward compatibility so a request
+ *      Bilgim fleet; kept for backward compatibility so a request
  *      originated by an older client still gets stitched together.
  *   3. Newly generated UUIDv4 — the request had no correlation id, so
  *      we mint one ourselves.

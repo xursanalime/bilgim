@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   useMediaDeviceSelect,
   useRoomContext,
@@ -49,6 +50,7 @@ export function LiveControlBar({
 }: LiveControlBarProps) {
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
   const room = useRoomContext();
 
   const { devices: videoDevices, activeDeviceId: activeCam, setActiveMediaDevice: setActiveCam } =
@@ -61,7 +63,11 @@ export function LiveControlBar({
   // Close settings on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        settingsRef.current && !settingsRef.current.contains(target) &&
+        (!settingsPanelRef.current || !settingsPanelRef.current.contains(target))
+      ) {
         setShowSettings(false);
       }
     };
@@ -81,11 +87,11 @@ export function LiveControlBar({
   };
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-[200] -translate-x-1/2">
-      <div className="flex items-center gap-2 rounded-2xl border border-rim bg-white p-2 shadow-soft">
+    <div className="fixed bottom-2 left-1/2 z-[200] w-[calc(100vw-1rem)] -translate-x-1/2 overflow-x-auto sm:bottom-4 sm:w-auto">
+      <div className="mx-auto flex w-fit items-center gap-1 rounded-2xl border border-rim bg-white p-1.5 shadow-soft sm:gap-2 sm:p-2">
 
         {/* Mic + Camera — hammaga ko'rinadi, mic uchun ruxsat tekshiriladi */}
-        <div className="flex items-center gap-2 px-2 border-r border-rim">
+        <div className="flex items-center gap-1 border-r border-rim px-1 sm:gap-2 sm:px-2">
           <ControlBtn
             onClick={onToggleMic}
             active={isMicOn}
@@ -104,7 +110,7 @@ export function LiveControlBar({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 px-2">
+        <div className="flex items-center gap-1 px-1 sm:gap-2 sm:px-2">
           {isTeacher && (
             <ControlBtn onClick={onToggleScreen} active={isScreenSharing}
               icon={MonitorUp} label="Ekran ulashish" />
@@ -132,13 +138,16 @@ export function LiveControlBar({
         </div>
 
         {/* Settings + Leave */}
-        <div className="flex items-center gap-2 px-2 border-l border-rim" ref={settingsRef}>
+        <div className="flex items-center gap-1 border-l border-rim px-1 sm:gap-2 sm:px-2" ref={settingsRef}>
           <div className="relative">
             <ControlBtn onClick={() => setShowSettings(v => !v)} icon={Settings}
               label="Sozlamalar" active={showSettings} />
 
-            {showSettings && (
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-80 rounded-[2rem] bg-white border border-rim p-5 shadow-soft animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-200">
+            {showSettings && typeof document !== 'undefined' && createPortal(
+              <div
+                ref={settingsPanelRef}
+                className="fixed bottom-20 left-1/2 z-[210] w-[85vw] max-w-80 -translate-x-1/2 rounded-[2rem] border border-rim bg-white p-5 shadow-soft animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-200 sm:bottom-24"
+              >
                 {/* Quality */}
                 <Section label="Video sifati">
                   <div className="flex bg-tint rounded-xl p-1 gap-1">
@@ -189,7 +198,8 @@ export function LiveControlBar({
                     />
                   </Section>
                 )}
-              </div>
+              </div>,
+              document.body
             )}
           </div>
 
@@ -197,7 +207,7 @@ export function LiveControlBar({
             <button
               onClick={onEndBroadcast}
               title="Efirni yakunlash"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-red/30 bg-red-tint text-red transition-all hover:bg-red/15 active:scale-95"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red/30 bg-red-tint text-red transition-all hover:bg-red/15 active:scale-95 sm:h-10 sm:w-10"
               aria-label="Efirni barchaga yakunlash"
             >
               <StopCircle className="h-5 w-5" />
@@ -206,7 +216,7 @@ export function LiveControlBar({
 
           <button
             onClick={onLeave}
-            className="flex h-10 w-16 items-center justify-center rounded-xl bg-red text-white transition-all hover:opacity-90 active:scale-95 shadow-md shadow-red/30 group"
+            className="flex h-9 w-12 shrink-0 items-center justify-center rounded-xl bg-red text-white transition-all hover:opacity-90 active:scale-95 shadow-md shadow-red/30 group sm:h-10 sm:w-16"
             aria-label="Darsni tark etish"
           >
             <PhoneOff className="h-4 w-4 group-hover:rotate-[135deg] transition-transform duration-500" />
@@ -237,7 +247,7 @@ function ControlBtn({
       title={label}
       disabled={disabled}
       className={cn(
-        'relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 active:scale-90',
+        'relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-200 active:scale-90 sm:h-10 sm:w-10',
         disabled
           ? 'bg-tint text-ink-ghost cursor-not-allowed'
           : danger

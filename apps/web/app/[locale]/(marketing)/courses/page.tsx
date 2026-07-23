@@ -24,9 +24,9 @@ const PAGE_SIZE = 20;
 export function generateMetadata({
   params: { locale },
 }: CoursesPageProps): Metadata {
-  const title = 'Ochiq kurslar | EduBridge';
+  const title = 'Ochiq kurslar | Bilgim';
   const description =
-    "EduBridge platformasidagi barcha ochiq kurslar. O'zingizga mos kursni toping va ustoz tasdig'idan keyin qo'shiling.";
+    "Bilgim platformasidagi barcha ochiq kurslar. O'zingizga mos kursni toping va ustoz tasdig'idan keyin qo'shiling.";
   return {
     title,
     description,
@@ -36,7 +36,7 @@ export function generateMetadata({
       title,
       description,
       url: `/${locale}/courses`,
-      siteName: 'EduBridge',
+      siteName: 'Bilgim',
     },
     twitter: { card: 'summary_large_image', title, description },
   };
@@ -95,7 +95,7 @@ export default async function CoursesListPage({
             Kurslar
           </span>
           <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl lg:text-5xl">
-            EduBridge kurslari
+            Bilgim kurslari
           </h1>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-soft sm:text-base">
             Platformadagi barcha ochiq kurslar. Sizga mos kursni toping va

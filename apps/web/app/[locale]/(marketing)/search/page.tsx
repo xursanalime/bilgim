@@ -40,12 +40,12 @@ export function generateMetadata({
   const tab = parseTab(searchParams.tab);
   const q = (searchParams.q ?? '').trim();
   const tabLabel = tab === 'courses' ? 'Kurslar' : 'Ustozlar';
-  const baseTitle = `${tabLabel} bo'yicha qidiruv | EduBridge`;
-  const title = q.length >= 2 ? `${q} — ${tabLabel} | EduBridge` : baseTitle;
+  const baseTitle = `${tabLabel} bo'yicha qidiruv | Bilgim`;
+  const title = q.length >= 2 ? `${q} — ${tabLabel} | Bilgim` : baseTitle;
   const description =
     tab === 'courses'
-      ? "EduBridge platformasida ochiq ingliz tili kurslarini qidiring: daraja va narx bo'yicha filtrlash."
-      : 'EduBridge platformasida ingliz tili ustozlarini qidiring va toping.';
+      ? "Bilgim platformasida ochiq ingliz tili kurslarini qidiring: daraja va narx bo'yicha filtrlash."
+      : 'Bilgim platformasida ingliz tili ustozlarini qidiring va toping.';
 
   return {
     title,
@@ -56,7 +56,7 @@ export function generateMetadata({
       title,
       description,
       url: `/${locale}/search`,
-      siteName: 'EduBridge',
+      siteName: 'Bilgim',
     },
     twitter: { card: 'summary_large_image', title, description },
   };
@@ -156,7 +156,7 @@ export default async function SearchPage({
             {tab === 'courses' ? 'Kurslar' : 'Ustozlar'}ni toping
           </h1>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-soft sm:text-base">
-            EduBridge platformasidagi ochiq{' '}
+            Bilgim platformasidagi ochiq{' '}
             {tab === 'courses' ? 'ingliz tili kurslari' : 'ingliz tili ustozlari'}{' '}
             ro&apos;yxati.
             {tab === 'courses'

@@ -14,7 +14,7 @@ import { adminApi } from '../../../../../lib/api/admin';
 import { cn } from '../../../../../lib/utils';
 
 const STATUS_COLORS: Record<string, string> = {
-  PAID: 'text-green',
+  PAID: 'text-teal',
   PENDING: 'text-yellow-600',
   CANCELED: 'text-red',
   REFUNDED: 'text-orange',
@@ -126,7 +126,7 @@ export default function AdminPlansPage() {
 
           <div className="rounded-[2.5rem] border border-rim bg-white p-8 shadow-sm">
             <h4 className="text-sm font-black text-ink-strong uppercase tracking-widest mb-6 flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-green" />
+              <CreditCard className="h-4 w-4 text-teal" />
               Oxirgi to&apos;lovlar
             </h4>
             {loadingInvoices ? (

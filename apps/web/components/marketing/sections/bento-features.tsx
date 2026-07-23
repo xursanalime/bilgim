@@ -6,7 +6,7 @@ import { useState } from 'react';
 /**
  * BentoFeatures — 8-card bento grid with mixed sizes and live mockups.
  *
- * Showcases EduBridge's core capabilities at a glance:
+ * Showcases Bilgim's core capabilities at a glance:
  *   - Live streaming (large)
  *   - AI Tutor
  *   - Homework modules

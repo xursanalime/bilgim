@@ -42,7 +42,7 @@ export type PaymeRequestEnvelope = z.infer<typeof PaymeRequestEnvelopeSchema>;
 
 /**
  * `account` is a free-form object whose shape is defined by the merchant —
- * EduBridge uses `{ invoiceId: uuid }` (see design.md §"Payment + Enrollment
+ * Bilgim uses `{ invoiceId: uuid }` (see design.md §"Payment + Enrollment
  * atomicity"). We validate the shape here so downstream code can rely on it.
  */
 export const PaymeAccountSchema = z.object({

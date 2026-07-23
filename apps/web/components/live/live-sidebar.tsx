@@ -25,11 +25,13 @@ export function LiveSidebar({
 }: LiveSidebarProps) {
   return (
     <motion.div
-      initial={{ x: 420, opacity: 0 }}
-      animate={{ x: isOpen ? 0 : 420, opacity: isOpen ? 1 : 0 }}
+      initial={false}
+      animate={{ x: isOpen ? '0%' : '100%', opacity: isOpen ? 1 : 0 }}
       transition={{ type: 'spring', damping: 26, stiffness: 220 }}
       className={cn(
-        'w-[360px] shrink-0 h-full z-40',
+        'fixed top-[104px] bottom-[76px] right-2 z-40 w-[88vw] max-w-[360px]',
+        'sm:top-[72px] sm:bottom-[88px]',
+        'md:static md:top-auto md:bottom-auto md:right-auto md:h-full md:w-[360px] md:max-w-none md:shrink-0',
         !isOpen && 'pointer-events-none'
       )}
     >

@@ -92,7 +92,7 @@ export default async function DiscoverPage({
             Ustozlar
           </h1>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-soft sm:text-base">
-            EduBridge platformasidagi faol ustozlarni toping. Mutaxassislik
+            Bilgim platformasidagi faol ustozlarni toping. Mutaxassislik
             bo&apos;yicha filtrlang yoki ism bilan qidiring.
           </p>
         </header>

@@ -26,7 +26,7 @@ export default function AdminCmsPage() {
       adminApi.updateSystemSetting(key, value, description, crypto.randomUUID()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'system-settings'] });
-      toast.success('CMS ma&apos;lumotlari saqlandi');
+      toast.success("CMS ma'lumotlari saqlandi");
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Xatolik yuz berdi');
@@ -34,11 +34,11 @@ export default function AdminCmsPage() {
   });
 
   const [cmsData, setCmsData] = useState<any>({
-    heroTitleUz: 'O&apos;z kelajagingizni biz bilan quring',
-    heroSubtitleUz: 'Zamonaviy platforma orqali eng yaxshi o&apos;qituvchilardan ta&apos;lim oling.',
+    heroTitleUz: "O'z kelajagingizni biz bilan quring",
+    heroSubtitleUz: "Zamonaviy platforma orqali eng yaxshi o'qituvchilardan ta'lim oling.",
     featuredSpecialties: [],
     contactEmail: 'support@edubridge.uz',
-    footerTextUz: '© 2026 EduBridge. Barcha huquqlar himoyalangan.'
+    footerTextUz: '© 2026 Bilgim. Barcha huquqlar himoyalangan.'
   });
 
   useEffect(() => {

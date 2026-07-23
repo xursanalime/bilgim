@@ -10,7 +10,7 @@ import { AuroraBg } from './effects/aurora-bg';
  * Markazda jonli efir mockup, atrofida pulsatsiyalanuvchi halqalar.
  * Chap/o'ng tomonda float qiluvchi kichik kartochkalar.
  *
- * EduBridge konteksti: o'qituvchining live darsi, o'ng tomonda
+ * Bilgim konteksti: o'qituvchining live darsi, o'ng tomonda
  * ishtirokchilar paneli, atrofda boshqa darslar/guruhlar.
  */
 export function LiveShowcase() {

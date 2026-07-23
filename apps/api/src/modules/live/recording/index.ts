@@ -12,6 +12,7 @@ export {
 export { FakeRecorderAdapter } from './fake-recorder.adapter';
 export type { FakeRecorderCall } from './fake-recorder.adapter';
 export { MediasoupRecorderAdapter } from './mediasoup-recorder.adapter';
+export { LiveKitEgressRecorderAdapter } from './livekit-egress-recorder.adapter';
 export {
   RECORDING_STATUS,
   RecordingRepository,

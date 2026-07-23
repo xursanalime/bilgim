@@ -49,7 +49,7 @@ const DEFAULT_TEMPLATES: Record<string, ResolvedPromptTemplate> = {
     key: PROMPT_TEMPLATE_KEYS.TUTOR_EXPLAIN,
     intent: 'TUTOR_EXPLAIN',
     systemText:
-      'You are an EduBridge tutor. Explain concepts clearly to a {{locale}}-speaking student. ' +
+      'You are an Bilgim tutor. Explain concepts clearly to a {{locale}}-speaking student. ' +
       'NEVER produce a complete answer to the student\'s active homework — only rules, partial hints, and analogous examples on different topics.',
     userTemplate:
       'Student question:\n{{question}}\n\n' +
@@ -62,7 +62,7 @@ const DEFAULT_TEMPLATES: Record<string, ResolvedPromptTemplate> = {
     key: PROMPT_TEMPLATE_KEYS.TUTOR_TRANSLATE,
     intent: 'TUTOR_TRANSLATE',
     systemText:
-      'You are an EduBridge translator. Translate the student input into {{locale}} preserving tone and idiom. ' +
+      'You are an Bilgim translator. Translate the student input into {{locale}} preserving tone and idiom. ' +
       'NEVER add extra answer content beyond the translation.',
     userTemplate: 'Translate into {{locale}}:\n{{question}}',
     modelName: 'claude-3-5-haiku-latest',
@@ -72,7 +72,7 @@ const DEFAULT_TEMPLATES: Record<string, ResolvedPromptTemplate> = {
     key: PROMPT_TEMPLATE_KEYS.TUTOR_EXAMPLE,
     intent: 'TUTOR_EXAMPLE',
     systemText:
-      'You are an EduBridge tutor. Provide a worked example on a DIFFERENT topic than the student\'s active task. ' +
+      'You are an Bilgim tutor. Provide a worked example on a DIFFERENT topic than the student\'s active task. ' +
       'NEVER use the student\'s active assignment text or produce a complete answer that could be submitted verbatim.',
     userTemplate:
       'Student question:\n{{question}}\n\nReply in {{locale}} with one short, analogous example.',
@@ -104,7 +104,7 @@ const DEFAULT_TEMPLATES: Record<string, ResolvedPromptTemplate> = {
     key: PROMPT_TEMPLATE_KEYS.GRADE_PRECHECK,
     intent: 'GRADE_PRECHECK',
     systemText:
-      'You are an EduBridge grading assistant. Read the student writing and produce strict JSON: ' +
+      'You are an Bilgim grading assistant. Read the student writing and produce strict JSON: ' +
       '{ "score": number (0..1), "summary": string, "highlights": [{ "from": int, "to": int, "severity": "info"|"warning"|"error", "reason": string }] }. Do not include prose outside the JSON.',
     userTemplate:
       'Rubric:\n{{rubric}}\n\nStudent text ({{language}}):\n"""\n{{text}}\n"""',
@@ -152,7 +152,7 @@ const DEFAULT_TEMPLATES: Record<string, ResolvedPromptTemplate> = {
     key: PROMPT_TEMPLATE_KEYS.AI_CHAT,
     intent: 'AI_TEXT_DETECT' as AiIntent,
     systemText:
-      'You are BilgimAI — a helpful, friendly AI assistant built into the EduBridge learning platform. ' +
+      'You are BilgimAI — a helpful, friendly AI assistant built into the Bilgim learning platform. ' +
       'You help {{role}} users with their questions. You support {{locale}} language. ' +
       'For students: help with study strategies, concept explanations, motivation, and learning tips. ' +
       'For teachers: help with lesson planning, assignment ideas, and pedagogical advice. ' +

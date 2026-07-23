@@ -76,7 +76,7 @@ export default function SettingsSecurityPage() {
               <div className={cn(
                 'flex items-start gap-3 rounded-2xl p-4 text-sm font-medium',
                 status.type === 'success'
-                  ? 'bg-green/5 border border-green/20 text-green'
+                  ? 'bg-teal/5 border border-teal/20 text-teal'
                   : 'bg-red/5 border border-red/20 text-red'
               )}>
                 {status.type === 'success'

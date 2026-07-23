@@ -1,7 +1,7 @@
 /**
  * Server-side authentication helpers for App Router pages.
  *
- * The cookie `edubridge_access_token` is set on login (see `lib/auth.ts`)
+ * The cookie `bilgim_access_token` is set on login (see `lib/auth.ts`)
  * and is what the middleware already inspects. These helpers decode the
  * JWT payload (without verifying the signature — the API enforces auth
  * server-side) so that server components can run a coarse role guard
@@ -11,7 +11,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-export const ACCESS_COOKIE = 'edubridge_access_token';
+export const ACCESS_COOKIE = 'bilgim_access_token';
 
 export interface ServerUser {
   sub: string;

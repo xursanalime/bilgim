@@ -1,7 +1,7 @@
 import type { Config } from 'tailwindcss';
 
 /**
- * EduBridge Design System v2.0 — Apple Liquid Glass Light
+ * Bilgim Design System v2.0 — Apple Liquid Glass Light
  *
  * Brand palette:
  *   - Background  #F5F5F7

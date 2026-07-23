@@ -218,8 +218,8 @@ export class EmailProcessor extends WorkerHost {
         replyTo: from,
         headers: {
           'X-Entity-Ref-ID': job.data.outboxEventId,
-          'X-Mailer': 'EduBridge',
-          'List-Unsubscribe': '<mailto:unsubscribe@edubridge.uz>',
+          'X-Mailer': 'Bilgim',
+          'List-Unsubscribe': '<mailto:unsubscribe@bilgim.uz>',
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
           Precedence: 'transactional',
         },
@@ -253,18 +253,18 @@ export class EmailProcessor extends WorkerHost {
       const url = ctx.token
         ? `${appUrl}/uz/verify-email?token=${encodeURIComponent(ctx.token)}`
         : `${appUrl}/uz/verify-email`;
-      const subject = 'EduBridge — emailingizni tasdiqlang';
+      const subject = 'Bilgim — emailingizni tasdiqlang';
       const text = [
         `Salom, ${ctx.fullName}!`,
         '',
-        'EduBridge platformasiga xush kelibsiz.',
+        'Bilgim platformasiga xush kelibsiz.',
         'Akkauntingizni faollashtirish uchun quyidagi havolani bosing:',
         url,
         '',
         'Havola 24 soat davomida amal qiladi.',
         "Agar siz ro'yxatdan o'tmagan bo'lsangiz, bu xabarni e'tiborsiz qoldiring.",
         '',
-        '— EduBridge jamoasi',
+        '— Bilgim jamoasi',
       ].join('\n');
       return { subject, text, html: this.buildVerifyHtml(ctx.fullName, url) };
     }
@@ -273,7 +273,7 @@ export class EmailProcessor extends WorkerHost {
       const url = ctx.token
         ? `${appUrl}/uz/reset-password?token=${encodeURIComponent(ctx.token)}`
         : `${appUrl}/uz/forgot-password`;
-      const subject = 'EduBridge — parolni tiklash';
+      const subject = 'Bilgim — parolni tiklash';
       const text = [
         `Salom, ${ctx.fullName}!`,
         '',
@@ -283,7 +283,7 @@ export class EmailProcessor extends WorkerHost {
         'Havola 1 soat davomida amal qiladi.',
         'Agar so\'rovni siz yubormagan bo\'lsangiz, bu xabarni e\'tiborsiz qoldiring.',
         '',
-        '— EduBridge jamoasi',
+        '— Bilgim jamoasi',
       ].join('\n');
       return { subject, text, html: this.buildResetHtml(ctx.fullName, url) };
     }
@@ -307,7 +307,7 @@ export class EmailProcessor extends WorkerHost {
         </td></tr>
         <tr><td style="padding:0 40px 24px 40px;color:#6E6E73;font-size:15px;line-height:1.6;">
           <p style="margin:8px 0;">Salom, <strong style="color:#1D1D1F;">${safeName}</strong>!</p>
-          <p style="margin:8px 0;">EduBridge platformasiga xush kelibsiz. Akkauntingizni faollashtirish uchun quyidagi tugmani bosing.</p>
+          <p style="margin:8px 0;">Bilgim platformasiga xush kelibsiz. Akkauntingizni faollashtirish uchun quyidagi tugmani bosing.</p>
         </td></tr>
         <tr><td align="center" style="padding:8px 40px 24px 40px;">
           <a href="${safeUrl}" style="display:inline-block;background:#0071E3;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 28px;border-radius:14px;font-size:15px;box-shadow:0 8px 24px -8px rgba(0,113,227,.5);">Emailni tasdiqlash</a>
@@ -319,7 +319,7 @@ export class EmailProcessor extends WorkerHost {
           <p style="margin:8px 0;color:#AEAEB2;font-size:12px;">Havola 24 soat davomida amal qiladi.</p>
         </td></tr>
         <tr><td style="padding:24px 40px;border-top:1px solid #E8E8ED;color:#AEAEB2;font-size:12px;text-align:center;">
-          © ${new Date().getFullYear()} EduBridge · O'zbekiston uchun ta'lim platformasi
+          © ${new Date().getFullYear()} Bilgim · O'zbekiston uchun ta'lim platformasi
         </td></tr>
       </table>
     </td></tr>
@@ -355,7 +355,7 @@ export class EmailProcessor extends WorkerHost {
           <p style="margin:8px 0;color:#AEAEB2;font-size:12px;">Havola 1 soat davomida amal qiladi. Agar so&apos;rovni siz yubormagan bo&apos;lsangiz, e&apos;tiborsiz qoldiring.</p>
         </td></tr>
         <tr><td style="padding:24px 40px;border-top:1px solid #E8E8ED;color:#AEAEB2;font-size:12px;text-align:center;">
-          © ${new Date().getFullYear()} EduBridge
+          © ${new Date().getFullYear()} Bilgim
         </td></tr>
       </table>
     </td></tr>
@@ -391,7 +391,7 @@ export class EmailProcessor extends WorkerHost {
 <h2 style="margin: 0 0 12px 0;">${safeTitle}</h2>
 <p style="margin: 0; color: #333; line-height: 1.5;">${safeBody}</p>
 <hr style="margin-top: 24px; border: 0; border-top: 1px solid #eee;" />
-<p style="font-size: 12px; color: #999;">EduBridge</p>
+<p style="font-size: 12px; color: #999;">Bilgim</p>
 </body></html>`;
   }
 

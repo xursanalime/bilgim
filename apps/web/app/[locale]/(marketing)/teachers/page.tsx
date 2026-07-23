@@ -28,9 +28,9 @@ const PAGE_SIZE = 20;
 export function generateMetadata({
   params: { locale },
 }: TeachersPageProps): Metadata {
-  const title = "Ochiq ustozlar ro'yxati | EduBridge";
+  const title = "Ochiq ustozlar ro'yxati | Bilgim";
   const description =
-    "EduBridge platformasidagi barcha ochiq ustozlar. Profilini ko'ring, kurslariga yoziling.";
+    "Bilgim platformasidagi barcha ochiq ustozlar. Profilini ko'ring, kurslariga yoziling.";
   return {
     title,
     description,
@@ -40,7 +40,7 @@ export function generateMetadata({
       title,
       description,
       url: `/${locale}/teachers`,
-      siteName: 'EduBridge',
+      siteName: 'Bilgim',
     },
     twitter: { card: 'summary_large_image', title, description },
   };
@@ -101,7 +101,7 @@ export default async function TeachersListPage({
             Ustozlar
           </span>
           <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl lg:text-5xl">
-            EduBridge ustozlari
+            Bilgim ustozlari
           </h1>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-soft sm:text-base">
             Platformadagi barcha ochiq ustozlar. Profil ochib, ularning

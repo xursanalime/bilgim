@@ -121,7 +121,7 @@ export function AiChatWidget({ role }: { role: 'STUDENT' | 'TEACHER' | 'ADMIN' }
                 <div>
                   <p className="text-sm font-black text-white">BilgimAI</p>
                   <div className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-green animate-pulse" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-teal animate-pulse" />
                     <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Aktiv</span>
                   </div>
                 </div>
