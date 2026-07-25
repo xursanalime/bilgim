@@ -67,6 +67,16 @@ export interface AdminPlan {
   isActive: boolean;
 }
 
+export interface AdminBlockedIp {
+  ip: string;
+  blocked: boolean;
+  reason?: string;
+  /** `honeypot`, `threat_intel`, `manual`, etc. */
+  source?: string;
+  /** Epoch ms expiry, or `null`/absent for a non-expiring entry. */
+  expiresAt?: number | null;
+}
+
 export interface AdminInvoice {
   id: string;
   kind: 'STUDENT_COURSE' | 'TEACHER_SUBSCRIPTION';
@@ -164,6 +174,18 @@ export const adminApi = {
   
   updateOnboardingQuestion: (id: string, data: Partial<AdminOnboardingQuestion>, idempotencyKey: string) =>
     apiClient.patch<AdminOnboardingQuestion>(`/admin/onboarding-questions/${id}`, data, {
+      headers: { 'idempotency-key': idempotencyKey }
+    }),
+
+  // IP Blocklist — every browser call shares the BFF's address, so a burst
+  // of abuse can land the "network blocked" 403 on the whole platform, not
+  // just the offender. This lets an admin see and clear that block without
+  // waiting out its TTL (up to 7 days for threat-intel imports).
+  listBlockedIps: (params: { limit?: number } = {}) =>
+    apiClient.get<{ blockedIps: AdminBlockedIp[]; total: number }>('/admin/ip-blocklist', { params }),
+
+  unblockIp: (ip: string, reason: string | undefined, idempotencyKey: string) =>
+    apiClient.post<{ ip: string; unblocked: boolean }>('/admin/ip-blocklist/unblock', { ip, reason }, {
       headers: { 'idempotency-key': idempotencyKey }
     }),
 };
