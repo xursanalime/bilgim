@@ -51,6 +51,8 @@ export function LessonPlayer({ locale, lessonId }: LessonPlayerProps) {
 
   const lesson = lessonQuery.data;
 
+  const isLive = lesson?.type === 'LIVE';
+
   const primaryVideo = useMemo<LessonAttachment | null>(() => {
     if (!lesson?.attachments) return null;
     const sorted = [...lesson.attachments].sort(
@@ -59,10 +61,21 @@ export function LessonPlayer({ locale, lessonId }: LessonPlayerProps) {
     return sorted.find((a) => a.kind === 'VIDEO') ?? null;
   }, [lesson]);
 
+  // Whether the player surface actually renders `primaryVideo`. A LIVE
+  // lesson returns the "join the broadcast" CTA instead of a player, so
+  // its video is never drawn here — and it must therefore stay in the
+  // attachments list. Conflating "a video exists" with "the player shows
+  // it" is what hid a teacher's uploaded video from students entirely:
+  // `AttachmentsPanel` filtered it out as a duplicate of a player that
+  // was never rendered.
+  const playerShowsVideo = Boolean(primaryVideo) && !isLive;
+
   const playbackQuery = useQuery({
     queryKey: ['media', 'playback', primaryVideo?.assetId],
     queryFn: () => studentApi.getMediaPlayback(primaryVideo!.assetId),
-    enabled: Boolean(primaryVideo),
+    // Don't spend a signed-URL round-trip on a video the player will not
+    // show; the attachment list resolves its own URL lazily on click.
+    enabled: playerShowsVideo,
   });
 
   const [preview, setPreview] = useState<AttachmentPreviewState | null>(null);
@@ -101,7 +114,6 @@ export function LessonPlayer({ locale, lessonId }: LessonPlayerProps) {
   }
 
   const groupId = lesson.groupId;
-  const isLive = lesson.type === 'LIVE';
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 pb-12">
@@ -164,7 +176,7 @@ export function LessonPlayer({ locale, lessonId }: LessonPlayerProps) {
         <aside className="space-y-4">
           <AttachmentsPanel
             attachments={lesson.attachments ?? []}
-            primaryVideoId={primaryVideo?.id ?? null}
+            primaryVideoId={playerShowsVideo ? (primaryVideo?.id ?? null) : null}
             loadingAttachmentId={loadingAttachmentId}
             onOpen={openAttachment}
           />
