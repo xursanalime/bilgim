@@ -18,6 +18,7 @@ import {
   ThreatProtectionMiddleware,
   TieredRateLimiterService,
   makeThreatProtectionRequestHandler,
+  makeTrustedClientIpHandler,
 } from './common/security';
 import {
   StructuredLogger,
@@ -71,6 +72,22 @@ async function bootstrap() {
   app.set(
     'trust proxy',
     /^\d+$/.test(trustProxyRaw) ? Number(trustProxyRaw) : trustProxyRaw,
+  );
+
+  // Restore the real client IP BEFORE anything that buckets by it.
+  //
+  // Every browser call is proxied by the Next.js BFF, so without this the
+  // API sees one address for the whole user base: per-IP rate limits,
+  // brute-force lockout and the IP blocklist all share a single bucket,
+  // and a burst of errors can blocklist that address and lock everyone
+  // out. See `trusted-client-ip.middleware.ts` for why a shared secret is
+  // used instead of widening `TRUST_PROXY`.
+  app.use(
+    makeTrustedClientIpHandler(
+      configService.get('BFF_PROXY_SECRET', { infer: true }) as
+        | string
+        | undefined,
+    ),
   );
 
   // Global hardening — helmet, CORS, body size limits, compression,

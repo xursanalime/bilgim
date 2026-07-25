@@ -52,3 +52,10 @@ export {
 // `types.ts` so it's importable without dragging in either of the
 // `EncryptionService` implementations under `common/security`.
 export type { EncryptedField } from './types';
+export {
+  CLIENT_IP_HEADER,
+  PROXY_TOKEN_HEADER,
+  applyTrustedClientIp,
+  isIpLiteral,
+  makeTrustedClientIpHandler,
+} from './trusted-client-ip.middleware';

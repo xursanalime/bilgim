@@ -32,6 +32,21 @@ export const envSchema = z.object({
    */
   TRUST_PROXY: z.string().default('loopback'),
   /**
+   * Shared secret between the Next.js BFF and this API.
+   *
+   * When set, the API honours the `x-bilgim-client-ip` header on requests
+   * that also present a matching `x-bilgim-proxy-token`, and uses it as
+   * `req.ip`. Without it every request proxied by the BFF looks like it
+   * came from the BFF's own address, so all per-IP rate limiting,
+   * brute-force lockout and IP blocking collapse into a single shared
+   * bucket — one user's failures then punish everybody, and a burst of
+   * errors can blocklist the whole platform.
+   *
+   * Must match `BFF_PROXY_SECRET` in the web app. Leave unset to fall
+   * back to plain `TRUST_PROXY` behaviour.
+   */
+  BFF_PROXY_SECRET: z.string().optional(),
+  /**
    * Comma-separated list of origins permitted by the CORS layer.
    * Defaults to APP_URL + the local Next dev server. Values like
    * `https://bilgim.uz,https://www.bilgim.uz` lock down the

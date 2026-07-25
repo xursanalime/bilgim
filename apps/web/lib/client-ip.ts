@@ -49,14 +49,33 @@ export function resolveClientIp(request: NextRequest): string | undefined {
  * Headers that tell the upstream API who the real caller is. Spread into
  * the outgoing request from every BFF route that proxies to the API.
  *
- * Both headers are sent so the API resolves the same IP whether Express
- * `trust proxy` is enabled (it reads `x-forwarded-for`) or a helper falls
- * back to `x-real-ip`.
+ * `x-bilgim-client-ip` + `x-bilgim-proxy-token` are what the API actually
+ * acts on. It cannot simply trust `x-forwarded-for` from us: `api.bilgim.uz`
+ * is publicly reachable, and the platform's own edge shares the private
+ * network range we connect from — so "arrived from an internal address"
+ * does not distinguish our proxy from an attacker calling the API
+ * directly. A shared secret does, and it stays correct if the deployment
+ * topology changes.
+ *
+ * `x-forwarded-for` / `x-real-ip` are still sent for anything downstream
+ * that reads the conventional headers (access logs, tracing).
+ *
+ * `BFF_PROXY_SECRET` must match the API's. With no secret configured the
+ * API ignores the client-IP header entirely and falls back to its
+ * `TRUST_PROXY` setting — so a missing secret degrades to the previous
+ * behaviour rather than to something insecure.
  */
 export function clientIpHeaders(
   request: NextRequest,
 ): Record<string, string> {
   const ip = resolveClientIp(request);
   if (!ip) return {};
-  return { 'x-forwarded-for': ip, 'x-real-ip': ip };
+
+  const secret = process.env.BFF_PROXY_SECRET;
+  return {
+    'x-forwarded-for': ip,
+    'x-real-ip': ip,
+    'x-bilgim-client-ip': ip,
+    ...(secret ? { 'x-bilgim-proxy-token': secret } : {}),
+  };
 }
