@@ -421,6 +421,14 @@ function extractHeader(
  * Phase 10 stack so all layers bucket a single user identically.
  */
 function extractClientIp(request: BotDetectionRequest): string {
+  // `request.ip` first — the spoofable `x-forwarded-for` header is a
+  // fallback only. See `waf.middleware.ts` for the full rationale.
+  const direct =
+    request.ip ??
+    request.connection?.remoteAddress ??
+    request.socket?.remoteAddress;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+
   const forwarded = request.headers?.['x-forwarded-for'];
   if (typeof forwarded === 'string' && forwarded.length > 0) {
     const first = forwarded.split(',')[0];
@@ -430,12 +438,7 @@ function extractClientIp(request: BotDetectionRequest): string {
     const first = String(forwarded[0]).split(',')[0];
     if (first && first.trim()) return first.trim();
   }
-  return (
-    request.ip ??
-    request.connection?.remoteAddress ??
-    request.socket?.remoteAddress ??
-    'unknown'
-  );
+  return 'unknown';
 }
 
 /**

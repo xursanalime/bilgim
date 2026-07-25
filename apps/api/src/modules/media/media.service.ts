@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
-import { MediaAsset, MediaKind, Prisma } from '@prisma/client';
+import { MediaAsset, MediaKind, Prisma, PrismaClient } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
 
@@ -136,6 +136,7 @@ export class MediaService {
   private readonly logger = new Logger(MediaService.name);
 
   constructor(
+    private readonly prisma: PrismaClient,
     private readonly r2: R2Service,
     private readonly assets: MediaAssetRepository,
     private readonly access: MediaAccessService,
@@ -266,18 +267,40 @@ export class MediaService {
       dto.parts,
     );
 
+    // Reconcile the declared size against reality. `sizeBytes` from
+    // `initiateUpload` is caller-supplied and the presigned part URLs
+    // place no limit on the body, so until now a client could declare
+    // 1 MB and store 5 GB — the platform cap was advisory only, and the
+    // `bytes` column (used for quota and billing views) was whatever the
+    // client said. Over the hard cap the asset is failed rather than
+    // published; the orphan-cleanup cron reclaims the R2 object.
+    const actualBytes = await this.r2.getObjectSize(asset.originalKey);
+    if (actualBytes !== null && actualBytes > MEDIA_MAX_SIZE_BYTES) {
+      await this.assets.transitionStatus(asset.id, 'UPLOADING', 'FAILED', {
+        bytes: BigInt(actualBytes),
+      });
+      throw new BadRequestException({
+        code: 'MEDIA_SIZE_EXCEEDED',
+        message: `Uploaded object is ${actualBytes} bytes, above the ${MEDIA_MAX_SIZE_BYTES} byte cap`,
+      });
+    }
+
     // Persist completion metadata + status flip.
     const updated = await this.assets.transitionStatus(
       asset.id,
       'UPLOADING',
       'UPLOADED',
       {
+        // Record the measured size, not the declared one.
+        ...(actualBytes !== null ? { bytes: BigInt(actualBytes) } : {}),
         metadata: {
           ...(this.coerceJsonObject(asset.metadata) ?? {}),
           multipart: {
             ...meta,
             completedAt: new Date().toISOString(),
             etag: result.etag ?? null,
+            declaredBytes: asset.bytes ? Number(asset.bytes) : null,
+            actualBytes,
           },
         },
       },
@@ -424,18 +447,31 @@ export class MediaService {
   /**
    * Resolve a fresh signed GET URL for a PUBLIC, unauthenticated image
    * proxy (`GET /media/public/:id`, Task 5/6 — "Mening maktabim" cover
-   * photos). This is the only media read path that skips
-   * `MediaAccessService.assertCanRead` — deliberately narrowed to
-   * `kind === 'IMAGE'` so paid video/document content always stays behind
-   * the authenticated `/media/assets/:id/url` path. Asset IDs are random
-   * UUIDs (unguessable), the same "unlisted" model most direct-image-link
-   * schemes rely on — acceptable for low-sensitivity branding images, not
-   * a substitute for real ACLs on anything else.
+   * photos).
+   *
+   * This is the only media read path that skips
+   * `MediaAccessService.assertCanRead`, so what counts as "public" has to
+   * be positively established, not assumed. Two conditions, both required:
+   *
+   *   1. `kind === 'IMAGE'` — paid video/document content always stays
+   *      behind the authenticated `/media/assets/:id/url` path.
+   *   2. The asset is **actually referenced by a public-facing field**
+   *      (`TeacherProfile.coverUrl` / `Course.coverUrl`).
+   *
+   * Condition 2 is the important one. Narrowing to `kind === 'IMAGE'` and
+   * relying on the asset id being an unguessable UUID published *every*
+   * image in the database at a stable URL — including student homework
+   * photo submissions and DM attachments — to anyone who ever saw the id.
+   * Asset ids are not secrets: they are returned by ordinary API
+   * responses, and they leak through logs and `Referer` headers.
    *
    * `TeacherProfile.coverUrl` stores the STABLE proxy URL
    * (`{API_URL}/api/v1/media/public/{assetId}`), never the signed URL
    * itself — the signed URL is re-issued on every request here, so the
    * stored value never expires even though each underlying signature does.
+   * Matching on the id substring is therefore exactly the "is this asset
+   * published?" question, and it works retroactively for covers that were
+   * already saved.
    */
   async getPublicImageUrl(assetId: string, expiresInSeconds: number): Promise<string> {
     const asset = await this.assets.findById(assetId);
@@ -451,7 +487,34 @@ export class MediaService {
         message: 'Image not found.',
       });
     }
+    if (!(await this.isPubliclyReferenced(assetId))) {
+      // Same 404 as "no such asset" — a distinct error would confirm that
+      // a private image with this id exists.
+      throw new NotFoundException({
+        code: 'MEDIA_NOT_FOUND',
+        message: 'Image not found.',
+      });
+    }
     return this.r2.signObjectGet(asset.originalKey, expiresInSeconds);
+  }
+
+  /**
+   * `true` when `assetId` is referenced by a field that is itself served
+   * to unauthenticated visitors. See `getPublicImageUrl` for why this
+   * gate exists.
+   */
+  private async isPubliclyReferenced(assetId: string): Promise<boolean> {
+    const [teacherCover, courseCover] = await Promise.all([
+      this.prisma.teacherProfile.findFirst({
+        where: { coverUrl: { contains: assetId } },
+        select: { userId: true },
+      }),
+      this.prisma.course.findFirst({
+        where: { coverUrl: { contains: assetId } },
+        select: { id: true },
+      }),
+    ]);
+    return Boolean(teacherCover ?? courseCover);
   }
 
   // ------------------------------------------------------------------

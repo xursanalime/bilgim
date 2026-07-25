@@ -80,9 +80,38 @@ function createMockUserLookup(
   };
 }
 
+/**
+ * NOTE ON THE "not implemented" EXPECTATIONS BELOW
+ * ------------------------------------------------
+ * `AccountRecoveryService` is not finished: its private
+ * `storeVerificationCode` / `verifyCode` have no session-store backing.
+ * `verifyCode` used to `return true` unconditionally, so these tests
+ * passed and the class looked complete — while in reality ANY code would
+ * have verified ANY step of an account-recovery flow. Nothing routes to
+ * this service today, so it was never exploitable, but the stub now
+ * fails closed (throws) rather than silently approving.
+ *
+ * The specs that exercise a code round-trip therefore assert the throw.
+ * They are the marker for what is still missing: implement a
+ * `RecoverySessionStore`-backed code store, then restore them to assert
+ * real verification behaviour.
+ */
 describe('AccountRecoveryService', () => {
+  const NOT_IMPLEMENTED = /not implemented/i;
+
   describe('initiateRecovery', () => {
-    it('creates a session and sends email code for existing user', async () => {
+    it('cannot issue a code until a verification-code store is wired', async () => {
+      const store = new InMemorySessionStore();
+      const sender = createMockSender();
+      const lookup = createMockUserLookup();
+      const service = new AccountRecoveryService(store, sender, lookup);
+
+      await expect(
+        service.initiateRecovery('user@example.com'),
+      ).rejects.toThrow(NOT_IMPLEMENTED);
+    });
+
+    it.skip('creates a session and sends email code for existing user', async () => {
       const store = new InMemorySessionStore();
       const sender = createMockSender();
       const lookup = createMockUserLookup();
@@ -112,7 +141,7 @@ describe('AccountRecoveryService', () => {
       expect(sender.sendEmailCode).not.toHaveBeenCalled();
     });
 
-    it('sets session expiry to 15 minutes from now', async () => {
+    it.skip('sets session expiry to 15 minutes from now', async () => {
       const store = new InMemorySessionStore();
       const sender = createMockSender();
       const lookup = createMockUserLookup();
@@ -131,7 +160,20 @@ describe('AccountRecoveryService', () => {
   });
 
   describe('verifyEmailCode', () => {
-    it('advances session to EMAIL_VERIFIED on valid code', async () => {
+    it('refuses to verify an email code while the code store is a stub', async () => {
+      const store = new InMemorySessionStore();
+      const sender = createMockSender();
+      const lookup = createMockUserLookup();
+      const service = new AccountRecoveryService(store, sender, lookup);
+
+      // Fails at `initiateRecovery` — there is nowhere to persist the
+      // code — so the flow cannot even reach verification.
+      await expect(
+        service.initiateRecovery('user@example.com'),
+      ).rejects.toThrow(NOT_IMPLEMENTED);
+    });
+
+    it.skip('advances session to EMAIL_VERIFIED on valid code', async () => {
       const store = new InMemorySessionStore();
       const sender = createMockSender();
       const lookup = createMockUserLookup();
@@ -208,7 +250,7 @@ describe('AccountRecoveryService', () => {
   });
 
   describe('verifyPhoneCode', () => {
-    it('advances session to PHONE_VERIFIED on valid code', async () => {
+    it.skip('advances session to PHONE_VERIFIED on valid code', async () => {
       const store = new InMemorySessionStore();
       const sender = createMockSender();
       const lookup = createMockUserLookup();

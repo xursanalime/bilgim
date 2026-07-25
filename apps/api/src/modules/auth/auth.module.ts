@@ -13,10 +13,12 @@ import { BruteForceProtectionService } from './brute-force-protection.service';
 import { TokensService } from './tokens.service';
 import { UsersRepository } from './repositories/users.repository';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { SessionValidatorService } from './session-validator.service';
 import { BillingModule } from '../billing/billing.module';
 import { AdminModule } from '../admin/admin.module';
 import { SecurityModule } from '../security/security.module';
 import { BruteForceService } from '../../common/security/brute-force.service';
+import { RedisModule } from '../../infra/redis';
 import {
   LoginProtectionService,
   CredentialStuffingDetector,
@@ -61,6 +63,7 @@ import {
     BillingModule,
     forwardRef(() => AdminModule),
     SecurityModule,
+    RedisModule,
   ],
   controllers: [AuthController],
   providers: [
@@ -68,6 +71,7 @@ import {
     TokensService,
     UsersRepository,
     JwtStrategy,
+    SessionValidatorService,
     BruteForceService,
     LoginProtectionService,
     CredentialStuffingDetector,
@@ -91,6 +95,7 @@ import {
     AuthService,
     UsersRepository,
     TokensService,
+    SessionValidatorService,
     BruteForceService,
     LoginProtectionService,
     CredentialStuffingDetector,

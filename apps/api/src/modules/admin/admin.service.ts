@@ -201,9 +201,20 @@ export class AdminService {
       // Revoke active sessions on suspend / delete so the user is
       // logged out across every device immediately (Req 24.4).
       if (dto.status === 'SUSPENDED' || dto.status === 'DELETED') {
+        const now = new Date();
         await tx.session.updateMany({
           where: { userId: targetUserId, revokedAt: null },
-          data: { revokedAt: new Date() },
+          data: { revokedAt: now },
+        });
+        // Session rows only cover refresh tokens. `sessionsRevokedAt`
+        // additionally invalidates every outstanding *access* token —
+        // without it a suspended user kept full access until their JWT
+        // expired. `SessionValidatorService` caches principals for
+        // SESSION_CACHE_TTL_SECONDS, so the cut-off lands within that
+        // window rather than on the next request.
+        await tx.user.update({
+          where: { id: targetUserId },
+          data: { sessionsRevokedAt: now },
         });
       }
 

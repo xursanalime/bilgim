@@ -186,6 +186,13 @@ model User {
   locale       String     @default("uz")
   location     String?
   mfaRequired  Boolean    @default(false)
+  /// Cut-off for access-token validity. Access tokens are stateless JWTs,
+  /// so revoking the `Session` rows (logout, password reset, admin
+  /// suspend) did nothing to a token already in an attacker's hands — it
+  /// stayed valid for the rest of its TTL. `SessionValidatorService`
+  /// rejects any token whose `iat` predates this timestamp, which turns
+  /// those events into immediate, global revocation.
+  sessionsRevokedAt DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 

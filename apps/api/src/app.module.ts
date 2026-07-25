@@ -199,12 +199,28 @@ export class AppModule implements NestModule {
       )
       .forRoutes('*');
 
-    consumer
-      .apply(AdminIpAllowlistMiddleware)
-      .forRoutes(
-        { path: 'admin/*', method: RequestMethod.ALL },
-        { path: 'api/v1/admin/*', method: RequestMethod.ALL },
-      );
+    // Admin-only surfaces behind the operator IP allow-list. Nest does
+    // NOT prepend the global prefix to middleware paths, so each route is
+    // registered both bare and under `api/v1`.
+    //
+    // The list must cover every ADMIN-gated controller, not just the ones
+    // literally mounted at `admin/*` — `security/audit` (audit trail) and
+    // `gdpr/requests` (subject-access exports) are equally sensitive and
+    // previously sat outside the allow-list entirely. The trailing
+    // `{,/*}` form matches both the collection root (`/admin`) and its
+    // children (`/admin/users/:id`); `admin/*` alone missed the root.
+    const adminPathGroups = [
+      'admin',
+      'security/audit',
+      'gdpr/requests',
+    ];
+    const adminRoutes = adminPathGroups.flatMap((base) => [
+      { path: base, method: RequestMethod.ALL },
+      { path: `${base}/*`, method: RequestMethod.ALL },
+      { path: `api/v1/${base}`, method: RequestMethod.ALL },
+      { path: `api/v1/${base}/*`, method: RequestMethod.ALL },
+    ]);
+    consumer.apply(AdminIpAllowlistMiddleware).forRoutes(...adminRoutes);
 
     consumer
       .apply(TlsEnforcementMiddleware)

@@ -24,8 +24,16 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/tokens.service';
 import { User } from '@prisma/client';
 
+/**
+ * Self-service profile routes. ADMIN is included because these are
+ * "my own account" operations that every signed-in role needs — an admin
+ * opening `/settings/profile` hits `GET /users/me`, which used to 403 for
+ * them. (Contrast `DmController` / `GroupChatController`, where excluding
+ * ADMIN is a deliberate product rule: platform-ops accounts do not
+ * participate in chats.)
+ */
 @Controller('users')
-@Roles('TEACHER', 'STUDENT')
+@Roles('TEACHER', 'STUDENT', 'ADMIN')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 

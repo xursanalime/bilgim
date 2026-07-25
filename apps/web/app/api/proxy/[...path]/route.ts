@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+import { clientIpHeaders } from '../../../../lib/client-ip';
 import { cookieDomainFor } from '../../../../lib/tenant';
 import {
   ACCESS_COOKIE,
@@ -30,9 +31,11 @@ const API_BASE_URL =
  * own host.
  */
 
-// Request headers we forward upstream. Everything else (cookie, host,
-// authorization) is dropped/replaced so the client cannot smuggle a
-// different identity past the cookie.
+// Request headers we copy verbatim from the browser. Everything else
+// (cookie, host, authorization) is dropped/replaced so the client cannot
+// smuggle a different identity past the cookie. The client-IP headers are
+// added separately from a trusted source — never copied from the inbound
+// request — so a caller cannot choose its own rate-limit bucket.
 const FORWARD_REQ_HEADERS = [
   'content-type',
   'accept',
@@ -103,7 +106,14 @@ async function handle(
   const search = request.nextUrl.search ?? '';
   const targetUrl = `${API_BASE_URL}/${segments.join('/')}${search}`;
 
-  const reqHeaders = pickHeaders(request.headers, FORWARD_REQ_HEADERS);
+  // Forward the caller's real IP. Without it the API sees every request
+  // in the system as coming from this one web server, which collapses all
+  // of its per-IP rate limiting and brute-force protection into a single
+  // shared bucket. See `lib/client-ip.ts`.
+  const reqHeaders = {
+    ...pickHeaders(request.headers, FORWARD_REQ_HEADERS),
+    ...clientIpHeaders(request),
+  };
   const rawBody = MUTATING.has(method)
     ? new Uint8Array(await request.arrayBuffer())
     : undefined;

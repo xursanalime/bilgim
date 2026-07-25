@@ -6,7 +6,12 @@ import {
   LiveChatGateway,
   MAX_CHAT_MESSAGE_LENGTH,
 } from './live-chat.gateway';
-import { authenticateSocket, WsJwtGuard } from './ws-jwt.guard';
+import {
+  WS_REVALIDATE_INTERVAL_MS,
+  authenticateSocket,
+  WsJwtGuard,
+} from './ws-jwt.guard';
+import type { SessionValidatorService } from '../../auth/session-validator.service';
 import type { TokensService } from '../../auth/tokens.service';
 
 /**
@@ -143,6 +148,22 @@ function makeTokens(payload?: {
   } as unknown as TokensService;
 }
 
+/**
+ * Pass-through `SessionValidatorService` double.
+ *
+ * The real one re-reads the user to enforce status/revocation and returns
+ * the DB role; these gateway specs care about transport-level auth, so the
+ * double just echoes the verified payload back. `session-validator` has
+ * its own unit tests for the revocation rules.
+ */
+function makeSessions(): SessionValidatorService {
+  return {
+    validate: jest.fn(async (payload) => payload),
+    invalidate: jest.fn(async () => undefined),
+    revokeAllSessions: jest.fn(async () => undefined),
+  } as unknown as SessionValidatorService;
+}
+
 function makeGateway(opts: {
   user?: { sub: string; email: string; role: string };
   prisma?: FakePrisma;
@@ -156,7 +177,8 @@ function makeGateway(opts: {
   const prisma = opts.prisma ?? makePrisma();
   const gateway = new LiveChatGateway(
     tokens,
-    prisma as unknown as ConstructorParameters<typeof LiveChatGateway>[1],
+    makeSessions(),
+    prisma as unknown as ConstructorParameters<typeof LiveChatGateway>[2],
   );
   const server = makeServer();
   (gateway as unknown as { server: FakeServer }).server = server;
@@ -227,15 +249,31 @@ describe('WsJwtGuard', () => {
     } as unknown as Parameters<WsJwtGuard['canActivate']>[0];
   }
 
-  it('allows when socket.data.user already populated', async () => {
-    const guard = new WsJwtGuard(makeTokens());
+  it('allows when socket.data.user was authenticated recently', async () => {
+    const guard = new WsJwtGuard(makeTokens(), makeSessions());
     const socket = makeSocket();
     socket.data.user = { sub: 'u1', email: 'e', role: 'STUDENT' };
+    socket.data.authenticatedAt = Date.now();
     await expect(guard.canActivate(buildContext(socket))).resolves.toBe(true);
   });
 
+  it('re-authenticates once the cached principal goes stale', async () => {
+    // A live-class socket stays open for the length of a lesson. Trusting
+    // `socket.data.user` for the whole connection meant an expired token
+    // or a suspended account kept full access until the client
+    // disconnected, because the check only ever ran on connect.
+    const guard = new WsJwtGuard(makeTokens(), makeSessions());
+    const socket = makeSocket(); // no token on the handshake
+    socket.data.user = { sub: 'u1', email: 'e', role: 'STUDENT' };
+    socket.data.authenticatedAt = Date.now() - WS_REVALIDATE_INTERVAL_MS - 1;
+
+    await expect(
+      guard.canActivate(buildContext(socket)),
+    ).rejects.toBeInstanceOf(WsException);
+  });
+
   it('authenticates from the handshake when missing', async () => {
-    const guard = new WsJwtGuard(makeTokens());
+    const guard = new WsJwtGuard(makeTokens(), makeSessions());
     const socket = makeSocket({ token: 'good' });
     await expect(guard.canActivate(buildContext(socket))).resolves.toBe(true);
     expect(
@@ -244,7 +282,7 @@ describe('WsJwtGuard', () => {
   });
 
   it('rejects unauthenticated sockets with WsException', async () => {
-    const guard = new WsJwtGuard(makeTokens());
+    const guard = new WsJwtGuard(makeTokens(), makeSessions());
     const socket = makeSocket();
     await expect(guard.canActivate(buildContext(socket))).rejects.toBeInstanceOf(
       WsException,

@@ -53,6 +53,21 @@ export async function seedGamification(prisma: PrismaClient) {
       xpReward: 500,
       targetRole: null,
     },
+    {
+      // Awarded by `GamificationCron.finalizeWeeklyLeaderboard` to the
+      // weekly XP podium. Without this row the cron's award call was a
+      // silent no-op (`awardBadge` returns early on an unknown slug).
+      slug: 'weekly_champion',
+      nameUz: 'Hafta chempioni',
+      nameRu: 'Чемпион недели',
+      nameEn: 'Weekly Champion',
+      descriptionUz: 'Haftalik reytingda birinchi uchlikka kirish',
+      iconUrl: '',
+      rarity: BadgeRarity.RARE,
+      category: BadgeCategory.SPECIAL,
+      xpReward: 200,
+      targetRole: UserRole.STUDENT,
+    },
   ];
 
   for (const b of badges) {

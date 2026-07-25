@@ -62,6 +62,19 @@ export class FfmpegService {
   private readonly ffmpegBinary: string;
   private readonly ffprobeBinary: string;
 
+  /**
+   * x264's default `-threads 0` (auto) sizes its thread pool off
+   * `/proc/cpuinfo`, which in containerized hosts (Railway, etc.) reports
+   * the *host's* full core count rather than the container's cgroup CPU
+   * share. Each thread allocates its own frame + lookahead buffers, so on
+   * a many-core host this can multiply libx264's memory footprint well
+   * past the container's memory limit and get the encode SIGKILLed by the
+   * OOM killer mid-run (observed: `threads=34` on a 1080p encode, process
+   * killed with zero frames emitted). Pinning a small, fixed thread count
+   * keeps memory use predictable regardless of what the host exposes.
+   */
+  private static readonly ENCODE_THREAD_COUNT = 2;
+
   constructor(
     private readonly runner: FfmpegRunner,
     config: ConfigService,
@@ -130,6 +143,8 @@ export class FfmpegService {
       `scale=w=${variant.width}:h=${variant.height}:force_original_aspect_ratio=decrease,pad=${variant.width}:${variant.height}:(ow-iw)/2:(oh-ih)/2`,
       '-c:v',
       'libx264',
+      '-threads',
+      String(FfmpegService.ENCODE_THREAD_COUNT),
       '-profile:v',
       'main',
       '-preset',

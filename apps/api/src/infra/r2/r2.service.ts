@@ -301,6 +301,30 @@ export class R2Service implements OnModuleInit, OnModuleDestroy {
     return getSignedUrl(this.client, command, { expiresIn: ttl });
   }
 
+  /**
+   * HEAD probe returning the object's true stored size in bytes, or
+   * `null` when the object does not exist.
+   *
+   * Used to reconcile what a client *claimed* it would upload against
+   * what it actually did: the `sizeBytes` on an upload-init request is
+   * caller-supplied, and the presigned part URLs do not constrain the
+   * body length, so the declared value cannot be trusted on its own.
+   */
+  async getObjectSize(key: string): Promise<number | null> {
+    try {
+      const res = await this.client.send(
+        new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      return typeof res.ContentLength === 'number' ? res.ContentLength : null;
+    } catch (error) {
+      const code = (error as { name?: string }).name;
+      if (code === 'NotFound' || code === 'NoSuchKey') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
   /** HEAD probe — returns true when the object exists in the bucket. */
   async objectExists(key: string): Promise<boolean> {
     try {

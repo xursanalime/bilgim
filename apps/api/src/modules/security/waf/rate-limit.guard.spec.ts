@@ -314,18 +314,21 @@ describe('SecurityRateLimitGuard — per-IP bucket', () => {
     await expect(guard.canActivate(ctxB)).resolves.toBe(true);
   });
 
-  it('honours X-Forwarded-For when extracting the client IP', async () => {
+  it('ignores a spoofed X-Forwarded-For and buckets on req.ip', async () => {
     const fake = makeFakeRedis();
     const guard = new SecurityRateLimitGuard(fake.redis, makeConfig(TEST_ENV));
 
-    // 5 hits behind a proxy → bucket for the upstream IP fills up.
+    // A caller sending a DIFFERENT X-Forwarded-For on every request used
+    // to mint a fresh bucket each time and never hit the limit. `req.ip`
+    // is what Express resolved under `trust proxy`, so it is the only
+    // value that cannot be forged — the header must not override it.
     for (let i = 0; i < 5; i++) {
       const ctx = makeCtx({
         ip: '10.0.0.1',
         method: 'GET',
         url: '/api/v1/courses',
         originalUrl: '/api/v1/courses',
-        headers: { 'x-forwarded-for': '198.51.100.99, 10.0.0.1' },
+        headers: { 'x-forwarded-for': `198.51.100.${i}, 10.0.0.1` },
       });
       await expect(guard.canActivate(ctx)).resolves.toBe(true);
     }
@@ -338,11 +341,26 @@ describe('SecurityRateLimitGuard — per-IP bucket', () => {
     });
     await expectTooMany(guard.canActivate(ctxBlocked));
 
-    // Sanity check: the bucket key contains the upstream IP, not
-    // the load balancer.
+    // One bucket, keyed on the resolved peer address — not one bucket per
+    // spoofed header value.
     const keys = Array.from(fake.hashes.keys());
-    expect(keys).toContain('rl:tb:ip:198.51.100.99');
-    expect(keys).not.toContain('rl:tb:ip:10.0.0.1');
+    expect(keys).toContain('rl:tb:ip:10.0.0.1');
+    expect(keys).not.toContain('rl:tb:ip:198.51.100.99');
+  });
+
+  it('falls back to X-Forwarded-For only when no peer address is available', async () => {
+    const fake = makeFakeRedis();
+    const guard = new SecurityRateLimitGuard(fake.redis, makeConfig(TEST_ENV));
+
+    const ctx = makeCtx({
+      method: 'GET',
+      url: '/api/v1/courses',
+      originalUrl: '/api/v1/courses',
+      headers: { 'x-forwarded-for': '203.0.113.7' },
+    });
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+
+    expect(Array.from(fake.hashes.keys())).toContain('rl:tb:ip:203.0.113.7');
   });
 });
 

@@ -3,6 +3,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Query,
@@ -25,6 +26,7 @@ import {
   ListDiscoveryTeachersDto,
   ListDiscoveryTeachersSchema,
 } from './dto';
+import { isPublicSystemSettingKey } from './public-settings';
 
 /**
  * DiscoveryController — public, unauthenticated REST endpoints for the
@@ -137,11 +139,28 @@ export class DiscoveryController {
     return { exists: await this.discoveryService.slugExists(slug.toLowerCase()) };
   }
 
-  /** GET /discovery/settings/:key — get public system setting. */
+  /**
+   * GET /discovery/settings/:key — read one **explicitly published**
+   * system setting.
+   *
+   * `key` is caller-supplied and `SystemSetting` is a free-form store an
+   * ADMIN can write anything into, so the key must appear in
+   * `PUBLIC_SYSTEM_SETTING_KEYS`. Anything else 404s with the same shape
+   * as a missing row, so this endpoint cannot be used to probe which
+   * internal setting names exist.
+   */
   @Public()
   @Get('settings/:key')
   @HttpCode(HttpStatus.OK)
+  @HttpCache({ maxAge: 60, staleWhileRevalidate: 300 })
+  @CacheTtl(60)
   async getSetting(@Param('key') key: string) {
+    if (!isPublicSystemSettingKey(key)) {
+      throw new NotFoundException({
+        code: 'SETTING_NOT_FOUND',
+        message: 'Setting not found',
+      });
+    }
     return this.discoveryService.getSystemSetting(key);
   }
 }

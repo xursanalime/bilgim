@@ -7,6 +7,15 @@ export interface JwtPayload {
   sub: string;
   email: string;
   role: string;
+  /**
+   * Token discriminator. Present on every token minted after the
+   * `typ`-confusion fix; `undefined` on tokens issued by an older build,
+   * which `JwtStrategy` still accepts during the rollout window (they
+   * carry `email` + `role`, which a media-stream token never does).
+   */
+  typ?: 'access';
+  /** Issued-at (epoch seconds), stamped by `jsonwebtoken`. */
+  iat?: number;
 }
 
 /**
@@ -18,6 +27,37 @@ export interface JwtPayload {
 export interface MediaStreamTokenPayload {
   sub: string;
   typ: 'media-stream';
+}
+
+/**
+ * Reject anything that is not a user session token.
+ *
+ * All JWTs in this app are HS256 under the same `JWT_SECRET`, so the
+ * payload shape is the only thing separating a session token from a
+ * media-stream token. Because a stream token travels in a `?token=` query
+ * param (browser history, access logs, `Referer`), accepting one as a
+ * session would turn "saw a video URL" into "holds a session".
+ *
+ * Two independent checks, so a token minted before `typ` existed still
+ * works while a stream token can never pass:
+ *   1. `typ`, when present, must be exactly `'access'`.
+ *   2. `email` + `role` must be present — a `MediaStreamTokenPayload`
+ *      carries neither.
+ *
+ * Throws a plain `Error`; callers map it to their own 401/`WsException`.
+ */
+export function assertAccessTokenShape(
+  payload: JwtPayload | undefined | null,
+): asserts payload is JwtPayload {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Invalid token payload');
+  }
+  if (payload.typ !== undefined && payload.typ !== 'access') {
+    throw new Error(`Not an access token (typ=${String(payload.typ)})`);
+  }
+  if (!payload.sub || !payload.email || !payload.role) {
+    throw new Error('Not an access token (missing session claims)');
+  }
 }
 
 /**
@@ -45,10 +85,17 @@ export class TokensService {
   async generateAccessToken(payload: JwtPayload): Promise<string> {
     const expiresIn =
       this.configService.get<string>('JWT_ACCESS_TTL') ?? '15m';
-    return this.jwtService.signAsync(payload, {
-      algorithm: 'HS256',
-      expiresIn,
-    });
+    // `typ: 'access'` is what lets verifiers distinguish a session token
+    // from the media-stream token minted below — both are HS256 under the
+    // same `JWT_SECRET`, so without a discriminator a stream token (which
+    // travels in a URL query param) would authenticate as a session.
+    return this.jwtService.signAsync(
+      { ...payload, typ: 'access' } satisfies JwtPayload,
+      {
+        algorithm: 'HS256',
+        expiresIn,
+      },
+    );
   }
 
   /**
@@ -56,9 +103,11 @@ export class TokensService {
    * HS256 to keep `alg` substitution attacks out of the trust boundary.
    */
   async verifyAccessToken(token: string): Promise<JwtPayload> {
-    return this.jwtService.verifyAsync<JwtPayload>(token, {
+    const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
       algorithms: ['HS256'],
     });
+    assertAccessTokenShape(payload);
+    return payload;
   }
 
   /**

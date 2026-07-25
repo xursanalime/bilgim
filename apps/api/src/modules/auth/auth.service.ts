@@ -29,6 +29,7 @@ import {
   LoginProtectionService,
 } from './protection';
 import { UsersRepository } from './repositories/users.repository';
+import { SessionValidatorService } from './session-validator.service';
 import { TokensService } from './tokens.service';
 import {
   RegisterDto,
@@ -133,6 +134,8 @@ export class AuthService {
     @Optional()
     private readonly impossibleTravel?: ImpossibleTravelService,
     @Optional() private readonly configService?: ConfigService,
+    @Optional()
+    private readonly sessionValidator?: SessionValidatorService,
   ) {}
 
   /**
@@ -705,6 +708,13 @@ export class AuthService {
           where: { userId: revokedSession.userId },
           data: { revokedAt: now },
         });
+        // Access tokens too — a compromised token family means any
+        // outstanding access token must be assumed stolen.
+        await this.prisma.user.update({
+          where: { id: revokedSession.userId },
+          data: { sessionsRevokedAt: now },
+        });
+        await this.sessionValidator?.invalidate(revokedSession.userId);
 
         this.logger.warn(
           `Token family compromised for user: ${revokedSession.userId}. All sessions revoked.`,
@@ -868,7 +878,17 @@ export class AuthService {
         where: { userId: resetRecord.userId },
         data: { revokedAt: now },
       });
+
+      // ...and invalidate every already-issued *access* token. Revoking
+      // Session rows only kills refresh tokens; a stolen access token
+      // stayed usable for the rest of its TTL, which is exactly the
+      // window a password reset is meant to close.
+      await tx.user.update({
+        where: { id: resetRecord.userId },
+        data: { sessionsRevokedAt: now },
+      });
     });
+    await this.sessionValidator?.invalidate(resetRecord.userId);
 
     this.logger.log(`Password reset completed for user: ${resetRecord.userId}`);
 
@@ -1252,7 +1272,22 @@ export class AuthService {
     }
 
     const newHash = await this.hashPassword(newPassword);
-    await this.usersRepository.updatePassword(userId, newHash);
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      await this.usersRepository.updatePassword(userId, newHash, tx);
+      // Changing your password must sign every other device out — this
+      // previously updated the hash and nothing else, so a session opened
+      // with the OLD password stayed live indefinitely.
+      await tx.session.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      await tx.user.update({
+        where: { id: userId },
+        data: { sessionsRevokedAt: now },
+      });
+    });
+    await this.sessionValidator?.invalidate(userId);
 
     this.logger.log(`Password changed for user: ${userId}`);
     return { message: 'Parol muvaffaqiyatli yangilandi' };

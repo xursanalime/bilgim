@@ -7,6 +7,7 @@ import {
 import { WsException } from '@nestjs/websockets';
 import type { Socket } from 'socket.io';
 
+import { SessionValidatorService } from '../../auth/session-validator.service';
 import { TokensService, type JwtPayload } from '../../auth/tokens.service';
 
 /**
@@ -16,6 +17,30 @@ import { TokensService, type JwtPayload } from '../../auth/tokens.service';
  * down the road.
  */
 export type WsAuthUser = JwtPayload;
+
+/**
+ * What we stash on `socket.data`. The raw token and the time it was last
+ * checked are kept so long-lived sockets can be re-validated — see
+ * `WS_REVALIDATE_INTERVAL_MS`.
+ */
+interface SocketAuthData {
+  user?: WsAuthUser;
+  rawToken?: string;
+  authenticatedAt?: number;
+}
+
+/**
+ * How long a socket may coast on a previous authentication before its
+ * token is re-checked.
+ *
+ * A live class socket stays open for the length of a lesson. Caching the
+ * principal for the whole connection meant an expired token, a suspended
+ * account or a revoked session kept full access for hours, because the
+ * check only ever ran at connect time. 60s bounds that window while
+ * keeping the per-message cost at a Map lookup for all but one message a
+ * minute (and `SessionValidator` caches the DB read for 30s on top).
+ */
+export const WS_REVALIDATE_INTERVAL_MS = 60_000;
 
 /** Cookie the web app stores the (httpOnly) access token under. */
 const ACCESS_COOKIE_NAME = 'bilgim_access_token';
@@ -50,6 +75,7 @@ function extractCookieToken(cookieHeader: string | undefined): string | undefine
 export async function authenticateSocket(
   socket: Socket,
   tokens: TokensService,
+  sessions?: SessionValidatorService,
 ): Promise<WsAuthUser | null> {
   const handshake = socket.handshake ?? ({} as Socket['handshake']);
   const fromAuth = (handshake.auth as { token?: string } | undefined)?.token;
@@ -71,9 +97,18 @@ export async function authenticateSocket(
   }
 
   try {
-    const payload = await tokens.verifyAccessToken(raw);
+    // `verifyAccessToken` checks signature, expiry and token *type* (a
+    // media-stream token must never open a socket). `SessionValidator`
+    // then checks the account is still live and not revoked, and returns
+    // the current role.
+    const verified = await tokens.verifyAccessToken(raw);
+    const payload = sessions ? await sessions.validate(verified) : verified;
+
     socket.data = socket.data ?? {};
-    (socket.data as { user?: WsAuthUser }).user = payload;
+    const data = socket.data as SocketAuthData;
+    data.user = payload;
+    data.rawToken = raw;
+    data.authenticatedAt = Date.now();
     return payload;
   } catch (err) {
     throw new WsException({
@@ -99,18 +134,26 @@ export async function authenticateSocket(
 export class WsJwtGuard implements CanActivate {
   private readonly logger = new Logger(WsJwtGuard.name);
 
-  constructor(private readonly tokens: TokensService) {}
+  constructor(
+    private readonly tokens: TokensService,
+    private readonly sessions: SessionValidatorService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const ws = context.switchToWs();
     const socket = ws.getClient<Socket>();
+    const data = (socket.data ?? {}) as SocketAuthData;
 
-    const cached = (socket.data as { user?: WsAuthUser } | undefined)?.user;
-    if (cached) {
+    // Re-authenticate when the cached principal has gone stale. Previously
+    // this returned `true` for any socket that had *ever* authenticated,
+    // so a token that expired (or an account that got suspended) mid-call
+    // kept working until the client disconnected.
+    const age = Date.now() - (data.authenticatedAt ?? 0);
+    if (data.user && age < WS_REVALIDATE_INTERVAL_MS) {
       return true;
     }
 
-    const user = await authenticateSocket(socket, this.tokens);
+    const user = await authenticateSocket(socket, this.tokens, this.sessions);
     if (!user) {
       this.logger.warn(`Rejecting ws message — no token on socket ${socket.id}`);
       throw new WsException({

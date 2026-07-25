@@ -40,6 +40,15 @@ export class BadgeService {
     }
   }
 
+  /**
+   * Award a badge by slug, from outside the criteria loop (e.g. the
+   * weekly-leaderboard cron). Idempotent: re-awarding is swallowed by the
+   * unique constraint on `(userId, badgeId)`.
+   */
+  async awardBadgeBySlug(userId: string, badgeSlug: string): Promise<void> {
+    return this.awardBadge(userId, badgeSlug);
+  }
+
   private async awardBadge(userId: string, badgeSlug: string) {
     const badge = await this.badgeRepo.findBySlug(badgeSlug);
     if (!badge) return;
@@ -64,21 +73,87 @@ export class BadgeService {
     switch (slug) {
       case 'first_live':
         return triggerEvent === 'live.attended';
-      
+
       case 'early_bird':
         if (triggerEvent !== 'homework.submitted') return false;
-        // Logic: 24h before deadline
-        return false; // Placeholder
+        return this.hasEarlySubmission(userId);
 
       case 'platform_pioneer':
-        const userCount = await this.prisma.user.count({
-          where: { createdAt: { lt: new Date() } } // This is tricky, need a fixed date or sequence
-        });
-        return userCount <= 1000;
+        return this.isAmongFirstUsers(userId);
 
       // Add more cases for all badges in the spec
       default:
         return false;
     }
   }
+
+  /**
+   * `early_bird` — the student submitted some assignment at least
+   * {@link EARLY_BIRD_LEAD_MS} before its deadline.
+   *
+   * Evaluated by querying the student's own submissions rather than
+   * relying on the trigger payload, because `checkAndAwardBadges` only
+   * receives `(userId, triggerEvent)` — there is no submission id to work
+   * from. Assignments with no `dueAt` are excluded: "early" is meaningless
+   * without a deadline.
+   */
+  private async hasEarlySubmission(userId: string): Promise<boolean> {
+    const submissions = await this.prisma.submission.findMany({
+      where: {
+        studentId: userId,
+        submittedAt: { not: null },
+        assignment: { dueAt: { not: null } },
+      },
+      select: {
+        submittedAt: true,
+        assignment: { select: { dueAt: true } },
+      },
+      orderBy: { submittedAt: 'desc' },
+      take: EARLY_BIRD_SCAN_LIMIT,
+    });
+
+    return submissions.some(({ submittedAt, assignment }) => {
+      if (!submittedAt || !assignment.dueAt) return false;
+      return (
+        assignment.dueAt.getTime() - submittedAt.getTime() >= EARLY_BIRD_LEAD_MS
+      );
+    });
+  }
+
+  /**
+   * `platform_pioneer` — this user is one of the first
+   * {@link PLATFORM_PIONEER_CUTOFF} accounts created.
+   *
+   * Counts accounts registered strictly *before this user*. The previous
+   * implementation counted every row with `createdAt < now()` — i.e. the
+   * whole table — so the badge was awarded to everyone while the platform
+   * had under 1000 users and to nobody afterwards, regardless of when the
+   * recipient actually joined.
+   */
+  private async isAmongFirstUsers(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { createdAt: true },
+    });
+    if (!user) return false;
+
+    const earlierUsers = await this.prisma.user.count({
+      where: { createdAt: { lt: user.createdAt } },
+    });
+    return earlierUsers < PLATFORM_PIONEER_CUTOFF;
+  }
 }
+
+/** `early_bird`: how far ahead of the deadline counts as "early". */
+const EARLY_BIRD_LEAD_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How many of the student's most recent submissions to scan for
+ * `early_bird`. Bounded so the check stays O(1)-ish for prolific
+ * students; the badge is awarded once, so an older qualifying submission
+ * falling out of the window is not worth an unbounded query.
+ */
+const EARLY_BIRD_SCAN_LIMIT = 50;
+
+/** `platform_pioneer`: the first N accounts on the platform. */
+const PLATFORM_PIONEER_CUTOFF = 1000;

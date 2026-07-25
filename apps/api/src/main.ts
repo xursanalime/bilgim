@@ -39,10 +39,20 @@ async function bootstrap() {
   const configService = app.get(ConfigService<EnvConfig, true>);
   const port = configService.get('API_PORT', { infer: true });
 
-  // Trust proxy = 'loopback' — only honor X-Forwarded-For from the local
-  // reverse proxy (nginx ingress / traefik). Public clients can no longer
-  // spoof their IP to evade IP-based rate limits (Task 24.1).
-  app.set('trust proxy', 'loopback');
+  // Which X-Forwarded-For hops to believe when computing `req.ip`. Every
+  // IP-scoped control (rate limits, brute-force lockout, WAF blocklist,
+  // geo-blocking) reads `req.ip`, so this must match the real topology —
+  // see the `TRUST_PROXY` docs in `config/env.schema.ts`. Defaults to
+  // 'loopback': only a same-host proxy (the Next.js BFF) is believed, so
+  // public clients cannot spoof their IP (Task 24.1).
+  //
+  // A bare integer is passed through as a number: Express treats
+  // `trust proxy: 2` (hop count) and `'2'` (an IP literal) differently.
+  const trustProxyRaw = configService.get('TRUST_PROXY', { infer: true }) as string;
+  app.set(
+    'trust proxy',
+    /^\d+$/.test(trustProxyRaw) ? Number(trustProxyRaw) : trustProxyRaw,
+  );
 
   // Global hardening — helmet, CORS, body size limits, compression,
   // request timeouts (Task 24.1, Req 17.x / 21.x).

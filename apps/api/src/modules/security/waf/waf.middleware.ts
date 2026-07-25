@@ -441,6 +441,14 @@ function stringify(value: unknown): string {
  * stack so all layers bucket a single user identically.
  */
 function extractClientIp(req: SecurityWafRequest): string {
+  // `req.ip` first — Express resolves it under `trust proxy` ('loopback',
+  // see main.ts) so a public client cannot forge it. `x-forwarded-for` is
+  // attacker-controlled and is only consulted when Express could not
+  // resolve a peer address at all.
+  const direct =
+    req.ip ?? req.connection?.remoteAddress ?? req.socket?.remoteAddress;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+
   const forwarded = req.headers?.['x-forwarded-for'];
   if (typeof forwarded === 'string' && forwarded.length > 0) {
     const first = forwarded.split(',')[0];
@@ -450,12 +458,7 @@ function extractClientIp(req: SecurityWafRequest): string {
     const first = String(forwarded[0]).split(',')[0];
     if (first && first.trim()) return first.trim();
   }
-  return (
-    req.ip ??
-    req.connection?.remoteAddress ??
-    req.socket?.remoteAddress ??
-    'unknown'
-  );
+  return 'unknown';
 }
 
 /** Sanitise URL for logging — strip query string. */

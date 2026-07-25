@@ -16,7 +16,10 @@ import {
 import { PrismaClient } from '@prisma/client';
 import type { Server, Socket } from 'socket.io';
 
+import { SessionValidatorService } from '../../auth/session-validator.service';
 import { TokensService } from '../../auth/tokens.service';
+import { assertWsLessonAccess } from '../access/ws-lesson-access';
+import { resolveWsCorsOptions } from '../ws-cors';
 import { authenticateSocket, WsJwtGuard, type WsAuthUser } from './ws-jwt.guard';
 
 /** Maximum length of a chat message body (chars). Req 9.9. */
@@ -86,7 +89,9 @@ interface RateLimitState {
  */
 @WebSocketGateway({
   namespace: '/live',
-  cors: { origin: true, credentials: true },
+  // Explicit allow-list rather than origin reflection — see `ws-cors.ts`
+  // for why `origin: true` plus cookie auth is exploitable here.
+  cors: resolveWsCorsOptions(),
 })
 @UseGuards(WsJwtGuard)
 export class LiveChatGateway
@@ -99,6 +104,7 @@ export class LiveChatGateway
 
   constructor(
     private readonly tokens: TokensService,
+    private readonly sessions: SessionValidatorService,
     private readonly prisma: PrismaClient,
   ) {}
 
@@ -114,7 +120,7 @@ export class LiveChatGateway
 
   async handleConnection(socket: Socket): Promise<void> {
     try {
-      const user = await authenticateSocket(socket, this.tokens);
+      const user = await authenticateSocket(socket, this.tokens, this.sessions);
       if (!user) {
         this.logger.warn(`Disconnecting socket ${socket.id} — missing token`);
         socket.emit('chat:error', {
@@ -340,63 +346,16 @@ export class LiveChatGateway
   }
 
   /**
-   * Reuse the same access policy as `LessonAccessGuard` (Req 6.1–6.6):
-   *  - ADMIN: always allowed
-   *  - TEACHER: must own the lesson's course
-   *  - STUDENT: must have an APPROVED enrollment in the lesson's group
-   * Throws `WsException` (rather than `ForbiddenException`) so the
-   * Socket.io error pipeline produces a structured payload.
+   * Lesson-room access. Delegates to the shared `assertWsLessonAccess`
+   * policy so this gateway and `LiveGateway` can never drift apart — an
+   * earlier copy of this rule lived only here, which is exactly why the
+   * SFU gateway shipped with no enrollment check at all.
    */
   private async assertLessonAccess(
     user: WsAuthUser,
     lessonId: string,
   ): Promise<void> {
-    const lesson = await this.prisma.lesson.findUnique({
-      where: { id: lessonId },
-      include: { group: { include: { course: true } } },
-    });
-    if (!lesson) {
-      throw new WsException({
-        code: 'LESSON_NOT_FOUND',
-        message: `Lesson ${lessonId} not found`,
-      });
-    }
-
-    switch (user.role) {
-      case 'ADMIN':
-        return;
-      case 'TEACHER':
-        if (lesson.group.course.teacherId !== user.sub) {
-          throw new WsException({
-            code: 'NOT_OWNING_TEACHER',
-            message: 'You can only join lessons for your own courses',
-          });
-        }
-        return;
-      case 'STUDENT': {
-        const enrollment = await this.prisma.enrollment.findUnique({
-          where: {
-            groupId_studentId: {
-              groupId: lesson.groupId,
-              studentId: user.sub,
-            },
-          },
-        });
-        if (!enrollment || enrollment.status !== 'APPROVED') {
-          throw new WsException({
-            code: 'LESSON_ACCESS_DENIED',
-            message:
-              'You do not have approved access to this lesson. Pay and wait for teacher approval to enroll.',
-          });
-        }
-        return;
-      }
-      default:
-        throw new WsException({
-          code: 'FORBIDDEN_ROLE',
-          message: `Role ${user.role} is not allowed to join live chat`,
-        });
-    }
+    await assertWsLessonAccess(this.prisma, user, lessonId);
   }
 
   // ------------------------------------------------------------------

@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaClient, UserRole } from '@prisma/client';
 import { StreakService } from './streak.service';
 import { ChallengeService } from './challenge.service';
+import { BadgeService } from './badge.service';
 import { LeaderboardService } from './leaderboard.service';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class GamificationCron {
     private readonly streakService: StreakService,
     private readonly challengeService: ChallengeService,
     private readonly leaderboardService: LeaderboardService,
+    private readonly badgeService: BadgeService,
   ) {}
 
   /**
@@ -74,12 +76,32 @@ export class GamificationCron {
   @Cron('1 19 * * 0', { timeZone: 'UTC' })
   async finalizeWeeklyLeaderboard() {
     this.logger.log('Finalizing weekly leaderboard');
-    // 1. Get winners from Redis
-    const top10 = await this.leaderboardService.getGlobalTop(10); // Placeholder for weekly
-    
-    // 2. Award badges / XP to top 3
-    for (let i = 0; i < Math.min(top10.length, 3); i++) {
-      // await this.badgeService.awardBadge(top10[i].userId, 'weekly_champion');
+
+    // 1. Read the WEEKLY board, not the global one. Reading `lb:global`
+    //    here ranked players by all-time XP, so the same handful of
+    //    long-standing accounts "won" every week regardless of the
+    //    week's activity.
+    const weeklyKey = await this.leaderboardService.getWeeklyKey();
+    const top = await this.leaderboardService.getGlobalTop(
+      WEEKLY_PODIUM_SIZE,
+      weeklyKey,
+    );
+
+    // 2. Award the podium. Zero-XP entries are skipped — an empty week
+    //    should not crown anyone.
+    for (const entry of top.slice(0, WEEKLY_PODIUM_SIZE)) {
+      if (entry.xp <= 0) continue;
+      try {
+        await this.badgeService.awardBadgeBySlug(
+          entry.userId,
+          WEEKLY_CHAMPION_BADGE_SLUG,
+        );
+      } catch (err) {
+        // One bad row must not abort the weekly reset below.
+        this.logger.warn(
+          `Failed to award ${WEEKLY_CHAMPION_BADGE_SLUG} to ${entry.userId}: ${(err as Error).message}`,
+        );
+      }
     }
 
     // 3. Reset weekly XP in DB
@@ -89,3 +111,9 @@ export class GamificationCron {
     });
   }
 }
+
+/** How many top players receive the weekly champion badge. */
+const WEEKLY_PODIUM_SIZE = 3;
+
+/** Badge slug awarded to the weekly podium (seeded in `gamification-seed.ts`). */
+const WEEKLY_CHAMPION_BADGE_SLUG = 'weekly_champion';

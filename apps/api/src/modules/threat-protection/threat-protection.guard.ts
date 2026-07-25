@@ -279,15 +279,20 @@ export class ThreatProtectionGuard implements CanActivate {
  * blocklist still applies.
  */
 function extractIp(request: InspectableRequest & { connection?: { remoteAddress?: string }; socket?: { remoteAddress?: string } }): string {
+  // `request.ip` first — this guard drives IP blocklisting, so honouring
+  // a spoofable `x-forwarded-for` both let attackers escape their own
+  // block and let them poison the blocklist for arbitrary third-party
+  // IPs. The header is a fallback only.
+  const direct =
+    request.ip ??
+    request.connection?.remoteAddress ??
+    request.socket?.remoteAddress;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+
   const forwarded = request.headers?.['x-forwarded-for'];
   if (typeof forwarded === 'string' && forwarded.length > 0) {
     const first = forwarded.split(',')[0];
     if (first && first.trim()) return first.trim();
   }
-  return (
-    request.ip ??
-    request.connection?.remoteAddress ??
-    request.socket?.remoteAddress ??
-    'unknown'
-  );
+  return 'unknown';
 }

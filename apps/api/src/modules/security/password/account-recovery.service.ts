@@ -390,29 +390,49 @@ export class AccountRecoveryService {
 
   /**
    * Store a verification code (hashed) for a session step.
-   * In production, this would use Redis with TTL.
+   *
+   * NOT IMPLEMENTED — see {@link verifyCode}. Throws rather than silently
+   * discarding the code, so a caller cannot end up in a state where a
+   * code was "issued" but nothing was ever persisted to check it against.
    */
   private async storeVerificationCode(
     _sessionId: string,
     _step: RecoveryStep,
     _code: string,
   ): Promise<void> {
-    // Implementation delegates to session store with hashed code
-    // The actual storage is handled by the RecoverySessionStore port
+    throw new Error(
+      'AccountRecoveryService.storeVerificationCode is not implemented — ' +
+        'wire a RecoverySessionStore before exposing account recovery.',
+    );
   }
 
   /**
    * Verify a code against the stored hash.
-   * Uses timing-safe comparison.
+   *
+   * **NOT IMPLEMENTED — fails closed.**
+   *
+   * This method used to `return true` unconditionally, with a comment
+   * saying the store implementation would fill it in later. Nothing in
+   * the app routes to `AccountRecoveryService` today, so it was never
+   * exploitable — but the class is fully written and unit-tested, so it
+   * reads as finished. The moment anyone mounted it on a controller,
+   * *any* code would have verified any step of an account-recovery flow:
+   * a direct, unauthenticated account takeover.
+   *
+   * A stub in an authentication path must fail closed. Throwing (rather
+   * than returning `false`) also makes the gap impossible to miss: wiring
+   * this up produces an immediate, loud 500 instead of a silently
+   * unverifiable flow.
    */
   private async verifyCode(
     _sessionId: string,
     _step: RecoveryStep,
     _code: string,
   ): Promise<boolean> {
-    // In production, retrieves stored hash and compares
-    // For now, this is a placeholder that the store implementation fills
-    return true;
+    throw new Error(
+      'AccountRecoveryService.verifyCode is not implemented — ' +
+        'wire a RecoverySessionStore before exposing account recovery.',
+    );
   }
 
   /**

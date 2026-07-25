@@ -125,18 +125,34 @@ export class RateLimitInterceptor implements NestInterceptor {
 
   // ---------------------------------------------------------------------------
 
+  /**
+   * Resolve the client IP for rate-limit bucketing.
+   *
+   * `request.ip` comes FIRST and `x-forwarded-for` is only a last-resort
+   * fallback. Express derives `req.ip` from the `trust proxy` setting
+   * (`'loopback'`, see `main.ts`), so it is the one value a public client
+   * cannot forge. Preferring the raw header instead let any caller send
+   * `X-Forwarded-For: <random>` to mint a fresh bucket per request and
+   * walk straight through every `@RateLimit()` on the platform —
+   * including login, register and password-reset.
+   */
   private extractIp(request: any): string {
+    const direct =
+      request.ip ??
+      request.connection?.remoteAddress ??
+      request.socket?.remoteAddress;
+    if (typeof direct === 'string' && direct.trim()) return direct.trim();
+
     const forwarded = request.headers?.['x-forwarded-for'];
     if (typeof forwarded === 'string' && forwarded.length > 0) {
       const first = forwarded.split(',')[0];
       if (first && first.trim()) return first.trim();
     }
-    return (
-      request.ip ??
-      request.connection?.remoteAddress ??
-      request.socket?.remoteAddress ??
-      'unknown'
-    );
+    if (Array.isArray(forwarded) && forwarded[0]) {
+      const first = String(forwarded[0]).split(',')[0];
+      if (first && first.trim()) return first.trim();
+    }
+    return 'unknown';
   }
 
   private buildRouteKey(context: ExecutionContext): string {

@@ -1,5 +1,8 @@
+import { NotFoundException } from '@nestjs/common';
+
 import { DiscoveryController } from './discovery.controller';
 import { DiscoveryService } from './discovery.service';
+import { PUBLIC_SYSTEM_SETTING_KEYS } from './public-settings';
 
 /**
  * DiscoveryController smoke tests — verify that public endpoints thread the
@@ -18,6 +21,7 @@ describe('DiscoveryController', () => {
       listCourses: jest.fn(),
       getCourseById: jest.fn(),
       listTeachers: jest.fn(),
+      getSystemSetting: jest.fn(),
     } as any;
     controller = new DiscoveryController(service);
   });
@@ -60,5 +64,49 @@ describe('DiscoveryController', () => {
       );
       expect(isPublic).toBe(true);
     }
+  });
+
+  // -------------------------------------------------------------------
+  // GET /discovery/settings/:key
+  // -------------------------------------------------------------------
+
+  describe('getSetting', () => {
+    it('serves an explicitly published key', async () => {
+      service.getSystemSetting.mockResolvedValue({ hero: 'Salom' } as never);
+
+      await expect(controller.getSetting('MARKETING_CONTENT')).resolves.toEqual({
+        hero: 'Salom',
+      });
+      expect(service.getSystemSetting).toHaveBeenCalledWith('MARKETING_CONTENT');
+    });
+
+    it.each([
+      'SMTP_PASSWORD',
+      'OPENAI_API_KEY',
+      'PAYME_KEY',
+      'INTERNAL_PRICING',
+    ])('refuses the un-published key %s without querying it', async (key) => {
+      // `SystemSetting` is a free-form key→Json store an ADMIN can write
+      // anything into, and this route is `@Public()`. Serving an arbitrary
+      // caller-supplied key published every operational value an admin
+      // ever stored to anyone who could guess its name.
+      await expect(controller.getSetting(key)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(service.getSystemSetting).not.toHaveBeenCalled();
+    });
+
+    it('404s unknown keys with the same shape as a missing row', async () => {
+      // A distinct error would confirm that a private setting exists.
+      await expect(controller.getSetting('NOPE')).rejects.toMatchObject({
+        response: { code: 'SETTING_NOT_FOUND' },
+      });
+    });
+
+    it('keeps the allow-list intentionally small', () => {
+      // Tripwire: adding a key here is an act of publication. If this
+      // fails, confirm the new key is safe for anonymous visitors.
+      expect(PUBLIC_SYSTEM_SETTING_KEYS).toEqual(['MARKETING_CONTENT']);
+    });
   });
 });

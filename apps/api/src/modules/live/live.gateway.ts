@@ -16,7 +16,10 @@ import {
 import { PrismaClient } from '@prisma/client';
 import type { Server, Socket } from 'socket.io';
 
+import { SessionValidatorService } from '../auth/session-validator.service';
 import { TokensService } from '../auth/tokens.service';
+import { assertWsLessonAccess } from './access/ws-lesson-access';
+import { resolveWsCorsOptions } from './ws-cors';
 import { authenticateSocket, WsJwtGuard, type WsAuthUser } from './chat/ws-jwt.guard';
 import { LiveService } from './live.service';
 import { SfuService } from './sfu/sfu.service';
@@ -25,6 +28,14 @@ import { LiveSessionRepository } from './repositories/live-session.repository';
 interface ParticipantState {
   userId: string;
   role: 'TEACHER' | 'STUDENT';
+  /**
+   * Whether this participant may moderate the room (owning teacher or
+   * ADMIN). Resolved once at join time by `assertWsLessonAccess` and
+   * cached here — moderation handlers gate on this, never on
+   * `user.role === 'TEACHER'`, which would let any teacher on the
+   * platform moderate a colleague's classroom.
+   */
+  isModerator: boolean;
   name: string;
   isMicOn: boolean;
   isCamOn: boolean;
@@ -38,7 +49,11 @@ interface ParticipantState {
  */
 @WebSocketGateway({
   namespace: '/live-sfu',
-  cors: { origin: true, credentials: true },
+  // Explicit allow-list, NOT `origin: true`. The session cookie is scoped
+  // to `.bilgim.uz`, so a reflected origin would let any teacher
+  // subdomain (or any site, if a browser ever relaxed SameSite) open an
+  // authenticated socket on a visitor's behalf. See `ws-cors.ts`.
+  cors: resolveWsCorsOptions(),
 })
 @UseGuards(WsJwtGuard)
 export class LiveGateway
@@ -50,11 +65,22 @@ export class LiveGateway
   // lessonId -> Map<socketId, ParticipantState>
   private readonly roomParticipants = new Map<string, Map<string, ParticipantState>>();
 
+  /**
+   * socketId -> set of SFU transport ids this socket created. Transports
+   * are per-room in `SfuService`, so without this a participant could pass
+   * a peer's `transportId` to `live:connect-transport` / `live:produce`
+   * and hijack their media path. Ownership is tracked here and asserted on
+   * every transport-scoped handler.
+   */
+  private readonly socketTransports = new Map<string, Set<string>>();
+
   @WebSocketServer()
   server!: Server;
 
   constructor(
+    private readonly prisma: PrismaClient,
     private readonly tokens: TokensService,
+    private readonly sessions: SessionValidatorService,
     private readonly liveService: LiveService,
     private readonly sfuService: SfuService,
     private readonly liveSessionRepository: LiveSessionRepository,
@@ -66,7 +92,7 @@ export class LiveGateway
 
   async handleConnection(socket: Socket): Promise<void> {
     try {
-      const user = await authenticateSocket(socket, this.tokens);
+      const user = await authenticateSocket(socket, this.tokens, this.sessions);
       if (!user) {
         socket.disconnect(true);
         return;
@@ -78,25 +104,27 @@ export class LiveGateway
   }
 
   handleDisconnect(socket: Socket): void {
-    // Find which room this socket was in and clean up
+    // Clean up every room this socket was in. (No `break`: a socket is
+    // normally in one lesson, but leaking a stale participant entry would
+    // keep a disconnected peer "authorized" in `assertJoined`.)
     for (const [lessonId, participants] of this.roomParticipants.entries()) {
-      if (participants.has(socket.id)) {
-        const p = participants.get(socket.id);
-        participants.delete(socket.id);
-        
-        // Notify others
-        this.server.to(`live:${lessonId}`).emit('classroom:participant-left', {
-          socketId: socket.id,
-          userId: p?.userId,
-          count: participants.size
-        });
-        
-        if (participants.size === 0) {
-          this.roomParticipants.delete(lessonId);
-        }
-        break;
+      if (!participants.has(socket.id)) continue;
+
+      const p = participants.get(socket.id);
+      participants.delete(socket.id);
+
+      // Notify others
+      this.server.to(`live:${lessonId}`).emit('classroom:participant-left', {
+        socketId: socket.id,
+        userId: p?.userId,
+        count: participants.size
+      });
+
+      if (participants.size === 0) {
+        this.roomParticipants.delete(lessonId);
       }
     }
+    this.socketTransports.delete(socket.id);
     this.logger.debug(`SFU Socket disconnected: ${socket.id}`);
   }
 
@@ -107,18 +135,28 @@ export class LiveGateway
   ) {
     try {
       const user = this.getSocketUser(socket);
+
+      // Authorization (Req 6.1 – 6.6). Without this any authenticated
+      // account could join any teacher's classroom by guessing a lessonId.
+      const access = await assertWsLessonAccess(
+        this.prisma,
+        user,
+        payload.lessonId,
+      );
+
       const session = await this.liveSessionRepository.findActiveByLessonId(payload.lessonId);
-      
+
       if (!session || session.status !== 'LIVE') {
         throw new Error('Dars efiri hozir faol emas');
       }
 
       const room = await this.sfuService.ensureRoomForLesson(payload.lessonId);
-      
+
       // Initialize participant state
       const state: ParticipantState = {
         userId: user.sub,
         role: user.role === 'STUDENT' ? 'STUDENT' : 'TEACHER',
+        isModerator: access.isOwningTeacher,
         name: payload.name || user.email.split('@')[0] || 'User',
         isMicOn: false,
         isCamOn: false,
@@ -151,10 +189,11 @@ export class LiveGateway
           socketId: sid,
           ...s
         })),
-        role: state.role
+        role: state.role,
+        isModerator: state.isModerator
       };
     } catch (err: any) {
-      return { error: { message: err.message } };
+      return { error: { code: errorCodeOf(err), message: err.message } };
     }
   }
 
@@ -202,6 +241,10 @@ export class LiveGateway
     @ConnectedSocket() socket: Socket,
     @MessageBody() payload: { lessonId: string; data: any },
   ) {
+    // Must be a joined participant \u2014 otherwise any authenticated account
+    // could scribble over an arbitrary classroom's whiteboard.
+    this.assertJoined(socket, payload.lessonId);
+
     // Relay drawing data to everyone else in the room
     socket.to(`live:${payload.lessonId}`).emit('classroom:whiteboard-data', {
       socketId: socket.id,
@@ -215,8 +258,27 @@ export class LiveGateway
     @ConnectedSocket() socket: Socket,
     @MessageBody() payload: { lessonId: string; targetSocketId: string },
   ) {
-    const user = this.getSocketUser(socket);
-    if (user.role !== 'TEACHER') throw new WsException('Faqat o\u2018qituvchi hayday oladi');
+    // `isModerator` (owning teacher / ADMIN), not `role === 'TEACHER'` \u2014
+    // the latter let any teacher on the platform kick participants out of
+    // a colleague's classroom.
+    const state = this.assertJoined(socket, payload.lessonId);
+    if (!state.isModerator) {
+      throw new WsException({
+        code: 'NOT_ROOM_MODERATOR',
+        message: 'Faqat darsning o\u2018qituvchisi hayday oladi',
+      });
+    }
+
+    // Only kick someone who is actually in THIS room \u2014 `targetSocketId`
+    // is client-supplied and would otherwise address any socket on the
+    // namespace, including participants of other lessons.
+    const participants = this.roomParticipants.get(payload.lessonId);
+    if (!participants?.has(payload.targetSocketId)) {
+      throw new WsException({
+        code: 'PARTICIPANT_NOT_IN_ROOM',
+        message: 'Bu ishtirokchi darsda emas',
+      });
+    }
 
     this.server.to(payload.targetSocketId).emit('classroom:kicked', {
       reason: 'O\u2018qituvchi darsdan chetlatdi'
@@ -229,11 +291,13 @@ export class LiveGateway
   
   @SubscribeMessage('live:create-transport')
   async onCreateTransport(
-    @ConnectedSocket() _socket: Socket,
+    @ConnectedSocket() socket: Socket,
     @MessageBody() payload: { lessonId: string },
   ) {
     try {
+      this.assertJoined(socket, payload.lessonId);
       const transport = await this.sfuService.createTransport(payload.lessonId);
+      this.rememberTransport(socket.id, transport.id);
       return {
         id: transport.id,
         iceParameters: transport.iceParameters,
@@ -242,16 +306,18 @@ export class LiveGateway
         sctpParameters: transport.sctpParameters,
       };
     } catch (err: any) {
-      return { error: { message: err.message } };
+      return { error: { code: errorCodeOf(err), message: err.message } };
     }
   }
 
   @SubscribeMessage('live:connect-transport')
   async onConnectTransport(
-    @ConnectedSocket() _socket: Socket,
+    @ConnectedSocket() socket: Socket,
     @MessageBody() payload: { lessonId: string; transportId: string; dtlsParameters: any },
   ) {
     try {
+      this.assertJoined(socket, payload.lessonId);
+      this.assertOwnsTransport(socket, payload.transportId);
       await this.sfuService.connectTransport(
         payload.lessonId,
         payload.transportId,
@@ -259,7 +325,7 @@ export class LiveGateway
       );
       return { ok: true };
     } catch (err: any) {
-      return { error: { message: err.message } };
+      return { error: { code: errorCodeOf(err), message: err.message } };
     }
   }
 
@@ -269,6 +335,8 @@ export class LiveGateway
     @MessageBody() payload: { lessonId: string; transportId: string; kind: 'audio' | 'video'; rtpParameters: any; appData?: any },
   ) {
     try {
+      this.assertJoined(socket, payload.lessonId);
+      this.assertOwnsTransport(socket, payload.transportId);
       const producer = await this.sfuService.addProducer(
         payload.lessonId,
         payload.transportId,
@@ -285,16 +353,20 @@ export class LiveGateway
 
       return { id: producer.id };
     } catch (err: any) {
-      return { error: { message: err.message } };
+      return { error: { code: errorCodeOf(err), message: err.message } };
     }
   }
 
   @SubscribeMessage('live:consume')
   async onConsume(
-    @ConnectedSocket() _socket: Socket,
+    @ConnectedSocket() socket: Socket,
     @MessageBody() payload: { lessonId: string; transportId: string; producerId: string; rtpCapabilities: any },
   ) {
     try {
+      // The eavesdropping guard: without these two asserts any logged-in
+      // account could consume another classroom's audio/video producers.
+      this.assertJoined(socket, payload.lessonId);
+      this.assertOwnsTransport(socket, payload.transportId);
       return await this.sfuService.addConsumer(
         payload.lessonId,
         payload.transportId,
@@ -302,26 +374,80 @@ export class LiveGateway
         payload.rtpCapabilities,
       );
     } catch (err: any) {
-      return { error: { message: err.message } };
+      return { error: { code: errorCodeOf(err), message: err.message } };
     }
   }
 
   @SubscribeMessage('live:resume-consumer')
   async onResumeConsumer(
-    @ConnectedSocket() _socket: Socket,
+    @ConnectedSocket() socket: Socket,
     @MessageBody() payload: { lessonId: string; consumerId: string },
   ) {
     try {
+      this.assertJoined(socket, payload.lessonId);
       await this.sfuService.resumeConsumer(payload.lessonId, payload.consumerId);
       return { ok: true };
     } catch (err: any) {
-      return { error: { message: err.message } };
+      return { error: { code: errorCodeOf(err), message: err.message } };
     }
   }
+
+  // ------------------------------------------------------------------
+  // Access control helpers
+  // ------------------------------------------------------------------
 
   private getSocketUser(socket: Socket): WsAuthUser {
     const user = (socket.data as { user?: WsAuthUser })?.user;
     if (!user) throw new WsException('Unauthenticated');
     return user;
   }
+
+  /**
+   * Assert this socket completed `live:join` for `lessonId` — i.e. that
+   * `assertWsLessonAccess` already passed for it. Every other handler
+   * hangs off this instead of re-querying the DB, so the per-message cost
+   * stays a Map lookup while the authorization decision still comes from
+   * a real enrollment/ownership check.
+   */
+  private assertJoined(socket: Socket, lessonId: string): ParticipantState {
+    const state = this.roomParticipants.get(lessonId)?.get(socket.id);
+    if (!state) {
+      throw new WsException({
+        code: 'NOT_IN_LESSON',
+        message: 'Avval darsga qo‘shiling (live:join)',
+      });
+    }
+    return state;
+  }
+
+  private rememberTransport(socketId: string, transportId: string): void {
+    let owned = this.socketTransports.get(socketId);
+    if (!owned) {
+      owned = new Set<string>();
+      this.socketTransports.set(socketId, owned);
+    }
+    owned.add(transportId);
+  }
+
+  /** Reject transport ids this socket did not create (see `socketTransports`). */
+  private assertOwnsTransport(socket: Socket, transportId: string): void {
+    if (!this.socketTransports.get(socket.id)?.has(transportId)) {
+      throw new WsException({
+        code: 'TRANSPORT_NOT_OWNED',
+        message: 'Bu transport sizga tegishli emas',
+      });
+    }
+  }
+}
+
+/**
+ * Surface the structured `code` from a `WsException` payload so clients
+ * can branch on the reason instead of string-matching the message.
+ */
+function errorCodeOf(err: unknown): string {
+  const payload = (err as WsException | undefined)?.getError?.();
+  if (payload && typeof payload === 'object' && 'code' in payload) {
+    return String((payload as { code: unknown }).code);
+  }
+  return 'LIVE_ERROR';
 }

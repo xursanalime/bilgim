@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+import { clientIpHeaders } from '../../../../lib/client-ip';
 import { cookieDomainFor } from '../../../../lib/tenant';
 import {
   ACCESS_COOKIE,
@@ -48,7 +49,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     upstream = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        // The API's brute-force lockout and login rate limit are keyed on
+        // (email, IP). Without the caller's real IP every login attempt on
+        // the platform shared one bucket — so a single attacker could lock
+        // everyone out. See `lib/client-ip.ts`.
+        ...clientIpHeaders(request),
+      },
       body: JSON.stringify({
         email: payload.email,
         password: payload.password,

@@ -78,6 +78,16 @@ function isProtectedPath(pathname: string): boolean {
   );
 }
 
+/**
+ * `true` for routes that never require a session — the marketing surface
+ * and the auth screens themselves.
+ *
+ * Used by `isStaticAsset` to decide whether a dotted path is a real file
+ * request or a page. It is deliberately *not* used to grant access:
+ * authorization is allow-by-exception via {@link isProtectedPath}, so a
+ * route missing from these lists fails safe (unprotected-but-harmless)
+ * rather than becoming publicly readable.
+ */
 function isPublicPath(pathname: string): boolean {
   const pathWithoutLocale = stripLocalePrefix(pathname);
 
@@ -87,6 +97,23 @@ function isPublicPath(pathname: string): boolean {
     ) ||
     publicPaths.some((p) => pathWithoutLocale.startsWith(p))
   );
+}
+
+/**
+ * File extensions that identify a genuine static asset.
+ *
+ * The middleware used to skip *any* path containing a `.`, and the
+ * `matcher` below excluded them too. That meant a dotted path segment
+ * bypassed the middleware entirely — `/dashboard/courses/abc.def` never
+ * reached the auth check and rendered the protected shell to an
+ * anonymous visitor. Matching a known extension at the END of the path
+ * closes that hole while still short-circuiting real asset requests.
+ */
+const STATIC_ASSET_EXT =
+  /\.(ico|png|jpe?g|gif|svg|webp|avif|css|js|mjs|map|json|txt|xml|woff2?|ttf|otf|eot|mp4|webm|mp3|wav|pdf)$/i;
+
+function isStaticAsset(pathname: string): boolean {
+  return STATIC_ASSET_EXT.test(pathname);
 }
 
 /**
@@ -143,17 +170,41 @@ async function refreshTokens(
  * API outage doesn't take down every teacher's subdomain at once; the page
  * itself still 404s gracefully if something is genuinely wrong.
  */
+/**
+ * In-process memo for {@link slugIsClaimed}.
+ *
+ * Without it every single request to a teacher subdomain fanned out to an
+ * extra API call — an unauthenticated 1:1 request amplifier against the
+ * API, and a latency tax on every page load. The window is short so a
+ * newly claimed (or released) slug still takes effect promptly.
+ */
+const SLUG_CACHE_TTL_MS = 60_000;
+const slugCache = new Map<string, { claimed: boolean; expiresAt: number }>();
+
 async function slugIsClaimed(slug: string): Promise<boolean> {
+  const cached = slugCache.get(slug);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.claimed;
+  }
+
+  let claimed = true; // fail OPEN — see the doc comment above
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/v1/discovery/teachers/slug/${encodeURIComponent(slug)}/exists`,
     );
-    if (!res.ok) return true;
-    const data = (await res.json()) as { exists?: boolean };
-    return data.exists !== false;
+    if (res.ok) {
+      const data = (await res.json()) as { exists?: boolean };
+      claimed = data.exists !== false;
+    } else {
+      // Don't cache a transient upstream failure as a result.
+      return true;
+    }
   } catch {
     return true;
   }
+
+  slugCache.set(slug, { claimed, expiresAt: Date.now() + SLUG_CACHE_TTL_MS });
+  return claimed;
 }
 
 function setAuthCookies(
@@ -181,11 +232,12 @@ function setAuthCookies(
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip static files and Next.js internals
+  // Skip static files and Next.js internals. Note this checks for a real
+  // asset *extension*, not merely "contains a dot" — see `isStaticAsset`.
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
-    pathname.includes('.')
+    isStaticAsset(pathname)
   ) {
     return NextResponse.next();
   }
@@ -273,6 +325,14 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Match all paths except static files and Next.js internals
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)'],
+  // Match all paths except Next.js internals and genuine static assets.
+  //
+  // The previous pattern ended in `.*\\..*`, excluding EVERY path with a
+  // dot in it — so `/dashboard/courses/abc.def` skipped the middleware and
+  // its auth check entirely. The extension list below mirrors
+  // `STATIC_ASSET_EXT`, so only real asset requests are excluded and a
+  // dotted route param still gets authenticated.
+  matcher: [
+    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:ico|png|jpe?g|gif|svg|webp|avif|css|js|mjs|map|json|txt|xml|woff2?|ttf|otf|eot|mp4|webm|mp3|wav|pdf)$).*)',
+  ],
 };

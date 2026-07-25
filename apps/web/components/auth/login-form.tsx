@@ -78,7 +78,11 @@ function generateCaptcha(): Captcha {
  * LoginForm — email + password sign-in.
  *
  * On success:
- *  - Tokens are stored by `authApi.login` (localStorage + cookie).
+ *  - `authApi.login` posts to the same-origin BFF route
+ *    (`app/api/auth/login`), which writes the access/refresh tokens into
+ *    **httpOnly** cookies. No token ever enters this component's — or any
+ *    other client JS's — scope; only the non-secret `bilgim_user` profile
+ *    cookie is readable, and it drives role-based UI.
  *  - User is redirected to `?callbackUrl` if present, otherwise role-based:
  *      TEACHER  -> /{locale}/dashboard
  *      STUDENT  -> /{locale}/dashboard

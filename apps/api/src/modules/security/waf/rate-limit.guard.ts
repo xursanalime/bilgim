@@ -410,6 +410,13 @@ function clampPositiveInt(
 }
 
 function extractClientIp(req: RateLimitRequest): string {
+  // `req.ip` first — see the identical note in `waf.middleware.ts`.
+  // Reading the spoofable `x-forwarded-for` header first made this
+  // guard's per-IP buckets trivially bypassable.
+  const direct =
+    req.ip ?? req.connection?.remoteAddress ?? req.socket?.remoteAddress;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+
   const forwarded = req.headers?.['x-forwarded-for'];
   if (typeof forwarded === 'string' && forwarded.length > 0) {
     const first = forwarded.split(',')[0];
@@ -419,12 +426,7 @@ function extractClientIp(req: RateLimitRequest): string {
     const first = String(forwarded[0]).split(',')[0];
     if (first && first.trim()) return first.trim();
   }
-  return (
-    req.ip ??
-    req.connection?.remoteAddress ??
-    req.socket?.remoteAddress ??
-    'unknown'
-  );
+  return 'unknown';
 }
 
 function sanitisePath(req: RateLimitRequest): string {

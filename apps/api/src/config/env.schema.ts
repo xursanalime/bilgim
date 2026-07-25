@@ -11,6 +11,27 @@ export const envSchema = z.object({
 
   // Security / hardening (Task 24.1, Req 17.x, 21.x)
   /**
+   * Express `trust proxy` setting — decides which `X-Forwarded-For` hops
+   * are believed when resolving `req.ip`.
+   *
+   * `req.ip` is the input to every IP-scoped control in the app (rate
+   * limits, brute-force lockout, WAF blocklist, geo-blocking), so this
+   * value has to match the real deployment topology:
+   *
+   *   - `loopback` (default) — the Next.js BFF runs on the same host and
+   *     is the only thing talking to the API. Correct for docker-compose
+   *     and the local `bilgim` stack.
+   *   - a CIDR / comma-separated list — the BFF or ingress runs on a
+   *     known private range, e.g. `10.0.0.0/8`.
+   *   - a small integer — number of trusted proxy hops in front of the
+   *     API, e.g. `2` behind Cloudflare + an ingress controller.
+   *
+   * Do NOT set this to `true`: that trusts the leftmost XFF entry from
+   * anyone, which lets a caller pick its own rate-limit bucket and
+   * escape an IP block.
+   */
+  TRUST_PROXY: z.string().default('loopback'),
+  /**
    * Comma-separated list of origins permitted by the CORS layer.
    * Defaults to APP_URL + the local Next dev server. Values like
    * `https://bilgim.uz,https://www.bilgim.uz` lock down the
