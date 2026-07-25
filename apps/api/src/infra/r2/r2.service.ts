@@ -78,6 +78,36 @@ export class R2Service implements OnModuleInit, OnModuleDestroy {
         ? overrideEndpoint
         : `https://${accountId}.r2.cloudflarestorage.com`;
 
+    // Fail fast when production is missing real credentials.
+    //
+    // Every credential above is optional in the env schema and falls back
+    // to the literal `local-dev`, which is right for the local MinIO
+    // stack and wrong everywhere else. Without this check a deploy that
+    // forgets (or typos) one variable still boots healthy, and the only
+    // symptom is that every upload and playback fails against the real
+    // provider with an opaque `SignatureDoesNotMatch` — nothing points at
+    // the missing variable. That is an expensive thing to debug during a
+    // storage migration, so refuse to start instead.
+    const nodeEnv = this.config.get<string>('NODE_ENV') ?? 'development';
+    if (nodeEnv === 'production') {
+      const placeholders = Object.entries({
+        R2_ACCOUNT_ID: accountId,
+        R2_ACCESS_KEY_ID: accessKeyId,
+        R2_SECRET_ACCESS_KEY: secretAccessKey,
+      })
+        .filter(([, value]) => !value || value === 'local-dev')
+        .map(([name]) => name);
+      if (placeholders.length > 0) {
+        throw new Error(
+          `R2 storage is not configured: ${placeholders.join(', ')} ` +
+            `${placeholders.length === 1 ? 'is' : 'are'} missing. ` +
+            `Set the Cloudflare R2 credentials (and leave R2_PUBLIC_URL ` +
+            `empty so the default r2.cloudflarestorage.com endpoint is ` +
+            `used), or point R2_PUBLIC_URL at an S3-compatible endpoint.`,
+        );
+      }
+    }
+
     this.client = new S3Client({
       region: 'auto',
       endpoint: this.endpoint,
