@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 
 import { Public } from '../../../common/decorators/public.decorator';
+import { isNonBlockableIp } from '../../../common/security/ip-classification';
 import { IpBlocklistService } from '../blocklist/ip-blocklist.service';
 import { SiemService } from '../siem/siem.service';
 
@@ -210,13 +211,15 @@ export class HoneypotController {
   private async handle(path: string, req: HoneypotRequest): Promise<string> {
     const ip = extractClientIp(req);
 
-    // Never block loopback. Behind a trusted proxy the XFF-aware `req.ip`
-    // already resolves real clients to their public address (so genuine
-    // scanners are still blocked); a loopback `ip` here means the request
-    // truly originated on this host — a health probe, a local smoke test,
-    // or a dev hitting the API directly. Auto-blocking those for 24h just
-    // locks the operator (and the co-located web app) out of their own box.
-    const isLocal = isLoopback(ip);
+    // Never block infrastructure addresses. Behind correctly-configured
+    // IP attribution the XFF/BFF-aware `req.ip` resolves real clients to
+    // their public address, so genuine scanners are still blocked. A
+    // loopback or private `ip` here means we could NOT attribute the
+    // request to a caller — it is a health probe, a local smoke test, or
+    // (the dangerous case) the shared BFF address standing in for every
+    // user at once. Blocking that for 24h locked the whole platform out
+    // on 2026-07-25, `/auth/login` included. See `isNonBlockableIp`.
+    const isLocal = isNonBlockableIp(ip);
 
     // Block the IP for 24h. Best-effort — never let a Redis blip
     // suppress the decoy response, the scanner should still see a
@@ -263,17 +266,6 @@ export class HoneypotController {
     };
     return decoy.body;
   }
-}
-
-function isLoopback(ip: string): boolean {
-  if (!ip) return false;
-  return (
-    ip === '127.0.0.1' ||
-    ip === '::1' ||
-    ip === '::ffff:127.0.0.1' ||
-    ip.startsWith('::ffff:127.') ||
-    ip.startsWith('127.')
-  );
 }
 
 function extractClientIp(req: HoneypotRequest): string {

@@ -19,6 +19,7 @@ import {
   BarChart2,
   Gift,
   Sparkles,
+  ShieldOff,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -84,6 +85,7 @@ export function DashboardSidebar({ locale, role, userName, userEmail }: SidebarP
     { href: `${base}/admin/cms`, label: 'CMS (Kontent)', icon: LayoutDashboard },
     { href: `${base}/admin/ai`, label: 'AI Prompts', icon: MessageCircle },
     { href: `${base}/admin/audit-logs`, label: 'Audit Loglar', icon: FileText },
+    { href: `${base}/admin/ip-blocklist`, label: 'Bloklangan IP’lar', icon: ShieldOff },
     { href: `${base}/admin/plans`, label: 'Tariflar', icon: BarChart3 },
     { href: `${base}/admin/settings`, label: 'Tizim Sozlamalari', icon: Settings },
   ];

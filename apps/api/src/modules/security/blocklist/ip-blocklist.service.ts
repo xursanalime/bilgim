@@ -1,6 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 
 import { RedisService } from '../../../infra/redis/redis.service';
+import { isNonBlockableIp } from '../../../common/security/ip-classification';
 
 /**
  * Status returned by `getBlockReason`. Distinguishes "not blocked"
@@ -14,6 +15,11 @@ export interface IpBlockStatus {
   source?: string | undefined;
   /** Epoch ms expiry (when finite TTL). */
   expiresAt?: number | null | undefined;
+}
+
+/** One row of `listBlocked()` — status plus the IP it belongs to. */
+export interface IpBlockListEntry extends IpBlockStatus {
+  ip: string;
 }
 
 /**
@@ -78,6 +84,18 @@ export class IpBlocklistService {
   ): Promise<boolean> {
     const normalized = this.normalizeIp(ip);
     if (!normalized || normalized === 'unknown') return false;
+    // Never blocklist shared infrastructure — see `isNonBlockableIp`.
+    // The BFF proxies every browser call, so its private address stands
+    // in for the entire user base; blocking it takes the platform (and
+    // `/auth/login`, and therefore the admin unblock UI) offline.
+    if (isNonBlockableIp(normalized)) {
+      this.logger.warn(
+        `block: refusing to blocklist non-blockable address ${normalized} ` +
+          `(reason: ${reason}, source: ${source}) — check BFF_PROXY_SECRET ` +
+          `if this is meant to be a real client`,
+      );
+      return false;
+    }
     if (!this.redis) return false;
     const ttl = Math.max(1, Math.floor(ttlSec));
     const payload = JSON.stringify({
@@ -190,6 +208,10 @@ export class IpBlocklistService {
       for (const raw of ips) {
         const ip = this.normalizeIp(raw);
         if (!ip || ip === 'unknown') continue;
+        // Same guard as `block()` — a feed that (mistakenly or
+        // maliciously) lists a private range must not be able to
+        // blocklist our own infrastructure.
+        if (isNonBlockableIp(ip)) continue;
         pipeline.set(this.ipKey(ip), payload, 'EX', ttl);
         pipeline.sadd(IpBlocklistService.SET_KEY, ip);
         count++;
@@ -202,6 +224,31 @@ export class IpBlocklistService {
       return 0;
     }
     return count;
+  }
+
+  /**
+   * List currently-blocked IPs for the admin unblock UI. Reads the
+   * `SET_KEY` shadow index, then re-checks each member's per-IP key
+   * so an entry that expired since it was added to the set is
+   * dropped rather than shown as still-blocked (see the class doc —
+   * the SET is best-effort and only lazily cleaned).
+   */
+  async listBlocked(limit = 200): Promise<IpBlockListEntry[]> {
+    if (!this.redis) return [];
+    try {
+      const client = this.redis.getClient();
+      const members = await client.smembers(IpBlocklistService.SET_KEY);
+      const capped = members.slice(0, Math.max(1, Math.floor(limit)));
+      const statuses = await Promise.all(
+        capped.map(async (ip) => ({ ip, status: await this.getBlockStatus(ip) })),
+      );
+      return statuses
+        .filter((entry) => entry.status.blocked)
+        .map(({ ip, status }) => ({ ip, ...status }));
+    } catch (err) {
+      this.logger.warn(`listBlocked: failed: ${(err as Error).message}`);
+      return [];
+    }
   }
 
   // =====================================================================

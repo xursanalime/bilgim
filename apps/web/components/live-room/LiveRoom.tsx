@@ -460,7 +460,19 @@ function VideoLayout() {
     { onlySubscribed: false },
   );
 
+  // Zoom kabi spotlight: bosilgan ishtirokchi kattalashadi, qolganlari pastda
+  // kichik carousel bo'lib qoladi. Identity yetarli — bu ro'yxatda har bir
+  // ishtirokchidan faqat bitta kamera treki bo'ladi (screen share alohida).
+  const [spotlightId, setSpotlightId] = React.useState<string | null>(null);
+
   const screenTrack = tracks.find(t => t.source === Track.Source.ScreenShare);
+  const cameraTracks = tracks.filter(t => t.source !== Track.Source.ScreenShare);
+
+  React.useEffect(() => {
+    if (spotlightId && !cameraTracks.some(t => t.participant.identity === spotlightId)) {
+      setSpotlightId(null);
+    }
+  }, [cameraTracks, spotlightId]);
 
   if (screenTrack) {
     return (
@@ -480,9 +492,35 @@ function VideoLayout() {
     );
   }
 
+  const spotlightTrack = spotlightId
+    ? cameraTracks.find(t => t.participant.identity === spotlightId)
+    : undefined;
+
+  if (spotlightTrack && cameraTracks.length > 1) {
+    const otherTracks = cameraTracks.filter(t => t.participant.identity !== spotlightId);
+    return (
+      <div className="flex flex-col h-full gap-2 p-2">
+        <div className="flex-[3] relative rounded-2xl overflow-hidden bg-black border border-white/5">
+          <FocusLayout trackRef={spotlightTrack} onParticipantClick={() => setSpotlightId(null)} />
+        </div>
+        <div className="h-24">
+          <CarouselLayout tracks={otherTracks} className="h-full gap-2">
+            <ParticipantTile
+              className="cursor-pointer rounded-xl overflow-hidden border border-white/10"
+              onParticipantClick={(e) => setSpotlightId(e.participant.identity)}
+            />
+          </CarouselLayout>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <GridLayout tracks={tracks} className="h-full p-2 gap-2">
-      <ParticipantTile className="rounded-2xl overflow-hidden border border-white/5 bg-[#111118]" />
+    <GridLayout tracks={cameraTracks} className="h-full p-2 gap-2">
+      <ParticipantTile
+        className="cursor-pointer rounded-2xl overflow-hidden border border-white/5 bg-[#111118]"
+        onParticipantClick={(e) => cameraTracks.length > 1 && setSpotlightId(e.participant.identity)}
+      />
     </GridLayout>
   );
 }

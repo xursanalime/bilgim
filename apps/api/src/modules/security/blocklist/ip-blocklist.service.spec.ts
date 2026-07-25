@@ -76,6 +76,10 @@ class FakeRedis {
       const removed = set.members.delete(member);
       return removed ? 1 : 0;
     }),
+    smembers: jest.fn(async (key: string): Promise<string[]> => {
+      if (this.errorMode) throw new Error('redis down');
+      return Array.from(this.sets.get(key)?.members ?? []);
+    }),
     pipeline: jest.fn(() => {
       const ops: Array<() => Promise<unknown>> = [];
       const builder = {
@@ -232,5 +236,125 @@ describe('IpBlocklistService — fail-open posture', () => {
 
     const status = await service.getBlockStatus('203.0.113.32');
     expect(status.blocked).toBe(false);
+  });
+
+  it('returns [] on listBlocked when Redis is unavailable', async () => {
+    const service = new IpBlocklistService();
+
+    expect(await service.listBlocked()).toEqual([]);
+  });
+});
+
+describe('IpBlocklistService — infrastructure addresses are never written', () => {
+  // Regression for the 2026-07-25 outage: a honeypot hit blocked the
+  // shared BFF address, taking the whole platform — `/auth/login`
+  // included — offline for 24h.
+  it.each([
+    ['100.64.0.5', "Railway's private network / CGNAT"],
+    ['10.0.0.7', 'RFC1918'],
+    ['192.168.1.20', 'RFC1918'],
+    ['127.0.0.1', 'loopback'],
+    ['::1', 'IPv6 loopback'],
+  ])('refuses to block %s (%s)', async (ip) => {
+    const redis = new FakeRedis();
+    const service = new IpBlocklistService(redis as never);
+
+    expect(await service.block(ip, 600, 'honeypot bait', 'honeypot')).toBe(
+      false,
+    );
+    expect(await service.isBlocked(ip)).toBe(false);
+  });
+
+  it('still blocks a public address', async () => {
+    const redis = new FakeRedis();
+    const service = new IpBlocklistService(redis as never);
+
+    expect(
+      await service.block('203.0.113.5', 600, 'honeypot bait', 'honeypot'),
+    ).toBe(true);
+    expect(await service.isBlocked('203.0.113.5')).toBe(true);
+  });
+
+  it('filters infrastructure out of a bulk feed import without dropping the rest', async () => {
+    const redis = new FakeRedis();
+    const service = new IpBlocklistService(redis as never);
+
+    const count = await service.blockBulk(
+      ['203.0.113.70', '100.64.0.5', '10.0.0.7', '198.51.100.70'],
+      60,
+      'feed',
+      'threat_intel',
+    );
+
+    expect(count).toBe(2);
+    expect(await service.isBlocked('203.0.113.70')).toBe(true);
+    expect(await service.isBlocked('198.51.100.70')).toBe(true);
+    expect(await service.isBlocked('100.64.0.5')).toBe(false);
+    expect(await service.isBlocked('10.0.0.7')).toBe(false);
+  });
+});
+
+describe('IpBlocklistService — listBlocked', () => {
+  it('returns every currently-blocked IP with its reason / source / expiry', async () => {
+    const redis = new FakeRedis();
+    const service = new IpBlocklistService(redis as never);
+
+    await service.block('203.0.113.5', 600, 'honeypot bait', 'honeypot');
+    await service.block('198.51.100.9', 3600, 'threat intel feed', 'threat_intel');
+
+    const entries = await service.listBlocked();
+    const byIp = Object.fromEntries(entries.map((e) => [e.ip, e]));
+
+    expect(entries).toHaveLength(2);
+    expect(byIp['203.0.113.5']).toMatchObject({
+      blocked: true,
+      reason: 'honeypot bait',
+      source: 'honeypot',
+    });
+    expect(byIp['198.51.100.9']).toMatchObject({
+      blocked: true,
+      reason: 'threat intel feed',
+      source: 'threat_intel',
+    });
+  });
+
+  it('drops a SET member whose per-IP key already expired', async () => {
+    const redis = new FakeRedis();
+    const service = new IpBlocklistService(redis as never);
+
+    await service.block('203.0.113.40', 60, 'stale', 'manual');
+    await service.unblock('203.0.113.40');
+    // Simulate a SET entry left behind without its per-IP key —
+    // the shadow index is best-effort per the class doc.
+    (redis as any).sets.set(IpBlocklistService.SET_KEY, {
+      members: new Set(['203.0.113.40']),
+    });
+
+    const entries = await service.listBlocked();
+    expect(entries).toEqual([]);
+  });
+
+  it('respects the limit parameter', async () => {
+    const redis = new FakeRedis();
+    const service = new IpBlocklistService(redis as never);
+
+    await service.blockBulk(
+      ['203.0.113.50', '203.0.113.51', '203.0.113.52'],
+      60,
+      'feed',
+      'threat_intel',
+    );
+
+    const entries = await service.listBlocked(2);
+    expect(entries.length).toBeLessThanOrEqual(2);
+  });
+
+  it('returns [] when Redis throws', async () => {
+    const redis = new FakeRedis();
+    const service = new IpBlocklistService(redis as never);
+    await service.block('203.0.113.60', 60, 'x', 'manual');
+    redis.errorMode = true;
+
+    expect(await service.listBlocked()).toEqual([]);
   });
 });

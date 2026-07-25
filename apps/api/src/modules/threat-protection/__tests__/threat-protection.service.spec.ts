@@ -358,6 +358,46 @@ describe('ThreatProtectionService', () => {
       expect(fetched).toEqual(entry);
     });
 
+    // Regression for the 2026-07-25 outage: every browser request is
+    // proxied by the BFF, so its private address stands in for the whole
+    // user base. A block landing there takes the platform offline.
+    it.each([
+      ['100.64.0.5', "Railway's private network / CGNAT"],
+      ['10.0.0.7', 'RFC1918'],
+      ['192.168.1.20', 'RFC1918'],
+    ])('blockIp refuses to block %s (%s)', async (ip) => {
+      const fake = makeFakeRedis();
+      const service = new ThreatProtectionService(
+        fake.redis,
+        makeConfigService(),
+      );
+
+      expect(await service.blockIp(ip, 'RATE_LIMIT_BURST', 600)).toBeNull();
+      expect(await service.getBlockEntry(ip)).toBeNull();
+    });
+
+    it('getBlockEntry ignores a pre-existing entry on an infrastructure address', async () => {
+      const fake = makeFakeRedis();
+      const service = new ThreatProtectionService(
+        fake.redis,
+        makeConfigService(),
+      );
+
+      // Simulate an entry written before the write-side guard existed.
+      await fake.redis.set(
+        'waf:blocked:100.64.0.5',
+        JSON.stringify({
+          ip: '100.64.0.5',
+          reason: 'RATE_LIMIT_BURST',
+          blockedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        }),
+        600,
+      );
+
+      expect(await service.getBlockEntry('100.64.0.5')).toBeNull();
+    });
+
     it('getBlockEntry returns null after the TTL elapses', async () => {
       const fake = makeFakeRedis();
       const service = new ThreatProtectionService(
