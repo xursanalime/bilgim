@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import helmet from 'helmet';
 import compression from 'compression';
 import { AppModule } from './app.module';
+import { runPendingMigrations } from './infra/prisma';
 import { EnvConfig } from './config/config.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { LessonAccessGuard } from './common/guards/lesson-access.guard';
@@ -24,6 +25,24 @@ import {
 } from './common/observability';
 
 async function bootstrap() {
+  // Apply pending DB migrations BEFORE anything connects.
+  //
+  // There is no migration step in the deploy pipeline (not in
+  // `Dockerfile.api`, CI, or the k8s manifests), so a schema change used
+  // to ship a Prisma client that selected columns the live database did
+  // not have — every query against the changed model then 500'd. Doing it
+  // here means a deploy can never get ahead of its schema.
+  //
+  // Fail closed: if migrations don't apply we exit rather than serve
+  // traffic against a mismatched schema. See `infra/prisma/run-migrations`.
+  try {
+    await runPendingMigrations();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('FATAL: database migrations failed —', (err as Error).message);
+    process.exit(1);
+  }
+
   // Build the structured logger BEFORE NestFactory.create so the very
   // first bootstrap log line ("Starting Nest application") is already
   // routed through the JSON pipeline in production.

@@ -14,3 +14,9 @@ export {
   DEFAULT_SLOW_QUERY_THRESHOLD_MS,
 } from './slow-query.middleware';
 export type { SlowQueryMiddlewareOptions } from './slow-query.middleware';
+export {
+  runPendingMigrations,
+  resolvePrismaCli,
+  resolveSchemaPath,
+  shouldRunMigrations,
+} from './run-migrations';
