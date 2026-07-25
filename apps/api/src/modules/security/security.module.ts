@@ -28,6 +28,7 @@ import { SiemService } from './siem/siem.service';
 import { CorrelationEngine } from './siem/correlation.engine';
 import { IpBlocklistService } from './blocklist/ip-blocklist.service';
 import { IpBlocklistGuard } from './blocklist/ip-blocklist.guard';
+import { IpBlocklistAdminController } from './blocklist/ip-blocklist-admin.controller';
 import { HoneypotController } from './honeypot/honeypot.controller';
 import { ThreatIntelService } from './threat-intel/threat-intel.service';
 import { TlsEnforcementMiddleware } from './tls';
@@ -110,7 +111,7 @@ import {
  */
 @Module({
   imports: [ConfigModule, ScheduleModule.forRoot(), CryptoModule, forwardRef(() => AdminModule)],
-  controllers: [BotDetectionController, HoneypotController, KmsAdminController, AuditTrailController],
+  controllers: [BotDetectionController, HoneypotController, IpBlocklistAdminController, KmsAdminController, AuditTrailController],
   providers: [
     // Task 27.1 — WAF + rate limiting.
     SecurityWafMiddleware,

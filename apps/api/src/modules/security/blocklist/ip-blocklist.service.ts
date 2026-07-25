@@ -16,6 +16,11 @@ export interface IpBlockStatus {
   expiresAt?: number | null | undefined;
 }
 
+/** One row of `listBlocked()` — status plus the IP it belongs to. */
+export interface IpBlockListEntry extends IpBlockStatus {
+  ip: string;
+}
+
 /**
  * `IpBlocklistService` — Task 27.5, Req 27.8 / 27.10.
  *
@@ -202,6 +207,31 @@ export class IpBlocklistService {
       return 0;
     }
     return count;
+  }
+
+  /**
+   * List currently-blocked IPs for the admin unblock UI. Reads the
+   * `SET_KEY` shadow index, then re-checks each member's per-IP key
+   * so an entry that expired since it was added to the set is
+   * dropped rather than shown as still-blocked (see the class doc —
+   * the SET is best-effort and only lazily cleaned).
+   */
+  async listBlocked(limit = 200): Promise<IpBlockListEntry[]> {
+    if (!this.redis) return [];
+    try {
+      const client = this.redis.getClient();
+      const members = await client.smembers(IpBlocklistService.SET_KEY);
+      const capped = members.slice(0, Math.max(1, Math.floor(limit)));
+      const statuses = await Promise.all(
+        capped.map(async (ip) => ({ ip, status: await this.getBlockStatus(ip) })),
+      );
+      return statuses
+        .filter((entry) => entry.status.blocked)
+        .map(({ ip, status }) => ({ ip, ...status }));
+    } catch (err) {
+      this.logger.warn(`listBlocked: failed: ${(err as Error).message}`);
+      return [];
+    }
   }
 
   // =====================================================================

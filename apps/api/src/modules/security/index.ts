@@ -63,8 +63,9 @@ export {
   SIEM_RETENTION_LIMIT,
 } from './siem/siem.types';
 export { IpBlocklistService } from './blocklist/ip-blocklist.service';
-export type { IpBlockStatus } from './blocklist/ip-blocklist.service';
+export type { IpBlockStatus, IpBlockListEntry } from './blocklist/ip-blocklist.service';
 export { IpBlocklistGuard } from './blocklist/ip-blocklist.guard';
+export { IpBlocklistAdminController } from './blocklist/ip-blocklist-admin.controller';
 export { HoneypotController } from './honeypot/honeypot.controller';
 export {
   ThreatIntelService,
