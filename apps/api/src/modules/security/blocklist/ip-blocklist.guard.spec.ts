@@ -217,6 +217,103 @@ describe('IpBlocklistGuard — SIEM emission', () => {
   });
 });
 
+describe('IpBlocklistGuard — infrastructure addresses are never enforced', () => {
+  // Regression: on 2026-07-25 a block landed on the BFF's own private
+  // address, which stands in for every browser client at once. Because
+  // this guard runs ahead of authentication it gated `/auth/login` too,
+  // so nobody — including the admin who would clear the block — could
+  // sign in. Enforcement must refuse these independently of the
+  // write-side guard, or a stale Redis entry keeps the outage running
+  // for its full TTL.
+  it.each([
+    ['100.64.0.5', "Railway's private network / CGNAT"],
+    ['10.0.0.7', 'RFC1918'],
+    ['172.16.4.2', 'RFC1918'],
+    ['192.168.1.20', 'RFC1918'],
+    ['127.0.0.1', 'loopback'],
+    ['::1', 'IPv6 loopback'],
+    ['fd00::5', 'IPv6 ULA'],
+  ])('lets %s through even when Redis says blocked (%s)', async (ip) => {
+    const service = makeService({ blocked: true, reason: 'honeypot' });
+    const guard = new IpBlocklistGuard(service);
+
+    const ctx = makeContext({ ip, url: '/api/v1/auth/login' });
+
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    // Short-circuits before Redis — a lookup here would mean the
+    // classification ran too late to protect the login path.
+    expect(service.getBlockStatus).not.toHaveBeenCalled();
+  });
+
+  it('still rejects a blocked public address', async () => {
+    const service = makeService({ blocked: true, reason: 'honeypot' });
+    const guard = new IpBlocklistGuard(service);
+
+    const ctx = makeContext({ ip: '203.0.113.77', url: '/api/v1/auth/login' });
+
+    await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(HttpException);
+  });
+});
+
+describe('IpBlocklistGuard — break-glass allow-list', () => {
+  function makeConfig(value: string): { get: jest.Mock } {
+    return { get: jest.fn().mockReturnValue(value) };
+  }
+
+  it('lets an allow-listed public IP through despite an active block', async () => {
+    const service = makeService({ blocked: true, reason: 'honeypot' });
+    const guard = new IpBlocklistGuard(
+      service,
+      undefined,
+      makeConfig('203.0.113.5') as never,
+    );
+
+    const ctx = makeContext({ ip: '203.0.113.5', url: '/api/v1/auth/login' });
+
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(service.getBlockStatus).not.toHaveBeenCalled();
+  });
+
+  it('parses a multi-entry list and ignores whitespace', async () => {
+    const service = makeService({ blocked: true, reason: 'honeypot' });
+    const guard = new IpBlocklistGuard(
+      service,
+      undefined,
+      makeConfig(' 198.51.100.9 , 203.0.113.5 ') as never,
+    );
+
+    await expect(
+      guard.canActivate(makeContext({ ip: '198.51.100.9', url: '/api/v1/x' })),
+    ).resolves.toBe(true);
+  });
+
+  it('does not exempt an address that is not on the list', async () => {
+    const service = makeService({ blocked: true, reason: 'honeypot' });
+    const guard = new IpBlocklistGuard(
+      service,
+      undefined,
+      makeConfig('203.0.113.5') as never,
+    );
+
+    const ctx = makeContext({ ip: '203.0.113.6', url: '/api/v1/x' });
+
+    await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(HttpException);
+  });
+
+  it('enforces normally when the env var is unset', async () => {
+    const service = makeService({ blocked: true, reason: 'honeypot' });
+    const guard = new IpBlocklistGuard(
+      service,
+      undefined,
+      makeConfig('') as never,
+    );
+
+    const ctx = makeContext({ ip: '203.0.113.7', url: '/api/v1/x' });
+
+    await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(HttpException);
+  });
+});
+
 describe('IpBlocklistGuard — non-http context', () => {
   it('lets non-http executions pass through', async () => {
     const service = makeService({ blocked: true, reason: 'r' });

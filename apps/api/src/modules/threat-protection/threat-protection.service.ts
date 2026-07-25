@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 
 import { EnvConfig } from '../../config/config.module';
+import { isNonBlockableIp } from '../../common/security/ip-classification';
 import { RedisService } from '../../infra/redis/redis.service';
 
 /**
@@ -332,6 +333,20 @@ export class ThreatProtectionService {
     extra: { signatureId?: string } = {},
   ): Promise<WafBlockEntry | null> {
     if (!this.redis || !ip) return null;
+    // Never blocklist shared infrastructure. The BFF proxies every
+    // browser request, so its private address is not one caller — it is
+    // the whole user base, and blocking it takes the platform offline.
+    // Signature detection and rate limiting still run on these requests
+    // (this is deliberately narrower than the `isAllowed` bypass); only
+    // the persistent per-IP block is withheld. See `isNonBlockableIp`.
+    if (isNonBlockableIp(ip)) {
+      this.logger.warn(
+        `ThreatProtectionService.blockIp: refusing to block non-blockable ` +
+          `address ${ip} (reason: ${reason}) — check BFF_PROXY_SECRET if ` +
+          `this is meant to be a real client`,
+      );
+      return null;
+    }
 
     const blockedAt = new Date();
     const expiresAt = new Date(blockedAt.getTime() + ttlSeconds * 1000);
@@ -373,6 +388,10 @@ export class ThreatProtectionService {
   /** Return the current block entry for `ip`, or `null`. */
   async getBlockEntry(ip: string): Promise<WafBlockEntry | null> {
     if (!this.redis || !ip) return null;
+    // Mirror of the `blockIp` guard: never *enforce* against
+    // infrastructure either, so an entry written before that guard
+    // existed cannot keep the platform blocked for its full TTL.
+    if (isNonBlockableIp(ip)) return null;
     try {
       const raw = await this.redis.get(blocklistKey(ip));
       if (!raw) return null;

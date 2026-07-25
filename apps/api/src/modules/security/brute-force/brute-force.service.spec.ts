@@ -336,6 +336,45 @@ describe('BruteForceService — credential stuffing IP block', () => {
     );
   });
 
+  // Regression for the 2026-07-25 outage. This detector buckets by IP,
+  // and behind the BFF every user shares one address — so ten ordinary
+  // people mistyping a password within the window would trip the
+  // "credential stuffing" threshold and block the whole platform for
+  // 24h, login included. Attribution must be fixed before the signal
+  // means anything, so infrastructure addresses are not tracked at all.
+  it.each([
+    ['100.64.0.5', "Railway's private network / CGNAT"],
+    ['10.0.0.7', 'RFC1918'],
+    ['192.168.1.20', 'RFC1918'],
+  ])('never credential-stuffing-blocks %s (%s)', async (ip) => {
+    const { service, audit } = build();
+
+    // Well past the threshold — a shared address must not accumulate.
+    for (let i = 0; i < BruteForceService.CS_DISTINCT_ACCOUNTS + 5; i++) {
+      await service.recordFailedAttempt(`shared-${i}@example.com`, ip);
+    }
+
+    expect((await service.checkIpStatus(ip)).blocked).toBe(false);
+    expect(audit.log).not.toHaveBeenCalledWith(
+      null,
+      BruteForceService.ACTION_IP_BLOCKED,
+      ip,
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it('still blocks a public address at the threshold', async () => {
+    const { service } = build();
+    const ip = '203.0.113.42';
+
+    for (let i = 0; i < BruteForceService.CS_DISTINCT_ACCOUNTS; i++) {
+      await service.recordFailedAttempt(`public-${i}@example.com`, ip);
+    }
+
+    expect((await service.checkIpStatus(ip)).blocked).toBe(true);
+  });
+
   it('the credential-stuffing window expires after 1 hour', async () => {
     const { service, redis } = build();
     const ip = '198.51.100.20';

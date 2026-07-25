@@ -149,6 +149,41 @@ describe('HoneypotController — IP extraction', () => {
     await controller.wpLogin(req);
     expect(blocklist.block).not.toHaveBeenCalled();
   });
+
+  // Regression for the 2026-07-25 outage: a single honeypot hit blocked
+  // the BFF's shared private address for 24h, taking every user — and
+  // `/auth/login`, and therefore the admin panel that would clear it —
+  // offline. A private `ip` here means the request could not be
+  // attributed to a caller, so there is nobody to punish.
+  it.each([
+    ['100.64.0.5', "Railway's private network / CGNAT"],
+    ['10.0.0.7', 'RFC1918'],
+    ['192.168.1.20', 'RFC1918'],
+    ['::ffff:100.64.0.5', 'IPv4-mapped CGNAT'],
+  ])('does NOT block the shared infrastructure address %s (%s)', async (ip) => {
+    const { controller, blocklist, siem } = build();
+    const req = makeReq('/wp-login.php', {}, ip);
+
+    await controller.wpLogin(req);
+
+    expect(blocklist.block).not.toHaveBeenCalled();
+    // Still recorded — losing the block must not lose the visibility.
+    expect(siem.recordEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('still blocks a public scanner address', async () => {
+    const { controller, blocklist } = build();
+    const req = makeReq('/wp-login.php', {}, '203.0.113.66');
+
+    await controller.wpLogin(req);
+
+    expect(blocklist.block).toHaveBeenCalledWith(
+      '203.0.113.66',
+      expect.any(Number),
+      expect.any(String),
+      'honeypot',
+    );
+  });
 });
 
 describe('HoneypotController — fault tolerance', () => {

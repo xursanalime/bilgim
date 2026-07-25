@@ -1,6 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 
 import { RedisService } from '../../../infra/redis/redis.service';
+import { isNonBlockableIp } from '../../../common/security/ip-classification';
 
 /**
  * Status returned by `getBlockReason`. Distinguishes "not blocked"
@@ -83,6 +84,18 @@ export class IpBlocklistService {
   ): Promise<boolean> {
     const normalized = this.normalizeIp(ip);
     if (!normalized || normalized === 'unknown') return false;
+    // Never blocklist shared infrastructure — see `isNonBlockableIp`.
+    // The BFF proxies every browser call, so its private address stands
+    // in for the entire user base; blocking it takes the platform (and
+    // `/auth/login`, and therefore the admin unblock UI) offline.
+    if (isNonBlockableIp(normalized)) {
+      this.logger.warn(
+        `block: refusing to blocklist non-blockable address ${normalized} ` +
+          `(reason: ${reason}, source: ${source}) — check BFF_PROXY_SECRET ` +
+          `if this is meant to be a real client`,
+      );
+      return false;
+    }
     if (!this.redis) return false;
     const ttl = Math.max(1, Math.floor(ttlSec));
     const payload = JSON.stringify({
@@ -195,6 +208,10 @@ export class IpBlocklistService {
       for (const raw of ips) {
         const ip = this.normalizeIp(raw);
         if (!ip || ip === 'unknown') continue;
+        // Same guard as `block()` — a feed that (mistakenly or
+        // maliciously) lists a private range must not be able to
+        // blocklist our own infrastructure.
+        if (isNonBlockableIp(ip)) continue;
         pipeline.set(this.ipKey(ip), payload, 'EX', ttl);
         pipeline.sadd(IpBlocklistService.SET_KEY, ip);
         count++;

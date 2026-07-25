@@ -115,6 +115,29 @@ export const envSchema = z.object({
    */
   WAF_ALLOWLIST: z.string().default(''),
 
+  /**
+   * Comma-separated IPs that `IpBlocklistGuard` must never reject,
+   * whatever is sitting in the blocklist.
+   *
+   * This is the break-glass control for the failure mode that took the
+   * platform down on 2026-07-25: the guard runs ahead of authentication
+   * and therefore gates `/auth/login` too, so once an address is blocked
+   * nobody using it can sign in — including the admin who would clear
+   * the block from the admin panel. Private / CGNAT addresses are now
+   * structurally unblockable (see `common/security/ip-classification`),
+   * but a *public* address can still be blocked legitimately and then
+   * turn out to be, say, the whole office behind one NAT.
+   *
+   * Setting this needs only an env var and a redeploy — no Redis shell —
+   * which is the point: recovery must not depend on access the operator
+   * may not have. Exact matches only (no CIDR): an over-broad break-glass
+   * entry is worse than a second redeploy.
+   *
+   * Example:
+   *   IP_BLOCKLIST_ALLOWLIST=203.0.113.5,198.51.100.9
+   */
+  IP_BLOCKLIST_ALLOWLIST: z.string().default(''),
+
   // HMAC request signing (Task 29.4, Req 30.1)
   /**
    * Shared secret used to verify `X-Signature` headers on routes

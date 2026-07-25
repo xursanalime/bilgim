@@ -7,7 +7,9 @@ import {
   Logger,
   Optional,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
+import { isNonBlockableIp } from '../../../common/security/ip-classification';
 import { SiemService } from '../siem/siem.service';
 import { IpBlocklistService } from './ip-blocklist.service';
 
@@ -61,10 +63,34 @@ const SKIP_PATH_PREFIXES = [
 export class IpBlocklistGuard implements CanActivate {
   private readonly logger = new Logger(IpBlocklistGuard.name);
 
+  /**
+   * Break-glass allow-list from `IP_BLOCKLIST_ALLOWLIST`. Read once at
+   * construction — recovering from a bad block is a redeploy, and a
+   * per-request env read would only hide that.
+   */
+  private readonly allowList: ReadonlySet<string>;
+
   constructor(
     private readonly blocklist: IpBlocklistService,
     @Optional() private readonly siem?: SiemService,
-  ) {}
+    @Optional() configService?: ConfigService,
+  ) {
+    const raw =
+      (configService?.get('IP_BLOCKLIST_ALLOWLIST') as string | undefined) ??
+      process.env.IP_BLOCKLIST_ALLOWLIST ??
+      '';
+    this.allowList = new Set(
+      raw
+        .split(',')
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    if (this.allowList.size > 0) {
+      this.logger.log(
+        `IP blocklist break-glass allow-list loaded: ${this.allowList.size} entr${this.allowList.size === 1 ? 'y' : 'ies'}`,
+      );
+    }
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (context.getType() !== 'http') return true;
@@ -75,6 +101,20 @@ export class IpBlocklistGuard implements CanActivate {
 
     const ip = extractClientIp(request);
     if (!ip || ip === 'unknown') return true;
+
+    // Never *enforce* a block against shared infrastructure, even if one
+    // is already sitting in Redis from before the write-side guard
+    // existed. `IpBlocklistService.block()` refuses to create these, but
+    // enforcement has to refuse independently: a stale entry on the BFF's
+    // private address would otherwise keep the entire platform — and the
+    // admin unblock UI, which needs `/auth/login` — locked out for the
+    // full TTL, up to 7 days for a threat-intel import.
+    if (isNonBlockableIp(ip)) return true;
+
+    // Break-glass: an operator locked out by a legitimate block on a
+    // public address can restore access with an env var + redeploy,
+    // without needing a Redis shell they may not have.
+    if (this.allowList.has(ip.toLowerCase())) return true;
 
     const status = await this.blocklist.getBlockStatus(ip);
     if (!status.blocked) return true;

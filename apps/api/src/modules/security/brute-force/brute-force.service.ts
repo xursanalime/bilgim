@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 
 import { RedisService } from '../../../infra/redis/redis.service';
+import { isNonBlockableIp } from '../../../common/security/ip-classification';
 import { AdminAuditService } from '../../admin/admin-audit.service';
 import { SiemService } from '../siem/siem.service';
 
@@ -374,6 +375,12 @@ export class BruteForceService {
     if (!this.redis) {
       return { blocked: false };
     }
+    // Mirror of the write-side guard in `trackIpAttempt`: never enforce
+    // against infrastructure, so a marker written before that guard
+    // existed cannot keep the platform locked out for its full 24h.
+    if (isNonBlockableIp(normIp)) {
+      return { blocked: false };
+    }
 
     const blockExpiry = await this.readMarker(this.ipBlockKey(normIp));
     if (blockExpiry) {
@@ -602,6 +609,15 @@ export class BruteForceService {
    */
   private async trackIpAttempt(email: string, ip: string): Promise<void> {
     if (!this.redis || !ip) return;
+
+    // Credential-stuffing detection buckets by IP, so it must not run
+    // against shared infrastructure. Behind the BFF's private address
+    // every user on the platform shares one bucket: ten *legitimate*
+    // people signing in within the window crosses the distinct-account
+    // threshold and blocks the address — and with it everyone, login
+    // included. Attribution has to be fixed (BFF_PROXY_SECRET) before
+    // this signal means anything. See `isNonBlockableIp`.
+    if (isNonBlockableIp(ip)) return;
 
     // Skip when already blocked — no need to inflate the set further.
     const alreadyBlocked = await this.redis

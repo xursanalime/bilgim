@@ -245,19 +245,68 @@ describe('IpBlocklistService — fail-open posture', () => {
   });
 });
 
+describe('IpBlocklistService — infrastructure addresses are never written', () => {
+  // Regression for the 2026-07-25 outage: a honeypot hit blocked the
+  // shared BFF address, taking the whole platform — `/auth/login`
+  // included — offline for 24h.
+  it.each([
+    ['100.64.0.5', "Railway's private network / CGNAT"],
+    ['10.0.0.7', 'RFC1918'],
+    ['192.168.1.20', 'RFC1918'],
+    ['127.0.0.1', 'loopback'],
+    ['::1', 'IPv6 loopback'],
+  ])('refuses to block %s (%s)', async (ip) => {
+    const redis = new FakeRedis();
+    const service = new IpBlocklistService(redis as never);
+
+    expect(await service.block(ip, 600, 'honeypot bait', 'honeypot')).toBe(
+      false,
+    );
+    expect(await service.isBlocked(ip)).toBe(false);
+  });
+
+  it('still blocks a public address', async () => {
+    const redis = new FakeRedis();
+    const service = new IpBlocklistService(redis as never);
+
+    expect(
+      await service.block('203.0.113.5', 600, 'honeypot bait', 'honeypot'),
+    ).toBe(true);
+    expect(await service.isBlocked('203.0.113.5')).toBe(true);
+  });
+
+  it('filters infrastructure out of a bulk feed import without dropping the rest', async () => {
+    const redis = new FakeRedis();
+    const service = new IpBlocklistService(redis as never);
+
+    const count = await service.blockBulk(
+      ['203.0.113.70', '100.64.0.5', '10.0.0.7', '198.51.100.70'],
+      60,
+      'feed',
+      'threat_intel',
+    );
+
+    expect(count).toBe(2);
+    expect(await service.isBlocked('203.0.113.70')).toBe(true);
+    expect(await service.isBlocked('198.51.100.70')).toBe(true);
+    expect(await service.isBlocked('100.64.0.5')).toBe(false);
+    expect(await service.isBlocked('10.0.0.7')).toBe(false);
+  });
+});
+
 describe('IpBlocklistService — listBlocked', () => {
   it('returns every currently-blocked IP with its reason / source / expiry', async () => {
     const redis = new FakeRedis();
     const service = new IpBlocklistService(redis as never);
 
-    await service.block('100.64.0.5', 600, 'honeypot bait', 'honeypot');
+    await service.block('203.0.113.5', 600, 'honeypot bait', 'honeypot');
     await service.block('198.51.100.9', 3600, 'threat intel feed', 'threat_intel');
 
     const entries = await service.listBlocked();
     const byIp = Object.fromEntries(entries.map((e) => [e.ip, e]));
 
     expect(entries).toHaveLength(2);
-    expect(byIp['100.64.0.5']).toMatchObject({
+    expect(byIp['203.0.113.5']).toMatchObject({
       blocked: true,
       reason: 'honeypot bait',
       source: 'honeypot',

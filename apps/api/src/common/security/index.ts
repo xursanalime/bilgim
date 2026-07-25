@@ -59,3 +59,8 @@ export {
   isIpLiteral,
   makeTrustedClientIpHandler,
 } from './trusted-client-ip.middleware';
+
+// Guards every IP-blocking path against blocking shared infrastructure
+// (the BFF's own private address), which would lock out the whole
+// platform including `/auth/login`. See the module doc for the incident.
+export { isNonBlockableIp } from './ip-classification';
