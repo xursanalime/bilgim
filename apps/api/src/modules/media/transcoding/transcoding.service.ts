@@ -85,17 +85,16 @@ export class TranscodingService {
         );
       }
 
-      // 4) Render each variant
+      // 4) Render the whole ladder in one ffmpeg process — the source is
+      //    decoded once and split across variants rather than re-decoded
+      //    per variant. See `FfmpegService.transcodeAllVariants`.
       const hlsDir = path.join(workDir, 'hls');
       fs.mkdirSync(hlsDir, { recursive: true });
-      for (const variant of variants) {
-        const variantDir = path.join(hlsDir, variant.name);
-        await this.ffmpeg.transcodeVariant({
-          inputPath: sourcePath,
-          outputDir: variantDir,
-          variant,
-        });
-      }
+      await this.ffmpeg.transcodeAllVariants({
+        inputPath: sourcePath,
+        hlsDir,
+        variants,
+      });
 
       // 5) Master playlist
       const masterPath = path.join(hlsDir, 'master.m3u8');
