@@ -146,7 +146,7 @@ describe('IpBlocklistGuard — reject path', () => {
     );
   });
 
-  it('honours X-Forwarded-For — picks the leftmost client IP', async () => {
+  it('ignores a spoofed X-Forwarded-For and checks the real connection IP', async () => {
     const status: IpBlockStatus = {
       blocked: true,
       reason: 'manual',
@@ -155,8 +155,11 @@ describe('IpBlocklistGuard — reject path', () => {
     const service = makeService(status);
     const guard = new IpBlocklistGuard(service);
 
+    // A blocked client could otherwise set X-Forwarded-For to any
+    // unblocked value and walk past their own block. The trusted
+    // connection IP (req.ip) must be the one that gets checked.
     const ctx = makeContext({
-      ip: '127.0.0.1',
+      ip: '198.51.100.30',
       url: '/api/v1/users',
       headers: {
         'x-forwarded-for': '198.51.100.77, 10.0.0.1, 172.16.0.1',
@@ -164,7 +167,7 @@ describe('IpBlocklistGuard — reject path', () => {
     });
 
     await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(HttpException);
-    expect(service.getBlockStatus).toHaveBeenCalledWith('198.51.100.77');
+    expect(service.getBlockStatus).toHaveBeenCalledWith('198.51.100.30');
   });
 });
 

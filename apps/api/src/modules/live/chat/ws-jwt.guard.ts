@@ -17,12 +17,35 @@ import { TokensService, type JwtPayload } from '../../auth/tokens.service';
  */
 export type WsAuthUser = JwtPayload;
 
+/** Cookie the web app stores the (httpOnly) access token under. */
+const ACCESS_COOKIE_NAME = 'bilgim_access_token';
+
+/**
+ * Pull the access token out of a raw `Cookie` header string. Returns
+ * `undefined` when the cookie is absent or the header is malformed.
+ */
+function extractCookieToken(cookieHeader: string | undefined): string | undefined {
+  if (!cookieHeader) return undefined;
+  for (const part of cookieHeader.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    const name = part.slice(0, eq).trim();
+    if (name === ACCESS_COOKIE_NAME) {
+      const value = part.slice(eq + 1).trim();
+      return value ? decodeURIComponent(value) : undefined;
+    }
+  }
+  return undefined;
+}
+
 /**
  * Internal helper used by both the guard and the gateway's connection
- * lifecycle hook. Pulls the JWT from `socket.handshake.auth.token`,
- * `handshake.query.token`, or the standard `Authorization: Bearer`
- * header. Returns `null` when no token is present, throws `WsException`
- * when verification fails.
+ * lifecycle hook. Pulls the JWT from the httpOnly `bilgim_access_token`
+ * cookie sent with the handshake (the web app's cookie-based model), and
+ * still accepts `socket.handshake.auth.token`, `handshake.query.token`, or
+ * the `Authorization: Bearer` header for non-browser / legacy clients.
+ * Returns `null` when no token is present, throws `WsException` when
+ * verification fails.
  */
 export async function authenticateSocket(
   socket: Socket,
@@ -33,8 +56,10 @@ export async function authenticateSocket(
   const fromQuery = (handshake.query as { token?: string | string[] } | undefined)
     ?.token;
   const fromHeader = handshake.headers?.authorization;
+  const fromCookie = extractCookieToken(handshake.headers?.cookie);
 
   const raw =
+    fromCookie ??
     fromAuth ??
     (Array.isArray(fromQuery) ? fromQuery[0] : fromQuery) ??
     (typeof fromHeader === 'string' && fromHeader.startsWith('Bearer ')

@@ -1,20 +1,16 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Upload,
-  File,
-  FileText,
-  FileImage,
   FileVideo,
-  FileAudio,
   Loader2,
   Trash2,
-  X,
   ExternalLink,
   Radio,
   Paperclip,
+  AlertCircle,
 } from 'lucide-react';
 
 import {
@@ -27,6 +23,14 @@ import {
 import { apiClient, ApiClientError } from '../../lib/api-client';
 import { resolveContentType } from '../../lib/media-content-type';
 import { cn } from '../../lib/utils';
+import { KIND_COLOR, kindIcon, attachmentFileName as fileName, formatBytes } from '../../lib/attachment-display';
+import { HlsPlayer } from '../lesson/hls-player';
+import {
+  AttachmentPreviewModal,
+  type AttachmentPreviewState as PreviewState,
+} from '../lesson/attachment-preview-modal';
+
+type PlaybackUrlType = 'manifest' | 'variant' | 'original';
 
 interface LessonMaterialsProps {
   lessonId: string;
@@ -40,24 +44,7 @@ interface UploadProgress {
   error?: string;
 }
 
-interface PreviewState {
-  url: string;
-  kind: AttachmentKind;
-  name: string;
-}
-
 const PART_SIZE = 5 * 1024 * 1024; // 5 MiB
-
-const KIND_COLOR: Record<AttachmentKind, string> = {
-  VIDEO: 'bg-blue-tint text-blue',
-  RECORDING: 'bg-purple-tint text-purple',
-  AUDIO: 'bg-purple-tint text-purple',
-  IMAGE: 'bg-teal-tint text-teal',
-  PDF: 'bg-orange-tint text-orange',
-  DOC: 'bg-orange-tint text-orange',
-  SHEET: 'bg-teal-tint text-teal',
-  OTHER: 'bg-tint text-ink-soft',
-};
 
 const isVideoKind = (kind: AttachmentKind) => kind === 'VIDEO' || kind === 'RECORDING';
 
@@ -66,15 +53,64 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploads, setUploads] = useState<Record<string, UploadProgress>>({});
+  const isUploadInProgress = Object.values(uploads).some(
+    (u) => u.status === 'uploading' || u.status === 'completing' || u.status === 'attaching',
+  );
+
+  // Large videos take real time on a production connection (local dev only
+  // felt instant because everything is on localhost) — warn before the
+  // tab/page closes mid-upload so a teacher doesn't lose a half-sent file.
+  useEffect(() => {
+    if (!isUploadInProgress) return undefined;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isUploadInProgress]);
+
+  // `beforeunload` only covers hard navigation (tab close, refresh, typed
+  // URL). Clicking a sidebar link is a client-side Next.js route change —
+  // no unload event fires — so we also intercept anchor clicks anywhere in
+  // the document while an upload is in flight and ask for confirmation
+  // before letting Next's own Link handler run.
+  useEffect(() => {
+    if (!isUploadInProgress) return undefined;
+    const handler = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement)?.closest('a[href]');
+      if (!anchor) return;
+      const confirmed = window.confirm(
+        "Fayl hali yuklanmoqda. Sahifadan chiqsangiz, yuklash bekor bo'ladi. Chiqishni xohlaysizmi?",
+      );
+      if (!confirmed) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    };
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, [isUploadInProgress]);
   const [description, setDescription] = useState('');
   const [descDirty, setDescDirty] = useState(false);
   const [descSaved, setDescSaved] = useState(false);
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [loadingPreview, setLoadingPreview] = useState<string | null>(null);
 
+  const openPreviewFile = useCallback((next: PreviewState) => {
+    setPreview(next);
+  }, []);
+
   const attachmentsQuery = useQuery({
     queryKey: ['lesson', lessonId, 'attachments'],
     queryFn: () => attachmentsApi.listForLesson(lessonId),
+    refetchInterval: (query) => {
+      const attachments = query.state.data;
+      const isProcessing = attachments?.some(
+        (a) => a.asset.status === 'UPLOADING' || a.asset.status === 'TRANSCODING',
+      );
+      return isProcessing ? 3000 : false;
+    },
   });
 
   // Load the lesson so we can seed (and later persist) the materials note,
@@ -117,11 +153,12 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
   const openPreview = useCallback(async (att: Attachment) => {
     setLoadingPreview(att.id);
     try {
-      const res = await apiClient.get<{ url: string }>(
+      const res = await apiClient.get<{ url: string; type: PlaybackUrlType }>(
         `/media/assets/${att.assetId}/url`,
       );
-      setPreview({
+      openPreviewFile({
         url: res.url,
+        type: res.type,
         kind: att.kind,
         name: fileName(att),
       });
@@ -131,7 +168,7 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
     } finally {
       setLoadingPreview(null);
     }
-  }, []);
+  }, [openPreviewFile]);
 
   const uploadFile = useCallback(
     async (file: File) => {
@@ -468,73 +505,7 @@ export function LessonMaterials({ lessonId }: LessonMaterialsProps) {
         </section>
       )}
 
-      {/* Preview Modal */}
-      {preview && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onClick={() => setPreview(null)}
-        >
-          <div
-            className="relative max-h-[90vh] max-w-4xl w-full overflow-auto rounded-2xl bg-canvas p-2 shadow-large"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-2">
-              <p className="truncate text-sm font-semibold text-ink-strong">
-                {preview.name}
-              </p>
-              <button
-                type="button"
-                onClick={() => setPreview(null)}
-                className="rounded-lg p-1.5 text-ink-soft hover:bg-soft hover:text-ink-strong"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex items-center justify-center p-4">
-              {preview.kind === 'IMAGE' && (
-                <img
-                  src={preview.url}
-                  alt={preview.name}
-                  className="max-h-[75vh] max-w-full rounded-xl object-contain"
-                />
-              )}
-              {preview.kind === 'VIDEO' || preview.kind === 'RECORDING' ? (
-                <video
-                  src={preview.url}
-                  controls
-                  autoPlay
-                  className="max-h-[75vh] max-w-full rounded-xl"
-                />
-              ) : null}
-              {preview.kind === 'AUDIO' && (
-                <div className="w-full max-w-md">
-                  <audio src={preview.url} controls autoPlay className="w-full" />
-                </div>
-              )}
-              {(preview.kind === 'PDF' ||
-                preview.kind === 'DOC' ||
-                preview.kind === 'SHEET' ||
-                preview.kind === 'OTHER') && (
-                <div className="text-center">
-                  <FileText className="mx-auto h-16 w-16 text-ink-faint" />
-                  <p className="mt-4 text-sm text-ink-soft">
-                    Bu fayl turini brauzerda ko&apos;rsatib bo&apos;lmaydi.
-                  </p>
-                  <a
-                    href={preview.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center gap-2 rounded-xl bg-blue px-4 py-2 text-sm font-bold text-white hover:bg-blue-600"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Yuklab olish
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <AttachmentPreviewModal preview={preview} onClose={() => setPreview(null)} />
     </>
   );
 }
@@ -552,10 +523,14 @@ function VideoAttachmentCard({
 }: VideoAttachmentCardProps) {
   const isReady =
     attachment.asset.status === 'READY' || attachment.asset.status === 'UPLOADED';
+  const isFailed = attachment.asset.status === 'FAILED';
 
   const urlQuery = useQuery({
     queryKey: ['media-asset-url', attachment.assetId],
-    queryFn: () => apiClient.get<{ url: string }>(`/media/assets/${attachment.assetId}/url`),
+    queryFn: () =>
+      apiClient.get<{ url: string; type: PlaybackUrlType }>(
+        `/media/assets/${attachment.assetId}/url`,
+      ),
     enabled: isReady,
   });
 
@@ -601,16 +576,23 @@ function VideoAttachmentCard({
 
       {isReady ? (
         urlQuery.data ? (
-          <video
+          <HlsPlayer
             src={urlQuery.data.url}
-            controls
-            className="aspect-video w-full bg-black"
+            type={urlQuery.data.type}
+            className="aspect-video w-full"
           />
         ) : (
           <div className="flex aspect-video w-full items-center justify-center bg-ink-strong/95">
             <Loader2 className="h-6 w-6 animate-spin text-white/70" />
           </div>
         )
+      ) : isFailed ? (
+        <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-red-tint">
+          <AlertCircle className="h-5 w-5 text-red" />
+          <p className="text-xs font-medium text-red">
+            Videoni qayta ishlashda xatolik yuz berdi
+          </p>
+        </div>
       ) : (
         <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-tint">
           <Loader2 className="h-5 w-5 animate-spin text-ink-faint" />
@@ -670,40 +652,3 @@ function detectKind(file: File): AttachmentKind {
   return 'OTHER';
 }
 
-function kindIcon(kind: AttachmentKind) {
-  switch (kind) {
-    case 'VIDEO':
-    case 'RECORDING':
-      return <FileVideo className="h-4 w-4" />;
-    case 'AUDIO':
-      return <FileAudio className="h-4 w-4" />;
-    case 'IMAGE':
-      return <FileImage className="h-4 w-4" />;
-    case 'PDF':
-    case 'DOC':
-      return <FileText className="h-4 w-4" />;
-    default:
-      return <File className="h-4 w-4" />;
-  }
-}
-
-function fileName(att: Attachment): string {
-  const meta = att.asset.metadata as Record<string, unknown> | null;
-  const multipart = meta?.multipart as Record<string, unknown> | undefined;
-  if (multipart && typeof multipart.fileName === 'string') {
-    return multipart.fileName;
-  }
-  if (meta && typeof meta.fileName === 'string') {
-    return meta.fileName;
-  }
-  return `${att.kind}-${att.id.slice(0, 8)}`;
-}
-
-function formatBytes(bytes: number | null): string {
-  if (bytes == null) return '—';
-  const n = Number(bytes);
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
-  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}

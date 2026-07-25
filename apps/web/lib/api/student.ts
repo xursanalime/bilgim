@@ -64,13 +64,26 @@ export interface LessonSummary {
   createdAt: string;
 }
 
+export interface LessonAttachmentAsset {
+  id: string;
+  kind: string;
+  status: 'UPLOADING' | 'UPLOADED' | 'TRANSCODING' | 'READY' | 'FAILED';
+  bytes: number | null;
+  contentType: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface LessonAttachment {
   id: string;
   lessonId: string;
   assetId: string;
-  kind: 'VIDEO' | 'AUDIO' | 'PDF' | 'IMAGE' | 'FILE' | 'DOCX' | 'XLSX';
+  kind: 'VIDEO' | 'RECORDING' | 'AUDIO' | 'IMAGE' | 'PDF' | 'DOC' | 'SHEET' | 'OTHER';
   role: string;
   position: number;
+  caption: string | null;
+  createdAt: string;
+  asset: LessonAttachmentAsset;
 }
 
 export interface LessonDetail extends LessonSummary {

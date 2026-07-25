@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { StreakService } from './streak.service';
 import { ChallengeService } from './challenge.service';
 import { LeaderboardService } from './leaderboard.service';
@@ -32,6 +32,7 @@ export class GamificationCron {
     // In a real system, we'd batch this.
     const profilesToReset = await this.prisma.gamificationProfile.findMany({
       where: {
+        role: { not: UserRole.TEACHER },
         currentStreak: { gt: 0 },
         lastActiveDate: { lt: yesterday },
       },
@@ -83,6 +84,7 @@ export class GamificationCron {
 
     // 3. Reset weekly XP in DB
     await this.prisma.gamificationProfile.updateMany({
+      where: { role: { not: UserRole.TEACHER } },
       data: { weeklyXp: 0 },
     });
   }

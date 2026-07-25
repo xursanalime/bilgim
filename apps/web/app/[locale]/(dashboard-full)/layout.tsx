@@ -6,7 +6,6 @@ import { DashboardTopNav } from '../../../components/dashboard/top-nav';
 import { DashboardSidebar } from '../../../components/dashboard/sidebar';
 import { requireAuth } from '../../../lib/auth-server';
 import { GamificationToastProvider } from '../../../components/providers/gamification-toast-provider';
-import { AiChatWidget } from '../../../components/ai/ai-chat-widget';
 
 interface LayoutProps {
   children: ReactNode;
@@ -25,29 +24,32 @@ export default function DashboardFullLayout({
   unstable_setRequestLocale(locale);
   const user = requireAuth({ locale });
 
+  const content = (
+    <div className="flex h-screen bg-base text-ink-strong overflow-hidden">
+      <DashboardSidebar
+        locale={locale}
+        role={user.role}
+        userName={''}
+        userEmail={user.email}
+      />
+
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <DashboardTopNav locale={locale} role={user.role} email={user.email} />
+
+        {/* No padding, no max-width — children fill everything */}
+        <main className="flex-1 overflow-hidden">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+
   return (
     <QueryProvider>
-      <GamificationToastProvider>
-        <div className="flex h-screen bg-base text-ink-strong overflow-hidden">
-          <AiChatWidget role={user.role as 'STUDENT' | 'TEACHER' | 'ADMIN'} />
-
-          <DashboardSidebar
-            locale={locale}
-            role={user.role}
-            userName={''}
-            userEmail={user.email}
-          />
-
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <DashboardTopNav locale={locale} role={user.role} email={user.email} />
-
-            {/* No padding, no max-width — children fill everything */}
-            <main className="flex-1 overflow-hidden">
-              {children}
-            </main>
-          </div>
-        </div>
-      </GamificationToastProvider>
+      {/* Gamification (XP/streaks) is disabled for teachers */}
+      {user.role === 'TEACHER' ? content : (
+        <GamificationToastProvider>{content}</GamificationToastProvider>
+      )}
     </QueryProvider>
   );
 }

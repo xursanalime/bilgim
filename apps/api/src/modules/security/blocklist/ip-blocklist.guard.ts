@@ -150,6 +150,16 @@ export class IpBlocklistGuard implements CanActivate {
 }
 
 function extractClientIp(req: BlocklistRequest): string {
+  // SECURITY: trust ONLY the IP Express derived under `trust proxy =
+  // 'loopback'` (req.ip), plus the raw socket address as a fallback. A
+  // client-supplied `X-Forwarded-For` must never override this, or a
+  // blocked attacker could set the header to any unblocked value and walk
+  // straight past their own block. The header is consulted only when no
+  // connection IP exists at all (non-Express unit-test stubs).
+  const direct =
+    req.ip ?? req.connection?.remoteAddress ?? req.socket?.remoteAddress;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+
   const forwarded = req.headers?.['x-forwarded-for'];
   if (typeof forwarded === 'string' && forwarded.length > 0) {
     const first = forwarded.split(',')[0];
@@ -159,12 +169,7 @@ function extractClientIp(req: BlocklistRequest): string {
     const first = String(forwarded[0]).split(',')[0];
     if (first && first.trim()) return first.trim();
   }
-  return (
-    req.ip ??
-    req.connection?.remoteAddress ??
-    req.socket?.remoteAddress ??
-    'unknown'
-  );
+  return 'unknown';
 }
 
 function sanitisePath(req: BlocklistRequest): string {

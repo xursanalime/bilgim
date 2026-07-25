@@ -2,16 +2,19 @@
 
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
-import { ArrowLeft, Radio, FileText, Download, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { ArrowLeft, Radio, FileText, Eye, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 import { HlsPlayer } from './hls-player';
+import { AttachmentPreviewModal, type AttachmentPreviewState } from './attachment-preview-modal';
+import { KIND_COLOR, kindIcon, attachmentFileName, formatBytes } from '../../lib/attachment-display';
 import {
   studentApi,
   type LessonAttachment,
   type MediaPlaybackResponse,
 } from '../../lib/api/student';
 import { ApiClientError } from '../../lib/api-client';
+import { cn } from '../../lib/utils';
 
 interface LessonPlayerProps {
   locale: string;
@@ -61,6 +64,24 @@ export function LessonPlayer({ locale, lessonId }: LessonPlayerProps) {
     queryFn: () => studentApi.getMediaPlayback(primaryVideo!.assetId),
     enabled: Boolean(primaryVideo),
   });
+
+  const [preview, setPreview] = useState<AttachmentPreviewState | null>(null);
+  const [loadingAttachmentId, setLoadingAttachmentId] = useState<string | null>(null);
+
+  const openAttachment = useCallback(async (att: LessonAttachment) => {
+    setLoadingAttachmentId(att.id);
+    try {
+      const res = await studentApi.getMediaPlayback(att.assetId);
+      setPreview({
+        url: res.url,
+        type: res.type,
+        kind: att.kind,
+        name: attachmentFileName(att),
+      });
+    } finally {
+      setLoadingAttachmentId(null);
+    }
+  }, []);
 
   if (lessonQuery.isLoading) {
     return <PlayerSkeleton />;
@@ -144,9 +165,13 @@ export function LessonPlayer({ locale, lessonId }: LessonPlayerProps) {
           <AttachmentsPanel
             attachments={lesson.attachments ?? []}
             primaryVideoId={primaryVideo?.id ?? null}
+            loadingAttachmentId={loadingAttachmentId}
+            onOpen={openAttachment}
           />
         </aside>
       </div>
+
+      <AttachmentPreviewModal preview={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }
@@ -228,11 +253,15 @@ function PlayerSurface({
 interface AttachmentsPanelProps {
   attachments: LessonAttachment[];
   primaryVideoId: string | null;
+  loadingAttachmentId: string | null;
+  onOpen: (attachment: LessonAttachment) => void;
 }
 
 function AttachmentsPanel({
   attachments,
   primaryVideoId,
+  loadingAttachmentId,
+  onOpen,
 }: AttachmentsPanelProps) {
   const sorted = [...attachments].sort((a, b) => a.position - b.position);
   const supplementary = sorted.filter((a) => a.id !== primaryVideoId);
@@ -251,7 +280,11 @@ function AttachmentsPanel({
         <ul className="mt-3 space-y-2">
           {supplementary.map((att) => (
             <li key={att.id}>
-              <AttachmentLink attachment={att} />
+              <AttachmentLink
+                attachment={att}
+                isLoading={loadingAttachmentId === att.id}
+                onOpen={() => onOpen(att)}
+              />
             </li>
           ))}
         </ul>
@@ -260,44 +293,36 @@ function AttachmentsPanel({
   );
 }
 
-function AttachmentLink({ attachment }: { attachment: LessonAttachment }) {
-  const playbackQuery = useQuery({
-    queryKey: ['media', 'playback', attachment.assetId],
-    queryFn: () => studentApi.getMediaPlayback(attachment.assetId),
-    // Lazy: only resolve the signed URL when the user opens the panel.
-    staleTime: 5 * 60_000,
-  });
-
-  const url = playbackQuery.data?.url;
-
+function AttachmentLink({
+  attachment,
+  isLoading,
+  onOpen,
+}: {
+  attachment: LessonAttachment;
+  isLoading: boolean;
+  onOpen: () => void;
+}) {
   return (
-    <a
-      href={url ?? '#'}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`flex items-center justify-between gap-3 rounded-2xl border border-rim bg-tint px-3.5 py-2.5 text-sm text-ink-strong transition-all ${
-        url
-          ? 'hover:border-blue/30 hover:bg-blue-tint active:scale-[0.98]'
-          : 'cursor-progress opacity-60'
-      }`}
-      onClick={(e) => {
-        if (!url) e.preventDefault();
-      }}
+    <button
+      type="button"
+      onClick={onOpen}
+      disabled={isLoading}
+      className="group flex w-full items-center gap-3 rounded-2xl border border-rim bg-tint px-3.5 py-2.5 text-left text-sm text-ink-strong transition-all hover:border-blue/20 hover:bg-blue-tint active:scale-[0.98] disabled:cursor-progress disabled:opacity-70"
     >
-      <span className="flex min-w-0 items-center gap-2">
-        <span className="shrink-0 rounded-full border border-rim bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-ink-faint">
-          {attachment.kind}
-        </span>
-        <span className="truncate font-medium">{attachment.role || 'Material'}</span>
-      </span>
-      <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-ink-faint">
-        {playbackQuery.isLoading ? '...' : (
-          <>
-            <Download className="h-3 w-3" /> Yuklash
-          </>
+      <span
+        className={cn(
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+          KIND_COLOR[attachment.kind],
         )}
+      >
+        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : kindIcon(attachment.kind)}
       </span>
-    </a>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium">{attachmentFileName(attachment)}</span>
+        <span className="block text-xs text-ink-soft">{formatBytes(attachment.asset.bytes)}</span>
+      </span>
+      <Eye className="h-3.5 w-3.5 shrink-0 text-ink-faint opacity-0 transition-opacity group-hover:opacity-100" />
+    </button>
   );
 }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { getAccessToken } from '../lib/auth';
+import { isAuthenticated } from '../lib/auth';
 
 export type LiveRole = 'TEACHER' | 'STUDENT';
 
@@ -36,14 +36,18 @@ export function useLiveSession({ lessonId, role, name, onJoinSuccess }: UseLiveS
   }, []);
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
+    if (!isAuthenticated()) {
       setError('Sessiya topilmadi. Iltimos, qaytadan kiring.');
       return;
     }
 
-    const newSocket = io('http://localhost:4000/live-sfu', {
-      auth: { token },
+    // Cookie-based auth: `withCredentials` attaches the httpOnly session
+    // cookie to the WebSocket handshake; the SFU gateway's `authenticateSocket`
+    // reads the token from there. No token is handled in JS.
+    const sfuOrigin =
+      process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const newSocket = io(`${sfuOrigin}/live-sfu`, {
+      withCredentials: true,
       transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: 10,

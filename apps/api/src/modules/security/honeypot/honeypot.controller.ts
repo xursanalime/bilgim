@@ -210,20 +210,30 @@ export class HoneypotController {
   private async handle(path: string, req: HoneypotRequest): Promise<string> {
     const ip = extractClientIp(req);
 
+    // Never block loopback. Behind a trusted proxy the XFF-aware `req.ip`
+    // already resolves real clients to their public address (so genuine
+    // scanners are still blocked); a loopback `ip` here means the request
+    // truly originated on this host — a health probe, a local smoke test,
+    // or a dev hitting the API directly. Auto-blocking those for 24h just
+    // locks the operator (and the co-located web app) out of their own box.
+    const isLocal = isLoopback(ip);
+
     // Block the IP for 24h. Best-effort — never let a Redis blip
     // suppress the decoy response, the scanner should still see a
     // plausible body.
-    try {
-      await this.blocklist.block(
-        ip,
-        IpBlocklistService.DEFAULT_HONEYPOT_TTL_SEC,
-        `Honeypot endpoint hit: ${path}`,
-        'honeypot',
-      );
-    } catch (err) {
-      this.logger.warn(
-        `handle: blocklist write failed for ${ip} on ${path}: ${(err as Error).message}`,
-      );
+    if (!isLocal) {
+      try {
+        await this.blocklist.block(
+          ip,
+          IpBlocklistService.DEFAULT_HONEYPOT_TTL_SEC,
+          `Honeypot endpoint hit: ${path}`,
+          'honeypot',
+        );
+      } catch (err) {
+        this.logger.warn(
+          `handle: blocklist write failed for ${ip} on ${path}: ${(err as Error).message}`,
+        );
+      }
     }
 
     if (this.siem) {
@@ -255,7 +265,29 @@ export class HoneypotController {
   }
 }
 
+function isLoopback(ip: string): boolean {
+  if (!ip) return false;
+  return (
+    ip === '127.0.0.1' ||
+    ip === '::1' ||
+    ip === '::ffff:127.0.0.1' ||
+    ip.startsWith('::ffff:127.') ||
+    ip.startsWith('127.')
+  );
+}
+
 function extractClientIp(req: HoneypotRequest): string {
+  // SECURITY: trust ONLY the IP Express derived under `trust proxy =
+  // 'loopback'` (req.ip), plus the raw socket address as a fallback. A
+  // client-supplied `X-Forwarded-For` must never override this — otherwise
+  // an attacker could forge their source IP to poison this blocklist (block
+  // an arbitrary victim / a whole NAT gateway) or dodge their own block.
+  // The header is consulted only when no connection IP exists at all
+  // (non-Express unit-test stubs); a real request always has one.
+  const direct =
+    req.ip ?? req.connection?.remoteAddress ?? req.socket?.remoteAddress;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+
   const forwarded = req.headers?.['x-forwarded-for'];
   if (typeof forwarded === 'string' && forwarded.length > 0) {
     const first = forwarded.split(',')[0];
@@ -265,12 +297,7 @@ function extractClientIp(req: HoneypotRequest): string {
     const first = String(forwarded[0]).split(',')[0];
     if (first && first.trim()) return first.trim();
   }
-  return (
-    req.ip ??
-    req.connection?.remoteAddress ??
-    req.socket?.remoteAddress ??
-    'unknown'
-  );
+  return 'unknown';
 }
 
 function extractUserAgent(req: HoneypotRequest): string | null {

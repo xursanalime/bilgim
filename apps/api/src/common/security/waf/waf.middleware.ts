@@ -491,6 +491,16 @@ function stringify(value: unknown): string {
  * by both layers.
  */
 function extractClientIp(req: WafRequest): string {
+  // SECURITY: trust ONLY the IP Express derived under `trust proxy =
+  // 'loopback'` (req.ip), plus the raw socket address as a fallback. A
+  // client-supplied `X-Forwarded-For` must never override this, or an
+  // attacker could rotate the header to evade the WAF's per-IP rate
+  // limiting. The header is consulted only when no connection IP exists at
+  // all (non-Express unit-test stubs).
+  const direct =
+    req.ip ?? req.connection?.remoteAddress ?? req.socket?.remoteAddress;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+
   const forwarded = req.headers?.['x-forwarded-for'];
   if (typeof forwarded === 'string' && forwarded.length > 0) {
     const first = forwarded.split(',')[0];
@@ -500,12 +510,7 @@ function extractClientIp(req: WafRequest): string {
     const first = String(forwarded[0]).split(',')[0];
     if (first && first.trim()) return first.trim();
   }
-  return (
-    req.ip ??
-    req.connection?.remoteAddress ??
-    req.socket?.remoteAddress ??
-    'unknown'
-  );
+  return 'unknown';
 }
 
 /**

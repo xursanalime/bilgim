@@ -3,8 +3,7 @@
  * Uses the existing apiClient from lib/api-client.ts.
  */
 
-import { apiClient } from './api-client';
-import { setTokens } from './auth';
+import { apiClient, ApiClientError } from './api-client';
 
 // ═══════════════════════════════════════════════════════════════
 // Types (mirror the backend DTOs)
@@ -30,8 +29,8 @@ export interface LoginPayload {
 }
 
 export interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
+  // Tokens are NOT returned to the browser anymore — the BFF login endpoint
+  // keeps them in httpOnly cookies. Only the non-secret profile comes back.
   user: {
     id: string;
     email: string;
@@ -78,21 +77,32 @@ export const authApi = {
 
   /**
    * POST /auth/login — also stores tokens on success.
-   * @param remember - "Eslab qolish" checkbox; false keeps the session
-   *   scoped to the current browser session only (see `setTokens`).
+   * @param remember - "Eslab qolish" checkbox; false makes the httpOnly
+   *   cookies session-scoped (cleared when the browser closes).
    */
   async login(payload: LoginPayload, remember = true): Promise<LoginResponse> {
-    const result = await apiClient.post<LoginResponse>('/auth/login', payload, {
-      public: true,
+    // Posts to the same-origin BFF login endpoint, which relays to the API
+    // and stores the returned tokens in httpOnly cookies. Only `{ user }`
+    // comes back — the tokens never enter this JS context.
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ ...payload, remember }),
     });
-    setTokens(
-      {
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
-      },
-      remember,
-    );
-    return result;
+    const data = (await res.json().catch(() => ({}))) as
+      | LoginResponse
+      | { error?: { code?: string; message?: string } };
+
+    if (!res.ok || !('user' in data) || !data.user) {
+      const err = (data as { error?: { code?: string; message?: string } }).error;
+      throw new ApiClientError(
+        res.status,
+        err?.message || 'Login failed',
+        err ?? {},
+      );
+    }
+    return data as LoginResponse;
   },
 
   /** POST /auth/password-reset/request */

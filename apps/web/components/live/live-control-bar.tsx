@@ -11,7 +11,7 @@ import {
   useMediaDeviceSelect,
   useRoomContext,
 } from '@livekit/components-react';
-import { Track, VideoPresets } from 'livekit-client';
+import { Track, VideoPresets, LocalVideoTrack } from 'livekit-client';
 
 interface LiveControlBarProps {
   isMicOn: boolean;
@@ -77,11 +77,13 @@ export function LiveControlBar({
 
   const handleQuality = async (q: '360p' | '720p' | '1080p') => {
     onSetQuality(q);
-    // Apply to LiveKit local track
+    // Recapture at the new resolution — this is what actually drives
+    // simulcast layer selection; there is no such thing as a
+    // "setPublishingQuality" API on the track.
     const camTrack = room?.localParticipant?.getTrackPublication(Track.Source.Camera)?.track;
-    if (camTrack && QUALITY_PRESETS[q]) {
+    if (camTrack instanceof LocalVideoTrack) {
       try {
-        await (camTrack as any).setPublishingQuality?.(QUALITY_PRESETS[q]);
+        await camTrack.restartTrack({ resolution: QUALITY_PRESETS[q].resolution });
       } catch {}
     }
   };

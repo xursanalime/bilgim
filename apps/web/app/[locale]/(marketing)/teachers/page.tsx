@@ -54,9 +54,8 @@ export function generateMetadata({
  * "browse all" entry point.
  *
  * Styled with the platform's own light Apple-style design tokens
- * (canvas/rim/ink, blue accent) rather than the marketing site's dark
- * theme, per explicit design direction to keep this listing consistent
- * with the rest of the product.
+ * (canvas/rim/ink, blue accent, liquid-glass, hero gradient) — the same
+ * language as the homepage hero — rather than an invented theme.
  */
 export default async function TeachersListPage({
   params: { locale },
@@ -90,34 +89,56 @@ export default async function TeachersListPage({
     `/${locale}/teachers?cursor=${encodeURIComponent(next)}`;
 
   return (
-    <section className="relative overflow-hidden py-16 sm:py-20">
-      <div className="pointer-events-none absolute -right-32 -top-32 h-[400px] w-[400px] rounded-full bg-blue/5 blur-[100px]" />
-      <div className="pointer-events-none absolute -left-32 bottom-0 h-[300px] w-[300px] rounded-full bg-purple/5 blur-[100px]" />
+    <section className="relative isolate overflow-hidden py-16 sm:py-20 lg:py-24">
+      {/* Ambient backdrop — dot grid + soft aurora orbs, fading into the page */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-dotgrid opacity-40"
+        style={{
+          maskImage: 'linear-gradient(to bottom, black 0%, transparent 60%)',
+          WebkitMaskImage:
+            'linear-gradient(to bottom, black 0%, transparent 60%)',
+        }}
+      />
+      <div className="pointer-events-none absolute -right-32 -top-48 h-[480px] w-[480px] rounded-full bg-blue/10 blur-[120px]" />
+      <div className="pointer-events-none absolute -left-40 top-1/4 h-[380px] w-[380px] rounded-full bg-purple/10 blur-[120px]" />
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="relative container-aurora">
         <header className="max-w-3xl">
-          <span className="inline-flex items-center gap-2 rounded-full border border-blue/15 bg-blue-tint px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-blue">
-            <span className="h-1.5 w-1.5 rounded-full bg-blue" />
-            Ustozlar
+          <span className="liquid-glass inline-flex items-center gap-2.5 rounded-full py-1.5 pl-2 pr-4">
+            <span className="flex items-center gap-1.5 rounded-full bg-blue px-2.5 py-0.5 text-white">
+              <Sparkles className="h-3 w-3" />
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em]">
+                Ustozlar
+              </span>
+            </span>
+            <span className="text-xs font-medium text-ink-strong">
+              Platformadagi barcha ochiq profillar
+            </span>
           </span>
-          <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-ink-strong sm:text-4xl lg:text-5xl">
-            Bilgim ustozlari
+
+          <h1
+            className="mt-6 font-display font-extrabold leading-[1.05] text-ink-strong"
+            style={{ fontSize: 'clamp(2.5rem, 6vw, 4.25rem)', letterSpacing: '-0.035em' }}
+          >
+            Bilgim <span className="text-hero-gradient italic">ustozlari</span>
           </h1>
-          <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-soft sm:text-base">
+          <p className="mt-4 max-w-xl text-balance text-base leading-relaxed text-ink-soft sm:text-lg">
             Platformadagi barcha ochiq ustozlar. Profil ochib, ularning
             ochiq kurslariga koʻz tashlang.
           </p>
-          <div className="mt-6 flex flex-wrap gap-3 text-sm">
+
+          <div className="mt-8 flex flex-wrap gap-3 text-sm">
             <Link
               href={`/${locale}/search`}
-              className="inline-flex items-center gap-2 rounded-2xl border border-rim bg-canvas px-4 py-2.5 font-semibold text-ink-soft shadow-soft transition-all hover:border-blue/20 hover:text-blue"
+              className="liquid-glass inline-flex items-center gap-2 rounded-full px-4 py-2.5 font-semibold text-ink-soft transition-all hover:text-blue"
             >
               <Search className="h-4 w-4" />
               Qidirish
             </Link>
             <Link
               href={`/${locale}/courses`}
-              className="inline-flex items-center gap-2 rounded-2xl border border-rim bg-canvas px-4 py-2.5 font-semibold text-ink-soft shadow-soft transition-all hover:border-blue/20 hover:text-blue"
+              className="liquid-glass inline-flex items-center gap-2 rounded-full px-4 py-2.5 font-semibold text-ink-soft transition-all hover:text-blue"
             >
               <BookOpen className="h-4 w-4" />
               Kurslar
@@ -125,7 +146,7 @@ export default async function TeachersListPage({
           </div>
         </header>
 
-        <div className="mt-10">
+        <div className="mt-12">
           {loadError ? (
             <div className="flex flex-col gap-4 rounded-3xl border border-red/15 bg-red-tint p-6 text-sm sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3 font-bold text-red">
@@ -140,8 +161,8 @@ export default async function TeachersListPage({
               </Link>
             </div>
           ) : teachers.length === 0 ? (
-            <div className="rounded-3xl border border-rim bg-canvas p-12 text-center shadow-soft">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-tint text-blue">
+            <div className="liquid-glass rounded-3xl p-12 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-hero-gradient text-white shadow-blue-soft">
                 <Sparkles className="h-6 w-6" />
               </div>
               <h3 className="mt-4 text-lg font-extrabold text-ink-strong">
@@ -153,9 +174,13 @@ export default async function TeachersListPage({
             </div>
           ) : (
             <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {teachers.map((teacher) => (
-                <li key={teacher.id}>
-                  <LightTeacherCard teacher={teacher} locale={locale} />
+              {teachers.map((teacher, index) => (
+                <li
+                  key={teacher.id}
+                  className="animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards duration-500"
+                  style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
+                >
+                  <TeacherCard teacher={teacher} locale={locale} />
                 </li>
               ))}
             </ul>
@@ -166,7 +191,7 @@ export default async function TeachersListPage({
           <div className="mt-10 text-center">
             <Link
               href={buildCursorHref(nextCursor)}
-              className="inline-flex items-center gap-2 rounded-2xl border border-rim bg-canvas px-6 py-3 text-sm font-bold text-ink-soft shadow-soft transition-all hover:border-blue/20 hover:text-blue"
+              className="liquid-glass inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-ink-soft transition-all hover:text-blue"
             >
               Keyingi sahifa
               <ArrowRight className="h-4 w-4" />
@@ -178,7 +203,22 @@ export default async function TeachersListPage({
   );
 }
 
-function LightTeacherCard({
+const SPECIALTY_ACCENTS = [
+  { text: 'text-blue', border: 'border-blue/15', bg: 'bg-blue-tint' },
+  { text: 'text-purple', border: 'border-purple/15', bg: 'bg-purple-tint' },
+  { text: 'text-teal', border: 'border-teal/15', bg: 'bg-teal-tint' },
+  { text: 'text-orange', border: 'border-orange/15', bg: 'bg-orange-tint' },
+] as const;
+
+function accentForSpecialty(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return SPECIALTY_ACCENTS[hash % SPECIALTY_ACCENTS.length]!;
+}
+
+function TeacherCard({
   teacher,
   locale,
 }: {
@@ -189,11 +229,16 @@ function LightTeacherCard({
   const slug = teacher.slug;
   const profileHref = slug ? `/${locale}/teachers/${slug}` : null;
   const initials = getInitials(fullName);
+  const accent = teacher.specialty
+    ? accentForSpecialty(teacher.specialty.nameUz)
+    : SPECIALTY_ACCENTS[0]!;
 
   const card = (
-    <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-rim bg-canvas p-6 shadow-soft transition-all hover:-translate-y-0.5 hover:border-blue/20 hover:shadow-medium">
-      <div className="flex items-start gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-blue-tint text-blue">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-rim bg-canvas p-6 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:border-blue/20 hover:shadow-large">
+      <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-blue/5 blur-2xl transition-colors duration-300 group-hover:bg-blue/10" />
+
+      <div className="relative flex items-start gap-4">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-hero-gradient text-white shadow-blue-soft ring-4 ring-white">
           {teacher.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -202,12 +247,12 @@ function LightTeacherCard({
               className="h-full w-full object-cover"
             />
           ) : (
-            <span className="text-base font-extrabold tracking-tight">
+            <span className="text-lg font-extrabold tracking-tight">
               {initials}
             </span>
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 pt-1">
           <h3 className="truncate text-base font-extrabold tracking-tight text-ink-strong">
             {fullName}
           </h3>
@@ -220,20 +265,22 @@ function LightTeacherCard({
       </div>
 
       {teacher.specialty && (
-        <div className="mt-5">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue/15 bg-blue-tint px-3 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-blue">
+        <div className="relative mt-5">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.1em] ${accent.border} ${accent.bg} ${accent.text}`}
+          >
             {teacher.specialty.nameUz}
           </span>
         </div>
       )}
 
-      <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-rim pt-4 text-center">
+      <dl className="relative mt-5 grid grid-cols-3 gap-3 border-t border-rim pt-4 text-center">
         <Stat icon={Star} label="Reyting" value={formatRating(teacher.rating)} />
         <Stat icon={Users} label="Talabalar" value={String(teacher.studentsCount)} />
         <Stat icon={Layers} label="Kurslar" value={String(teacher.courseCount)} />
       </dl>
 
-      <div className="mt-6">
+      <div className="relative mt-6">
         {profileHref ? (
           <span className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-tint px-4 py-2.5 text-sm font-bold text-blue transition-colors group-hover:bg-blue group-hover:text-white">
             Profilga kirish
@@ -250,7 +297,7 @@ function LightTeacherCard({
 
   if (!profileHref) return card;
   return (
-    <Link href={profileHref} className="block focus:outline-none">
+    <Link href={profileHref} className="block h-full focus:outline-none">
       {card}
     </Link>
   );

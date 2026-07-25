@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { GamificationService } from './gamification.service';
 
 @Injectable()
@@ -25,6 +25,9 @@ export class StreakService {
       });
 
       if (!profile) return;
+
+      // Streaks are disabled for teachers.
+      if (profile.role === UserRole.TEACHER) return;
 
       const lastActive = profile.lastActiveDate ? new Date(profile.lastActiveDate) : null;
       if (lastActive) lastActive.setHours(0, 0, 0, 0);
@@ -71,7 +74,7 @@ export class StreakService {
         where: { userId },
       });
 
-      if (!profile || profile.freezesLeft <= 0) {
+      if (!profile || profile.role === UserRole.TEACHER || profile.freezesLeft <= 0) {
         throw new Error('No freezes left');
       }
 

@@ -8,7 +8,8 @@ export default async function RewardsPage({
   params: { locale: string };
 }) {
   unstable_setRequestLocale(locale);
-  requireAuth({ locale });
+  // Gamification is disabled for teachers.
+  requireAuth({ locale, roles: ['STUDENT', 'ADMIN'] });
 
   return <RewardsDashboard locale={locale} />;
 }

@@ -82,9 +82,13 @@ export function HlsPlayer({
       <video
         ref={videoRef}
         controls
+        controlsList="nodownload noremoteplayback"
+        disablePictureInPicture
+        disableRemotePlayback
         playsInline
         poster={poster}
         className="aspect-video w-full"
+        onContextMenu={(e) => e.preventDefault()}
       >
         <track kind="captions" />
       </video>

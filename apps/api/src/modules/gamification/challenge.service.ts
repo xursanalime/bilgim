@@ -21,7 +21,8 @@ export class ChallengeService {
     today.setHours(0, 0, 0, 0);
 
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    if (!user) return;
+    // Daily challenges are disabled for teachers.
+    if (!user || user.role === UserRole.TEACHER) return;
 
     const challenges = await this.prisma.dailyChallenge.findMany({
       where: {
@@ -50,7 +51,8 @@ export class ChallengeService {
     today.setHours(0, 0, 0, 0);
 
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    if (!user) return [];
+    // Daily challenges are disabled for teachers.
+    if (!user || user.role === UserRole.TEACHER) return [];
 
     const challenges = await this.challengeRepo.findDailyChallenges(today, user.role);
     const progress = await this.challengeRepo.findUserProgress(userId, challenges.map(c => c.id));
@@ -69,7 +71,6 @@ export class ChallengeService {
       { nameUz: 'Bugun 2 ta uy vazifa topshir', targetCount: 2, eventType: 'homework_submitted', xpReward: 100, role: UserRole.STUDENT },
       { nameUz: 'Jonli darsga qatnash', targetCount: 1, eventType: 'live_attended', xpReward: 80, role: UserRole.STUDENT },
       { nameUz: 'AI tutordan 3 ta savol so\'ra', targetCount: 3, eventType: 'ai_tutor_used', xpReward: 60, role: UserRole.STUDENT },
-      { nameUz: 'Talabalar vazifasini bahola', targetCount: 5, eventType: 'homework_graded', xpReward: 150, role: UserRole.TEACHER },
     ];
 
     for (const t of templates) {

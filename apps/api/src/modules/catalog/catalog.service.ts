@@ -864,6 +864,16 @@ export class CatalogService {
    */
   async listAttachmentsForLesson(teacherId: string, lessonId: string) {
     await this.assertLessonOwnership(teacherId, lessonId);
+    return this.getLessonAttachmentsUnchecked(lessonId);
+  }
+
+  /**
+   * Same query as `listAttachmentsForLesson`, minus the teacher-ownership
+   * check — for callers where access was already gated upstream (e.g.
+   * `LessonsController.getOne()`, behind `LessonAccessGuard`, which admits
+   * students too). Not exposed on any route directly.
+   */
+  async getLessonAttachmentsUnchecked(lessonId: string) {
     const rows = await this.prisma.attachment.findMany({
       where: { lessonId },
       orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],

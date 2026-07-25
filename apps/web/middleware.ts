@@ -163,6 +163,11 @@ function setAuthCookies(
 ): void {
   const secure = process.env.NODE_ENV === 'production';
   const common = {
+    // httpOnly: the rotated tokens must stay unreadable to client JS, exactly
+    // like the ones the BFF login/proxy endpoints set — otherwise a silent
+    // refresh would quietly re-introduce a JS-readable token and undo the
+    // XSS-hardening. Server code (this middleware, the proxy) reads them fine.
+    httpOnly: true,
     path: '/',
     maxAge: COOKIE_MAX_AGE,
     sameSite: 'lax' as const,
@@ -173,7 +178,7 @@ function setAuthCookies(
   response.cookies.set(REFRESH_COOKIE, tokens.refreshToken, common);
 }
 
-export async function middleware(request: NextRequest) {
+async function handleRequest(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip static files and Next.js internals
@@ -265,6 +270,70 @@ export async function middleware(request: NextRequest) {
 
   // Apply i18n middleware for all other routes
   return intlMiddleware(request);
+}
+
+/**
+ * Build the Content-Security-Policy for a request. The XSS-critical
+ * `script-src` is locked to `'self'` + a per-request nonce + `'strict-dynamic'`
+ * (so no injected inline `<script>` or event handler can run), while the
+ * connection/media directives stay permissive enough not to break WebRTC
+ * (LiveKit/mediasoup), R2 media, or the API. `'wasm-unsafe-eval'` is needed
+ * by tldraw/mediasoup WASM. Next.js reads the nonce from the CSP header we
+ * put on the request and stamps it onto its own hydration scripts.
+ */
+function buildCsp(nonce: string): string {
+  return [
+    `default-src 'self'`,
+    `base-uri 'self'`,
+    `object-src 'none'`,
+    `frame-ancestors 'none'`,
+    `form-action 'self'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'`,
+    `style-src 'self' 'unsafe-inline'`,
+    `img-src 'self' data: blob: https:`,
+    `font-src 'self' data:`,
+    `media-src 'self' blob: data: https:`,
+    `worker-src 'self' blob:`,
+    `child-src 'self' blob:`,
+    `connect-src 'self' https: wss: ws:`,
+    `frame-src 'self' https: blob:`,
+  ].join('; ');
+}
+
+/** Base64 nonce from the Edge-runtime WebCrypto UUID. */
+function generateNonce(): string {
+  return btoa(crypto.randomUUID());
+}
+
+/**
+ * Public entry point. Wraps the routing/auth logic in `handleRequest` and
+ * layers on a nonce-based CSP.
+ *
+ * CSP is enforced in production (or when `WEB_CSP=1`) but skipped in dev,
+ * because Next's HMR / react-refresh inject un-nonced inline scripts and use
+ * eval — a strict `script-src` would break the dev overlay. Everything else
+ * (httpOnly cookies, the BFF proxy, the static headers from next.config) is
+ * always on; CSP is the one piece that must wait for a production build.
+ */
+export async function middleware(request: NextRequest) {
+  const cspEnabled =
+    process.env.NODE_ENV === 'production' || process.env.WEB_CSP === '1';
+
+  let csp: string | undefined;
+  if (cspEnabled) {
+    const nonce = generateNonce();
+    csp = buildCsp(nonce);
+    // Next reads the nonce off the request's CSP header to nonce its scripts.
+    request.headers.set('x-nonce', nonce);
+    request.headers.set('content-security-policy', csp);
+  }
+
+  const response = await handleRequest(request);
+
+  if (csp) {
+    response.headers.set('content-security-policy', csp);
+  }
+  return response;
 }
 
 export const config = {

@@ -9,7 +9,8 @@ export default async function AchievementsPage({
   params: { locale: string };
 }) {
   unstable_setRequestLocale(locale);
-  const user = requireAuth({ locale });
+  // Gamification is disabled for teachers.
+  const user = requireAuth({ locale, roles: ['STUDENT', 'ADMIN'] });
 
   return (
     <>

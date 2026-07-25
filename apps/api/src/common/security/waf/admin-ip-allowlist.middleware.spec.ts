@@ -216,31 +216,36 @@ describe('AdminIpAllowlistMiddleware', () => {
   });
 
   describe('client IP extraction', () => {
-    it('honours X-Forwarded-For when present', () => {
+    it('allows the trusted connection IP (req.ip) and ignores X-Forwarded-For', () => {
       const middleware = new AdminIpAllowlistMiddleware(
         makeConfig({ ADMIN_IP_ALLOWLIST: '203.0.113.5' }),
       );
+      // Express already resolved the real client into req.ip via
+      // `trust proxy`. A forged X-Forwarded-For (here naming a bogus IP)
+      // must not change the decision.
       const { nextCalls } = run(middleware, {
         method: 'GET',
         url: '/admin/users',
-        ip: '10.0.0.1', // proxy IP
-        headers: { 'x-forwarded-for': '203.0.113.5, 10.0.0.1' },
+        ip: '203.0.113.5', // trusted client IP as computed by Express
+        headers: { 'x-forwarded-for': '9.9.9.9' },
       });
       expect(nextCalls).toBe(1);
     });
 
-    it('rejects an off-allowlist IP even when proxy IP is allow-listed', () => {
+    it('ignores a spoofed X-Forwarded-For that names an allow-listed IP', () => {
       const middleware = new AdminIpAllowlistMiddleware(
         makeConfig({ ADMIN_IP_ALLOWLIST: '10.0.0.1' }),
       );
+      // Attack: an off-allowlist client (203.0.113.5) forges
+      // `X-Forwarded-For: 10.0.0.1` (an allow-listed value) hoping to slip
+      // past the admin allowlist. The middleware must trust only the real
+      // connection IP and reject.
       const { nextCalls, res } = run(middleware, {
         method: 'GET',
         url: '/admin/users',
-        ip: '10.0.0.1', // the trusted proxy
-        headers: { 'x-forwarded-for': '203.0.113.5, 10.0.0.1' },
+        ip: '203.0.113.5', // real attacker IP, not on the allowlist
+        headers: { 'x-forwarded-for': '10.0.0.1' },
       });
-      // The middleware reads X-Forwarded-For — `203.0.113.5` is the
-      // upstream IP, not on the allowlist, so the request is rejected.
       expect(nextCalls).toBe(0);
       expect(res.statusCode).toBe(403);
     });

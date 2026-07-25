@@ -111,8 +111,11 @@ describe('HoneypotController — every endpoint records and blocks', () => {
 });
 
 describe('HoneypotController — IP extraction', () => {
-  it('honours X-Forwarded-For', async () => {
+  it('ignores a spoofed X-Forwarded-For and blocks the real connection IP', async () => {
     const { controller, blocklist } = build();
+    // Attacker sends a forged X-Forwarded-For hoping to make us block an
+    // arbitrary victim (203.0.113.99) instead of their own IP. The real
+    // socket address (198.51.100.10, set by makeReq) must win.
     const req = makeReq(
       '/wp-login.php',
       { 'x-forwarded-for': '203.0.113.99, 10.0.0.1' },
@@ -120,11 +123,31 @@ describe('HoneypotController — IP extraction', () => {
     await controller.wpLogin(req);
 
     expect(blocklist.block).toHaveBeenCalledWith(
-      '203.0.113.99',
+      '198.51.100.10',
       expect.any(Number),
       expect.any(String),
       'honeypot',
     );
+  });
+
+  it('does NOT block a loopback origin (avoids self-lockout of the host)', async () => {
+    const { controller, blocklist, siem } = build();
+    const req = makeReq('/.env', {}, '127.0.0.1');
+    const body = await controller.envFile(req);
+
+    // No block for local requests...
+    expect(blocklist.block).not.toHaveBeenCalled();
+    // ...but the hit is still observed for visibility, and the decoy still
+    // returns so a local probe sees the same response a scanner would.
+    expect(siem.recordEvent).toHaveBeenCalledTimes(1);
+    expect(typeof body).toBe('string');
+  });
+
+  it('does NOT block the IPv6 loopback ::1 either', async () => {
+    const { controller, blocklist } = build();
+    const req = makeReq('/wp-login.php', {}, '::1');
+    await controller.wpLogin(req);
+    expect(blocklist.block).not.toHaveBeenCalled();
   });
 });
 

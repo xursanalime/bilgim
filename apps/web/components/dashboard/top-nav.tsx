@@ -37,8 +37,11 @@ export function DashboardTopNav({
     setMobileOpen(false);
   }, [pathname]);
 
-  function handleLogout() {
-    clearTokens();
+  async function handleLogout() {
+    // Await the logout round-trip so the server's cookie-clearing Set-Cookie
+    // lands before we navigate away (a full-page nav can abort an in-flight
+    // fetch, leaving the httpOnly session cookie alive).
+    await clearTokens();
     window.location.href = `/${locale}/login`;
   }
 

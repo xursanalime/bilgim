@@ -4,9 +4,11 @@ import { PrismaClient } from '@prisma/client';
 import { createPrismaClient } from '../../infra/prisma';
 
 import { R2Module } from '../../infra/r2/r2.module';
+import { AuthModule } from '../auth';
 import { MediaAccessService } from './media-access.service';
 import { MediaAssetsController } from './media-assets.controller';
 import { MediaPublicController } from './media-public.controller';
+import { MediaStreamController } from './media-stream.controller';
 import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
 import { MediaAssetRepository } from './repositories/media-asset.repository';
@@ -41,8 +43,13 @@ import { VideoTranscodeProcessor } from './transcoding/transcode.processor';
  *   - `VideoTranscodeProcessor` is the BullMQ consumer.
  */
 @Module({
-  imports: [ConfigModule, R2Module],
-  controllers: [MediaController, MediaAssetsController, MediaPublicController],
+  imports: [ConfigModule, R2Module, AuthModule],
+  controllers: [
+    MediaController,
+    MediaAssetsController,
+    MediaPublicController,
+    MediaStreamController,
+  ],
   providers: [
     MediaService,
     MediaAccessService,

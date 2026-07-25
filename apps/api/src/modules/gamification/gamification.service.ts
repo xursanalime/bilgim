@@ -44,12 +44,14 @@ export class GamificationService {
       });
 
       if (!profile) {
-        // Auto-create profile if missing
         const user = await tx.user.findUnique({ where: { id: userId } });
         if (!user) {
           this.logger.error(`Cannot award XP: User ${userId} not found`);
           return;
         }
+
+        // Gamification is disabled for teachers — don't create a profile or award XP.
+        if (user.role === UserRole.TEACHER) return;
 
         profile = await tx.gamificationProfile.create({
           data: {
@@ -58,6 +60,8 @@ export class GamificationService {
           },
         });
       }
+
+      if (profile.role === UserRole.TEACHER) return;
 
       // 1. Create XP Event
       await tx.xpEvent.create({
@@ -133,11 +137,11 @@ export class GamificationService {
           select: { role: true },
         });
 
-        if (!user) {
-          // Null emas, default object qaytarish kerak
+        if (!user || user.role === UserRole.TEACHER) {
+          // Gamification is disabled for teachers — never create a profile for them.
           return {
             userId,
-            role: 'STUDENT' as const,
+            role: (user?.role ?? 'STUDENT') as 'STUDENT' | 'TEACHER' | 'ADMIN',
             totalXp: 0,
             weeklyXp: 0,
             currentLevel: 1,

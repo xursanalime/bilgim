@@ -53,18 +53,6 @@ export async function seedGamification(prisma: PrismaClient) {
       xpReward: 500,
       targetRole: null,
     },
-    {
-      slug: 'content_creator',
-      nameUz: 'Kontent yaratuvchi',
-      nameRu: 'Создатель контента',
-      nameEn: 'Content Creator',
-      descriptionUz: '10 ta dars yaratish',
-      iconUrl: '',
-      rarity: BadgeRarity.RARE,
-      category: BadgeCategory.TEACHING,
-      xpReward: 300,
-      targetRole: UserRole.TEACHER,
-    },
   ];
 
   for (const b of badges) {

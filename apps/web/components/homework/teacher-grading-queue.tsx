@@ -101,12 +101,12 @@ export function TeacherGradingQueue({ locale }: TeacherGradingQueueProps) {
   return (
     <div className="mx-auto max-w-7xl space-y-10 pb-12">
       <header className="group relative overflow-hidden rounded-[2.5rem] border border-rim bg-white p-8 shadow-soft sm:p-10 lg:p-12">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full bg-purple/5 blur-[80px]" />
-        
+        <div className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full bg-blue/5 blur-[80px]" />
+
         <div className="relative z-10 space-y-6">
           <Link
             href={`/${locale}/homework`}
-            className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-purple hover:text-purple-600 transition-colors"
+            className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-blue hover:text-blue-600 transition-colors"
           >
             <ArrowLeft className="h-3 w-3" />
             Topshiriqlar boʻlimiga qaytish
@@ -124,7 +124,7 @@ export function TeacherGradingQueue({ locale }: TeacherGradingQueueProps) {
 
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple/5 text-purple">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue/5 text-blue">
                   <ClipboardCheck className="h-5 w-5 animate-pulse" />
                 </div>
                 <div>
@@ -140,7 +140,7 @@ export function TeacherGradingQueue({ locale }: TeacherGradingQueueProps) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Yuborilgan" value={counts.SUBMITTED} highlight icon={Clock} color="orange" />
         <StatCard label="Tekshirilmoqda" value={counts.IN_REVIEW} icon={Zap} color="blue" />
-        <StatCard label="Baholangan" value={counts.GRADED} icon={CheckCircle2} color="green" />
+        <StatCard label="Baholangan" value={counts.GRADED} icon={CheckCircle2} color="teal" />
         <StatCard label="Qaytarilgan" value={counts.RETURNED} icon={XCircle} color="red" />
       </div>
 
@@ -247,7 +247,7 @@ export function TeacherGradingQueue({ locale }: TeacherGradingQueueProps) {
                   )}
                   <SubmissionStatusBadge status={row.submission.status} />
                   {row.submission.status === 'GRADED' && row.submission.score !== null && (
-                    <span className="rounded-xl bg-green-tint px-3 py-1 text-xs font-black text-green border border-green/20">
+                    <span className="rounded-xl bg-teal-tint px-3 py-1 text-xs font-black text-teal border border-teal/20">
                       {row.submission.score}/{row.assignment.totalPoints}
                     </span>
                   )}
@@ -346,17 +346,16 @@ function countByStatus(rows: QueueRow[]) {
 
 // ── Shared Components ───────────────────────────────────────────────
 
-function StatCard({ label, value, highlight, icon: Icon, color }: { 
-  label: string; 
-  value: number; 
-  highlight?: boolean; 
-  icon: any; 
-  color: 'blue' | 'purple' | 'green' | 'red' | 'orange' 
+function StatCard({ label, value, highlight, icon: Icon, color }: {
+  label: string;
+  value: number;
+  highlight?: boolean;
+  icon: any;
+  color: 'blue' | 'teal' | 'red' | 'orange'
 }) {
   const colorClasses = {
     blue: 'text-blue bg-blue/5 border-blue/20',
-    purple: 'text-purple bg-purple/5 border-purple/20',
-    green: 'text-green bg-green/5 border-green/20',
+    teal: 'text-teal bg-teal/5 border-teal/20',
     red: 'text-red bg-red/5 border-red/20',
     orange: 'text-orange bg-orange/5 border-orange/20'
   };

@@ -15,7 +15,7 @@ import {
   useRoomContext,
 } from '@livekit/components-react';
 import '@livekit/components-styles';
-import { Track, ConnectionState, DataPacket_Kind } from 'livekit-client';
+import { Track, ConnectionState, DataPacket_Kind, VideoPresets, RoomOptions } from 'livekit-client';
 import { Loader2, Video, Mic, MicOff, VideoOff, AlertTriangle, Wifi, WifiOff, Clock } from 'lucide-react';
 
 import { Whiteboard } from '../live/tabs/whiteboard-tab';
@@ -487,9 +487,42 @@ function VideoLayout() {
   );
 }
 
+// Optional TURN relay, needed for reliable NAT traversal (e.g. a phone on
+// mobile data behind carrier-grade NAT). Not configured yet — set
+// NEXT_PUBLIC_TURN_URLS (comma-separated `turn:host:port` entries) plus
+// NEXT_PUBLIC_TURN_USERNAME/NEXT_PUBLIC_TURN_CREDENTIAL at build time once a
+// TURN server exists; until then this resolves to `undefined` and LiveKit
+// falls back to its default STUN-only behavior.
+function buildIceServers(): RTCIceServer[] | undefined {
+  const urls = process.env.NEXT_PUBLIC_TURN_URLS;
+  if (!urls) return undefined;
+  const username = process.env.NEXT_PUBLIC_TURN_USERNAME;
+  const credential = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
+  return [{
+    urls: urls.split(',').map(u => u.trim()).filter(Boolean),
+    ...(username && credential ? { username, credential } : {}),
+  }];
+}
+
 // --- Public LiveRoom entry point ---
 export function LiveRoom({ token, serverUrl, lessonId, role, onLeave, returnLabel = 'Dashboardga qaytish' }: LiveRoomProps) {
   const [joined, setJoined] = React.useState(false);
+
+  const roomOptions = React.useMemo<RoomOptions>(() => {
+    const iceServers = buildIceServers();
+    return {
+      adaptiveStream: true,
+      dynacast: true,
+      publishDefaults: {
+        simulcast: true,
+        videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360, VideoPresets.h720],
+      },
+      videoCaptureDefaults: {
+        resolution: VideoPresets.h720.resolution,
+      },
+      ...(iceServers ? { rtcConfig: { iceServers } } : {}),
+    };
+  }, []);
 
   if (!joined) {
     return <PreJoinScreen onJoin={() => setJoined(true)} onLeave={onLeave} returnLabel={returnLabel} canPublish={true} />;
@@ -501,6 +534,7 @@ export function LiveRoom({ token, serverUrl, lessonId, role, onLeave, returnLabe
       audio={false}
       token={token}
       serverUrl={serverUrl}
+      options={roomOptions}
       onDisconnected={onLeave}
       className="h-screen w-full"
     >

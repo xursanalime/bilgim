@@ -85,12 +85,24 @@ export class LessonsController {
    *   - STUDENT with APPROVED enrollment for the lesson's group,
    *   - TEACHER who owns the lesson's course,
    *   - ADMIN (read-only audit).
+   *
+   * `LessonAccessGuard.loadLesson()` only joins `group.course` (what the
+   * access decision needs) — it deliberately doesn't pull attachments,
+   * since most guarded routes don't need them and that guard is shared
+   * across many lesson-scoped endpoints. This is the one route whose
+   * response IS the lesson detail page, so we fetch attachments here and
+   * merge them in; skipping this step is what made every teacher-uploaded
+   * video/file invisible to students despite showing up fine on the
+   * teacher's own materials view (same DB rows, just never returned).
    */
   @UseGuards(LessonAccessGuard)
   @Roles('TEACHER', 'STUDENT', 'ADMIN')
   @Get('lessons/:id')
   async getOne(@Req() req: any) {
-    return req.lesson;
+    const attachments = await this.catalogService.getLessonAttachmentsUnchecked(
+      req.lesson.id,
+    );
+    return { ...req.lesson, attachments };
   }
 
   /** PATCH /catalog/lessons/:id — Update title/description/type/etc. (own only). */

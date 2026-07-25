@@ -7,11 +7,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
+import { ConfigService } from '@nestjs/config';
 import { MediaAsset, MediaKind, Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
 
 import { QUEUE_NAMES } from '../../infra/bullmq/queue.constants';
+import { TokensService } from '../auth/tokens.service';
 import {
   R2Service,
   R2_DEFAULT_PART_URL_TTL_SECONDS,
@@ -22,6 +24,7 @@ import { CompleteUploadDto } from './dto/complete-upload.dto';
 import { InitUploadDto } from './dto/init-upload.dto';
 import {
   ALLOWED_MIME_BY_KIND,
+  HLS_VARIANT_PLAYLIST_FILENAME,
   HLS_VARIANTS,
   MEDIA_DEFAULT_PART_SIZE_BYTES,
   MEDIA_MAX_SIZE_BYTES,
@@ -136,6 +139,8 @@ export class MediaService {
     private readonly r2: R2Service,
     private readonly assets: MediaAssetRepository,
     private readonly access: MediaAccessService,
+    private readonly tokens: TokensService,
+    private readonly config: ConfigService,
     @InjectQueue(QUEUE_NAMES.TRANSCODING)
     private readonly transcodingQueue: Queue,
   ) {}
@@ -520,25 +525,38 @@ export class MediaService {
 
     const expiresAtIso = new Date(Date.now() + ttl * 1000).toISOString();
 
-    // HLS path: VIDEO + manifest key present → sign master + variants.
+    // HLS path: VIDEO + manifest key present → stream through our own
+    // proxy (see MediaStreamController), never raw presigned R2 URLs.
+    //
+    // Presigned R2 GET URLs put the signature in the query string. HLS
+    // playback is inherently multi-hop — master.m3u8 references variant
+    // playlists, each variant playlist references .ts segments — and every
+    // hop is resolved by the *player* (browser/hls.js) as a relative URL
+    // against the current one. Per RFC 3986 relative-reference resolution,
+    // resolving a relative path against a URL drops that URL's query
+    // string entirely, so a presigned master URL's signature never survives
+    // to the variant/segment requests → R2 answers those with 403 and the
+    // player is stuck black at 0:00. (Confirmed by hand against MinIO.)
+    //
+    // Fix: mint one short-lived token for this asset and hand back proxy
+    // URLs on our own API. `MediaStreamController` streams each hop and
+    // rewrites the relative references inside every .m3u8 it serves to
+    // point back at itself with the same token — so the token (in the
+    // query string of an absolute, self-referencing URL we control) rides
+    // along on every hop instead of getting silently dropped.
     if (asset.kind === 'VIDEO' && asset.hlsManifestKey) {
       const manifestKey = asset.hlsManifestKey;
-      const manifestUrl = await this.r2.signObjectGet(manifestKey, ttl);
-      const variantPairs = await Promise.all(
-        HLS_VARIANTS.map(async (variant) => {
-          const key = deriveHlsVariantKey(manifestKey, variant.name);
-          const url = await this.r2.signObjectGet(key, ttl);
-          return { variant: variant.name, key, url };
-        }),
-      );
+      const streamToken = await this.tokens.generateMediaStreamToken(asset.id, ttl);
+      const proxyBase = `${this.getApiBaseUrl()}/api/v1/media/stream/${asset.id}/hls`;
+      const manifestUrl = `${proxyBase}/master.m3u8?token=${encodeURIComponent(streamToken)}`;
 
       const urls: PlaybackUrl[] = [
         { role: 'manifest', key: manifestKey, url: manifestUrl },
-        ...variantPairs.map<PlaybackUrl>((v) => ({
+        ...HLS_VARIANTS.map<PlaybackUrl>((variant) => ({
           role: 'variant',
-          key: v.key,
-          url: v.url,
-          variant: v.variant,
+          key: deriveHlsVariantKey(manifestKey, variant.name),
+          url: `${proxyBase}/${variant.name}/playlist.m3u8?token=${encodeURIComponent(streamToken)}`,
+          variant: variant.name,
         })),
       ];
 
@@ -572,6 +590,146 @@ export class MediaService {
       expiresInSeconds: ttl,
       expiresAt: expiresAtIso,
     };
+  }
+
+  // ------------------------------------------------------------------
+  // HLS streaming proxy (consumed by MediaStreamController)
+  // ------------------------------------------------------------------
+
+  /**
+   * Serve the master `.m3u8` for `GET /media/stream/:id/hls/master.m3u8`.
+   * Every relative reference line (`240p/playlist.m3u8`, …) is rewritten to
+   * an absolute proxy URL carrying the same stream token, so the browser's
+   * next request comes back through this same authorized path instead of
+   * an unsigned direct-to-R2 request (see the long comment in
+   * `getPlaybackUrls` for why that's necessary).
+   */
+  async getHlsMasterManifest(
+    assetId: string,
+    token: string,
+  ): Promise<{ body: Buffer; contentType: string }> {
+    const manifestKey = await this.verifyStreamTokenAndLoadManifestKey(assetId, token);
+    const raw = await this.r2.getObjectBuffer(manifestKey);
+    const proxyBase = `${this.getApiBaseUrl()}/api/v1/media/stream/${assetId}/hls`;
+    const rewritten = this.rewriteM3u8(
+      raw.toString('utf-8'),
+      (line) => `${proxyBase}/${line}?token=${encodeURIComponent(token)}`,
+    );
+    return {
+      body: Buffer.from(rewritten, 'utf-8'),
+      contentType: 'application/vnd.apple.mpegurl',
+    };
+  }
+
+  /**
+   * Serve a per-variant resource for
+   * `GET /media/stream/:id/hls/:variant/:file` — either the variant's own
+   * `playlist.m3u8` (rewritten the same way as the master) or one of its
+   * `.ts` segments (streamed byte-for-byte). `variant` and `file` are
+   * whitelisted against `HLS_VARIANTS` / a strict segment-name pattern so
+   * this can never be used to read an arbitrary R2 key.
+   */
+  async getHlsVariantResource(
+    assetId: string,
+    variant: string,
+    file: string,
+    token: string,
+  ): Promise<{ body: Buffer; contentType: string }> {
+    const manifestKey = await this.verifyStreamTokenAndLoadManifestKey(assetId, token);
+
+    if (!HLS_VARIANTS.some((v) => v.name === variant)) {
+      throw new NotFoundException({
+        code: 'MEDIA_NOT_FOUND',
+        message: 'Unknown HLS variant',
+      });
+    }
+    const isPlaylist = file === HLS_VARIANT_PLAYLIST_FILENAME;
+    const isSegment = /^seg_\d+\.ts$/.test(file);
+    if (!isPlaylist && !isSegment) {
+      throw new NotFoundException({
+        code: 'MEDIA_NOT_FOUND',
+        message: 'Unknown HLS resource',
+      });
+    }
+
+    const lastSlash = manifestKey.lastIndexOf('/');
+    const dir = lastSlash >= 0 ? manifestKey.slice(0, lastSlash) : '';
+    const targetKey = `${dir ? `${dir}/` : ''}${variant}/${file}`;
+    const raw = await this.r2.getObjectBuffer(targetKey);
+
+    if (isPlaylist) {
+      const proxyBase = `${this.getApiBaseUrl()}/api/v1/media/stream/${assetId}/hls/${variant}`;
+      const rewritten = this.rewriteM3u8(
+        raw.toString('utf-8'),
+        (line) => `${proxyBase}/${line}?token=${encodeURIComponent(token)}`,
+      );
+      return {
+        body: Buffer.from(rewritten, 'utf-8'),
+        contentType: 'application/vnd.apple.mpegurl',
+      };
+    }
+
+    return { body: raw, contentType: 'video/mp2t' };
+  }
+
+  /**
+   * Verify a media-stream token and confirm it matches an HLS-ready VIDEO
+   * asset. This is the entire authorization boundary for the (deliberately
+   * `@Public()`) `MediaStreamController` routes — no JWT/session auth is
+   * checked again here since the token was only ever handed out by
+   * `getPlaybackUrls`, which already ran `MediaAccessService.assertCanRead`.
+   */
+  private async verifyStreamTokenAndLoadManifestKey(
+    assetId: string,
+    token: string,
+  ): Promise<string> {
+    if (!token) {
+      throw new ForbiddenException({
+        code: 'MEDIA_STREAM_TOKEN_MISSING',
+        message: 'Missing stream token',
+      });
+    }
+    let payload: { sub: string };
+    try {
+      payload = await this.tokens.verifyMediaStreamToken(token);
+    } catch {
+      throw new ForbiddenException({
+        code: 'MEDIA_STREAM_TOKEN_INVALID',
+        message: 'Invalid or expired stream token',
+      });
+    }
+    if (payload.sub !== assetId) {
+      throw new ForbiddenException({
+        code: 'MEDIA_STREAM_TOKEN_INVALID',
+        message: 'Stream token does not match this asset',
+      });
+    }
+    const asset = await this.assets.findById(assetId);
+    if (!asset || asset.kind !== 'VIDEO' || !asset.hlsManifestKey) {
+      throw new NotFoundException({
+        code: 'MEDIA_NOT_FOUND',
+        message: 'Media asset not found',
+      });
+    }
+    return asset.hlsManifestKey;
+  }
+
+  /** Rewrite every non-comment, non-blank line of an `.m3u8` playlist. */
+  private rewriteM3u8(text: string, rewriteLine: (line: string) => string): string {
+    return text
+      .split('\n')
+      .map((line) => {
+        const trimmed = line.trim();
+        if (trimmed.length === 0 || trimmed.startsWith('#')) return line;
+        return rewriteLine(trimmed);
+      })
+      .join('\n');
+  }
+
+  /** Public origin of this API — used to build self-referencing proxy URLs. */
+  private getApiBaseUrl(): string {
+    const url = this.config.get<string>('API_URL') ?? 'http://localhost:4000';
+    return url.replace(/\/+$/, '');
   }
 
   // ------------------------------------------------------------------

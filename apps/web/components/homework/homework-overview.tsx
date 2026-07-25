@@ -119,11 +119,10 @@ function StudentHomework({ locale }: { locale: string }) {
   if (rows.length === 0) {
     return (
       <div className="mx-auto max-w-7xl space-y-10">
-        <HeroHeader 
-          title="Uy vazifalari" 
-          subtitle="Guruhlaringizdagi barcha topshiriqlar va ularning holati." 
+        <HeroHeader
+          title="Uy vazifalari"
+          subtitle="Guruhlaringizdagi barcha topshiriqlar va ularning holati."
           icon={ClipboardList}
-          color="blue"
         />
         <EmptyState
           title="Hozircha topshiriq yo'q"
@@ -145,11 +144,10 @@ function StudentHomework({ locale }: { locale: string }) {
 
   return (
     <div className="mx-auto max-w-7xl space-y-10 pb-12">
-      <HeroHeader 
-        title="Uy vazifalari" 
-        subtitle="Guruhlaringizdagi barcha topshiriqlar va ularning holati." 
+      <HeroHeader
+        title="Uy vazifalari"
+        subtitle="Guruhlaringizdagi barcha topshiriqlar va ularning holati."
         icon={ClipboardList}
-        color="blue"
         badge={pendingCount > 0 ? { label: 'Bajarilmagan', value: `${pendingCount} ta` } : undefined}
       />
 
@@ -204,7 +202,7 @@ function StudentHomework({ locale }: { locale: string }) {
                       )}
                       {row.submission?.status === 'GRADED' && row.submission.score !== null ? (
                         <div className="flex flex-col items-end">
-                          <span className="text-sm font-black text-green">
+                          <span className="text-sm font-black text-teal">
                             {row.submission.score}/{row.assignment.totalPoints}
                           </span>
                           <span className="text-[9px] font-bold uppercase tracking-tight text-ink-faint">Ball</span>
@@ -305,11 +303,10 @@ function TeacherHomework({ locale }: { locale: string }) {
   return (
     <div className="mx-auto max-w-7xl space-y-10 pb-12">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-        <HeroHeader 
-          title="Topshiriqlar" 
-          subtitle="Siz yaratgan barcha vazifalar va ularning topshirilish statistikasi." 
+        <HeroHeader
+          title="Topshiriqlar"
+          subtitle="Siz yaratgan barcha vazifalar va ularning topshirilish statistikasi."
           icon={ClipboardList}
-          color="purple"
           badge={totalPending > 0 ? { label: 'Navbatda', value: `${totalPending} ta` } : undefined}
         />
         
@@ -352,7 +349,7 @@ function TeacherHomework({ locale }: { locale: string }) {
                 className="group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-rim bg-white p-6 shadow-soft transition-all duration-300 hover:shadow-medium hover:border-blue/20 lg:flex-row lg:items-center lg:gap-8"
               >
                 <div className="flex flex-1 items-start gap-5 lg:items-center">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.5rem] bg-purple/5 text-purple transition-colors group-hover:bg-purple group-hover:text-white">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.5rem] bg-blue/5 text-blue transition-colors group-hover:bg-blue group-hover:text-white">
                     <ClipboardList className="h-7 w-7" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -421,35 +418,24 @@ function countByStatus(subs: Submission[]) {
 // Shared components
 // ────────────────────────────────────────────────────────────────────
 
-function HeroHeader({ 
-  title, 
-  subtitle, 
-  icon: Icon, 
-  color = 'blue',
-  badge 
-}: { 
-  title: string; 
-  subtitle: string; 
-  icon: any; 
-  color?: 'blue' | 'purple' | 'green';
+function HeroHeader({
+  title,
+  subtitle,
+  icon: Icon,
+  badge
+}: {
+  title: string;
+  subtitle: string;
+  icon: any;
   badge?: { label: string; value: string } | undefined;
 }) {
-  const colorClasses = {
-    blue: 'bg-blue/5 text-blue',
-    purple: 'bg-purple/5 text-purple',
-    green: 'bg-green/5 text-green'
-  };
-
   return (
     <header className="group relative overflow-hidden rounded-[2.5rem] border border-rim bg-white p-8 shadow-soft sm:p-10 lg:p-12">
-      <div className={cn(
-        "pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full blur-[80px]",
-        color === 'blue' ? 'bg-blue/5' : color === 'purple' ? 'bg-purple/5' : 'bg-green/5'
-      )} />
-      
+      <div className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full bg-blue/5 blur-[80px]" />
+
       <div className="relative z-10 flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
         <div className="min-w-0 flex-1 space-y-4">
-          <div className={cn("flex items-center gap-2.5 text-[10px] font-bold uppercase tracking-[0.25em]", color === 'blue' ? 'text-blue' : color === 'purple' ? 'text-purple' : 'text-green')}>
+          <div className="flex items-center gap-2.5 text-[10px] font-bold uppercase tracking-[0.25em] text-blue">
             <Icon className="h-3.5 w-3.5" />
             Loyiha boshqaruvi
           </div>
@@ -466,7 +452,7 @@ function HeroHeader({
 
         {badge && (
           <div className="flex items-center gap-2.5 pt-2">
-            <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", colorClasses[color])}>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue/5 text-blue">
               <Icon className="h-5 w-5 animate-pulse" />
             </div>
             <div>

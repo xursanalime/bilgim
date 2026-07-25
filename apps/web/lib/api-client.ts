@@ -3,15 +3,19 @@
  * Handles authentication headers, token refresh, and error responses.
  */
 
-import {
-  getAccessToken,
-  refreshAccessToken,
-  clearTokens,
-} from './auth';
+import { clearTokens } from './auth';
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-const API_PREFIX = '/api/v1';
+// All authenticated browser→API traffic goes through the same-origin BFF
+// proxy (`app/api/proxy/[...path]`), which reads the httpOnly access-token
+// cookie server-side and attaches the Bearer header. The token is never in
+// JS here, so there is nothing for an XSS payload to read. Requests are
+// same-origin, so the browser sends the session cookies automatically.
+const PROXY_PREFIX = '/api/proxy/api/v1';
+
+function originBase(): string {
+  if (typeof window !== 'undefined') return window.location.origin;
+  return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+}
 
 // --- Types ---
 
@@ -56,7 +60,7 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
 // --- Helper Functions ---
 
 function buildUrl(path: string, params?: RequestOptions['params']): string {
-  const url = new URL(`${API_PREFIX}${path}`, API_BASE_URL);
+  const url = new URL(`${PROXY_PREFIX}${path}`, originBase());
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
@@ -69,39 +73,26 @@ function buildUrl(path: string, params?: RequestOptions['params']): string {
   return url.toString();
 }
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const token = getAccessToken();
-  // Note: we intentionally do NOT proactively refresh here. The refresh
-  // token is rotated server-side on every use, so refreshing from multiple
-  // places (middleware + client) with the same token trips the backend's
-  // token-family reuse detection and nukes the session. Instead we send
-  // whatever access token we have and let the 401 handler refresh-and-retry
-  // exactly once when the server actually rejects it.
-  if (!token) return {};
-  return { Authorization: `Bearer ${token}` };
-}
-
 // --- Core Request Function ---
 
 async function request<T>(
   method: string,
   path: string,
   options: RequestOptions = {},
-  isRetry = false,
 ): Promise<T> {
   const { body, params, idempotencyKey, public: isPublic, ...fetchOptions } =
     options;
+
+  // `isPublic` no longer changes the outgoing headers — the BFF proxy
+  // attaches the Bearer from the httpOnly cookie when one exists and omits
+  // it otherwise, so public endpoints simply arrive without auth. We keep
+  // the flag only to drive the 401 handling below.
+  void isPublic;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(fetchOptions.headers as Record<string, string>),
   };
-
-  // Add auth headers unless explicitly public
-  if (!isPublic) {
-    const authHeaders = await getAuthHeaders();
-    Object.assign(headers, authHeaders);
-  }
 
   // Add idempotency key for mutating requests
   if (idempotencyKey) {
@@ -114,21 +105,20 @@ async function request<T>(
     ...fetchOptions,
     method,
     headers,
+    // Same-origin request → send the httpOnly session cookies so the proxy
+    // can authenticate on our behalf.
+    credentials: 'same-origin',
     body: body ? JSON.stringify(body) : null,
   });
 
   // Handle error responses (parse envelope first so we can inspect the code).
   if (!response.ok) {
-    // 401 on an authenticated request: the access token was rejected. Try a
-    // single refresh-and-retry before giving up, so a transparently-expired
-    // token doesn't surface as an error or force a logout.
-    if (response.status === 401 && !isPublic && !isRetry) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        return request<T>(method, path, options, true);
-      }
-      // Refresh failed → session is truly dead. Clear and bounce to login.
-      clearTokens();
+    // A 401 here is already post-refresh: the BFF proxy transparently tries
+    // to rotate the token with the httpOnly refresh cookie and only returns
+    // 401 when that fails too — i.e. the session is genuinely dead. Clear the
+    // readable profile cookie and bounce to login.
+    if (response.status === 401 && !isPublic) {
+      void clearTokens();
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
       }

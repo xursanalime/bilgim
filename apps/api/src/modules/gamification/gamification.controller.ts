@@ -22,19 +22,19 @@ export class GamificationController {
   ) {}
 
   @Get('me')
-  @Roles(UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN)
+  @Roles(UserRole.STUDENT, UserRole.ADMIN)
   async getMyProfile(@CurrentUser() user: JwtPayload) {
     return this.gamificationService.getProfile(user.sub);
   }
 
   @Get('me/badges')
-  @Roles(UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN)
+  @Roles(UserRole.STUDENT, UserRole.ADMIN)
   async getMyBadges(@CurrentUser() user: JwtPayload) {
     return this.badgeRepo.findUserBadges(user.sub);
   }
 
   @Get('leaderboard/global')
-  @Roles(UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN)
+  @Roles(UserRole.STUDENT, UserRole.ADMIN)
   async getGlobalLeaderboard(
     @CurrentUser() user: JwtPayload, 
     @Query('limit') limit = 100,
@@ -61,25 +61,25 @@ export class GamificationController {
   }
 
   @Get('challenges/today')
-  @Roles(UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN)
+  @Roles(UserRole.STUDENT, UserRole.ADMIN)
   async getTodayChallenges(@CurrentUser() user: JwtPayload) {
     return this.challengeService.getTodayChallenges(user.sub);
   }
 
   @Get('badges')
-  @Roles(UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN)
+  @Roles(UserRole.STUDENT, UserRole.ADMIN)
   async getAllBadges() {
     return this.badgeRepo.findAllActive();
   }
 
   @Get('rewards')
-  @Roles(UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN)
+  @Roles(UserRole.STUDENT, UserRole.ADMIN)
   async getRewards() {
     return this.rewardService.listItems();
   }
 
   @Post('rewards/:id/purchase')
-  @Roles(UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN)
+  @Roles(UserRole.STUDENT, UserRole.ADMIN)
   async purchaseReward(@CurrentUser() user: JwtPayload, @Param('id') itemId: string) {
     return this.rewardService.purchaseItem(user.sub, itemId);
   }

@@ -108,8 +108,10 @@ export function DashboardSidebar({ locale, role, userName, userEmail }: SidebarP
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  function handleLogout() {
-    clearTokens();
+  async function handleLogout() {
+    // Await logout so the cookie-clearing response lands before we navigate
+    // (a full-page nav can abort the in-flight fetch).
+    await clearTokens();
     window.location.href = `${base}/login`;
   }
 

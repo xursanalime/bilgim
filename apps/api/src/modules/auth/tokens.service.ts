@@ -10,6 +10,17 @@ export interface JwtPayload {
 }
 
 /**
+ * Payload for a short-lived, single-asset media streaming token. Unlike
+ * `JwtPayload` (a full user session), this only proves "the holder was
+ * authorized, at mint time, to stream HLS segments for asset `sub`" — it
+ * carries no email/role and is never accepted by the normal auth guard.
+ */
+export interface MediaStreamTokenPayload {
+  sub: string;
+  typ: 'media-stream';
+}
+
+/**
  * TokensService — handles JWT generation/verification and opaque token creation.
  * Used for access tokens, refresh tokens, and email verification tokens.
  *
@@ -48,6 +59,36 @@ export class TokensService {
     return this.jwtService.verifyAsync<JwtPayload>(token, {
       algorithms: ['HS256'],
     });
+  }
+
+  /**
+   * Mint a media-stream token scoped to a single `MediaAsset`. hls.js and
+   * Safari's native HLS engine can't attach custom Authorization headers to
+   * every manifest/segment request they make, so this token travels as a
+   * `?token=` query param instead — signed and expiry-bound, but otherwise
+   * unprivileged (it proves nothing beyond "may stream this one asset").
+   */
+  async generateMediaStreamToken(
+    assetId: string,
+    ttlSeconds: number,
+  ): Promise<string> {
+    const payload: MediaStreamTokenPayload = { sub: assetId, typ: 'media-stream' };
+    return this.jwtService.signAsync(payload, {
+      algorithm: 'HS256',
+      expiresIn: ttlSeconds,
+    });
+  }
+
+  /** Verify a media-stream token. Throws if expired, malformed, or forged. */
+  async verifyMediaStreamToken(token: string): Promise<MediaStreamTokenPayload> {
+    const payload = await this.jwtService.verifyAsync<MediaStreamTokenPayload>(
+      token,
+      { algorithms: ['HS256'] },
+    );
+    if (payload.typ !== 'media-stream') {
+      throw new Error('Not a media-stream token');
+    }
+    return payload;
   }
 
   /**

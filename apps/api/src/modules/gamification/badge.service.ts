@@ -18,17 +18,18 @@ export class BadgeService {
    * Can be triggered by specific events (e.g. 'homework_submitted') or general XP award.
    */
   async checkAndAwardBadges(userId: string, triggerEvent?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    // Badges are disabled for teachers.
+    if (user?.role === UserRole.TEACHER) return;
+
     const activeBadges = await this.badgeRepo.findAllActive();
-    
+
     for (const badge of activeBadges) {
       // 1. Skip if user already has it
       if (await this.badgeRepo.hasBadge(userId, badge.id)) continue;
 
       // 2. Check role restriction
-      if (badge.targetRole) {
-        const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-        if (user?.role !== badge.targetRole) continue;
-      }
+      if (badge.targetRole && user?.role !== badge.targetRole) continue;
 
       // 3. Evaluate criteria based on slug
       const shouldAward = await this.evaluateBadgeCriteria(userId, badge.slug, triggerEvent);
