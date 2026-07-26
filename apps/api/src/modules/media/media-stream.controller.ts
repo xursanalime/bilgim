@@ -56,7 +56,7 @@ export class MediaStreamController {
     @Query('token') token: string,
     @Res() res: Response,
   ): Promise<void> {
-    const { body, contentType } = await this.mediaService.getHlsVariantResource(
+    const result = await this.mediaService.getHlsVariantResource(
       assetId,
       variant,
       file,
@@ -68,6 +68,20 @@ export class MediaStreamController {
     res.setHeader('Cache-Control', 'private, max-age=3600, immutable');
     // See getMaster() above for why this is required.
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.type(contentType).send(body);
+    res.type(result.contentType);
+
+    if ('stream' in result) {
+      // Segments are piped straight through — see the comment in
+      // `MediaService.getHlsVariantResource` for why they must not be
+      // buffered. Destroying the source on client disconnect matters here:
+      // a viewer who seeks or closes the tab mid-segment would otherwise
+      // leave the R2 read open until it drains on its own.
+      res.on('close', () => result.stream.destroy());
+      result.stream.on('error', () => res.destroy());
+      result.stream.pipe(res);
+      return;
+    }
+
+    res.send(result.body);
   }
 }

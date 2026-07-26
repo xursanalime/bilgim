@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { Readable } from 'stream';
 import * as os from 'os';
 import * as path from 'path';
 
@@ -13,7 +14,7 @@ import { TranscodingService } from './transcoding.service';
  *
  * Strategy:
  *   - Stub `R2Service.getObjectBuffer` / `putObject` with jest mocks.
- *   - Stub `FfmpegService` so that `transcodeVariant` writes a dummy
+ *   - Stub `FfmpegService` so that `transcodeAllVariants` writes a dummy
  *     `playlist.m3u8` + a `seg_000.ts` into the variant directory the
  *     service hands it. That mirrors the real layout enough to assert
  *     the upload set covers manifests + segments + master playlist.
@@ -29,27 +30,49 @@ describe('TranscodingService', () => {
 
   beforeEach(() => {
     r2 = {
-      getObjectBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-mp4')),
-      putObject: jest.fn().mockResolvedValue(undefined),
+      // The service streams the source to disk rather than buffering it;
+      // hand back a fresh Readable per call so `pipeline` can consume it.
+      getObjectReadStream: jest
+        .fn()
+        .mockImplementation(async () => Readable.from([Buffer.from('fake-mp4')])),
+      // Drain the body like the real R2 client does. `uploadHlsTree`
+      // hands us lazily-opened read streams; a mock that resolves without
+      // consuming them lets `cleanupWorkDir` delete the files first, and
+      // the deferred open then throws ENOENT out of band.
+      putObject: jest.fn(async (_key: string, body: unknown) => {
+        if (body && typeof (body as Readable).resume === 'function') {
+          const stream = body as Readable;
+          await new Promise<void>((resolve, reject) => {
+            stream.on('end', resolve);
+            stream.on('error', reject);
+            stream.resume();
+          });
+        }
+      }),
     } as any;
 
     ffmpeg = {
       probe: jest
         .fn()
         .mockResolvedValue({ durationMs: 60_000, width: 1920, height: 1080 }),
-      transcodeVariant: jest.fn(async (input) => {
-        // Write a dummy playlist + segment so the uploader has files to walk.
-        fs.mkdirSync(input.outputDir, { recursive: true });
-        fs.writeFileSync(
-          path.join(input.outputDir, 'playlist.m3u8'),
-          `#EXTM3U\n#variant ${input.variant.name}\n`,
-          'utf8',
-        );
-        fs.writeFileSync(
-          path.join(input.outputDir, 'seg_000.ts'),
-          'segdata',
-          'utf8',
-        );
+      transcodeAllVariants: jest.fn(async (input) => {
+        // Write a dummy playlist + segment per variant so the uploader
+        // has files to walk — same tree the real single-process encode
+        // produces.
+        for (const variant of input.variants as HlsVariant[]) {
+          const outputDir = path.join(input.hlsDir, variant.name);
+          fs.mkdirSync(outputDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(outputDir, 'playlist.m3u8'),
+            `#EXTM3U\n#variant ${variant.name}\n`,
+            'utf8',
+          );
+          fs.writeFileSync(
+            path.join(outputDir, 'seg_000.ts'),
+            'segdata',
+            'utf8',
+          );
+        }
       }),
       writeMasterPlaylist: jest.fn(async (input) => {
         fs.mkdirSync(path.dirname(input.outputPath), { recursive: true });
@@ -64,17 +87,17 @@ describe('TranscodingService', () => {
     const result = await service.run(ASSET_ID, SOURCE_KEY, OWNER_ID);
 
     // Source fetched once.
-    expect(r2.getObjectBuffer).toHaveBeenCalledWith(SOURCE_KEY);
+    expect(r2.getObjectReadStream).toHaveBeenCalledWith(SOURCE_KEY);
 
     // Probe ran on the local copy.
     expect(ffmpeg.probe).toHaveBeenCalledTimes(1);
 
-    // One transcodeVariant call per variant in the ladder (1080p source
-    // → all four variants apply because none up-scales).
-    expect(ffmpeg.transcodeVariant).toHaveBeenCalledTimes(4);
-    const variantNames = ffmpeg.transcodeVariant.mock.calls.map(
-      (c) => (c[0].variant as HlsVariant).name,
-    );
+    // One single-process ladder encode covering every variant (1080p
+    // source → all four apply because none up-scales).
+    expect(ffmpeg.transcodeAllVariants).toHaveBeenCalledTimes(1);
+    const variantNames = (
+      ffmpeg.transcodeAllVariants.mock.calls[0]![0]!.variants as HlsVariant[]
+    ).map((v) => v.name);
     expect(variantNames.sort()).toEqual(
       [...HLS_VARIANTS.map((v) => v.name)].sort(),
     );
@@ -111,9 +134,9 @@ describe('TranscodingService', () => {
     await service.run(ASSET_ID, SOURCE_KEY, OWNER_ID);
 
     // Only 240p + 480p variants apply for a 480p source.
-    const names = ffmpeg.transcodeVariant.mock.calls.map(
-      (c) => (c[0].variant as HlsVariant).name,
-    );
+    const names = (
+      ffmpeg.transcodeAllVariants.mock.calls[0]![0]!.variants as HlsVariant[]
+    ).map((v) => v.name);
     expect(names.sort()).toEqual(['240p', '480p']);
   });
 
@@ -126,7 +149,9 @@ describe('TranscodingService', () => {
 
     await service.run(ASSET_ID, SOURCE_KEY, OWNER_ID);
 
-    expect(ffmpeg.transcodeVariant).toHaveBeenCalledTimes(4);
+    expect(
+      ffmpeg.transcodeAllVariants.mock.calls[0]![0]!.variants,
+    ).toHaveLength(4);
   });
 
   it('cleans up the temp working directory after success', async () => {
@@ -144,7 +169,9 @@ describe('TranscodingService', () => {
   });
 
   it('cleans up the temp working directory after failure', async () => {
-    ffmpeg.transcodeVariant.mockRejectedValueOnce(new Error('encoder boom'));
+    ffmpeg.transcodeAllVariants.mockRejectedValueOnce(
+      new Error('encoder boom'),
+    );
 
     await expect(service.run(ASSET_ID, SOURCE_KEY, OWNER_ID)).rejects.toThrow(
       /encoder boom/,

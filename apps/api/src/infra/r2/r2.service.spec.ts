@@ -310,4 +310,77 @@ describe('R2Service', () => {
   it('client is an S3Client instance', () => {
     expect((service as any).client).toBeInstanceOf(S3Client);
   });
+
+  describe('production credential guard', () => {
+    // `ConfigService.get('NODE_ENV')` resolves from process.env, not from
+    // the object handed to the constructor, so the guard has to be driven
+    // through the real variable — which is also how it behaves on Railway.
+    const originalNodeEnv = process.env.NODE_ENV;
+    beforeEach(() => {
+      process.env.NODE_ENV = 'production';
+    });
+    afterEach(() => {
+      if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = originalNodeEnv;
+    });
+
+    // Every R2 credential is optional in the env schema and falls back to
+    // the literal `local-dev`. That is correct for the local MinIO stack,
+    // but in production it means a missing variable boots a healthy-looking
+    // API whose every upload fails with an opaque SignatureDoesNotMatch.
+    it.each([
+      ['R2_ACCOUNT_ID'],
+      ['R2_ACCESS_KEY_ID'],
+      ['R2_SECRET_ACCESS_KEY'],
+    ])('refuses to construct in production when %s is missing', (missing) => {
+      const env: Record<string, string> = {
+        NODE_ENV: 'production',
+        R2_ACCOUNT_ID: 'acct-123',
+        R2_ACCESS_KEY_ID: 'AKIA',
+        R2_SECRET_ACCESS_KEY: 'SECRET',
+      };
+      delete env[missing];
+
+      expect(() => new R2Service(new ConfigService(env))).toThrow(
+        new RegExp(missing),
+      );
+    });
+
+    it('refuses to construct in production when a credential is still the local-dev placeholder', () => {
+      expect(
+        () =>
+          new R2Service(
+            new ConfigService({
+              NODE_ENV: 'production',
+              R2_ACCOUNT_ID: 'acct-123',
+              R2_ACCESS_KEY_ID: 'local-dev',
+              R2_SECRET_ACCESS_KEY: 'SECRET',
+            }),
+          ),
+      ).toThrow(/R2_ACCESS_KEY_ID/);
+    });
+
+    it('constructs in production once every credential is real', () => {
+      const svc = new R2Service(
+        new ConfigService({
+          NODE_ENV: 'production',
+          R2_ACCOUNT_ID: 'acct-123',
+          R2_ACCESS_KEY_ID: 'AKIA',
+          R2_SECRET_ACCESS_KEY: 'SECRET',
+        }),
+      );
+      // Empty R2_PUBLIC_URL must resolve to the real Cloudflare endpoint —
+      // this is the setting operators most often get wrong when migrating
+      // off the MinIO emulator.
+      expect((svc as any).endpoint).toBe(
+        'https://acct-123.r2.cloudflarestorage.com',
+      );
+      svc.onModuleDestroy();
+    });
+
+    it('still allows placeholder credentials outside production', () => {
+      process.env.NODE_ENV = 'development';
+      expect(() => new R2Service(new ConfigService({}))).not.toThrow();
+    });
+  });
 });

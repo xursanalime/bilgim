@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { MediaAsset, MediaKind, Prisma, PrismaClient } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
+import { Readable } from 'stream';
 
 import { QUEUE_NAMES } from '../../infra/bullmq/queue.constants';
 import { TokensService } from '../auth/tokens.service';
@@ -697,7 +698,10 @@ export class MediaService {
     variant: string,
     file: string,
     token: string,
-  ): Promise<{ body: Buffer; contentType: string }> {
+  ): Promise<
+    | { body: Buffer; contentType: string }
+    | { stream: Readable; contentType: string }
+  > {
     const manifestKey = await this.verifyStreamTokenAndLoadManifestKey(assetId, token);
 
     if (!HLS_VARIANTS.some((v) => v.name === variant)) {
@@ -718,9 +722,11 @@ export class MediaService {
     const lastSlash = manifestKey.lastIndexOf('/');
     const dir = lastSlash >= 0 ? manifestKey.slice(0, lastSlash) : '';
     const targetKey = `${dir ? `${dir}/` : ''}${variant}/${file}`;
-    const raw = await this.r2.getObjectBuffer(targetKey);
 
     if (isPlaylist) {
+      // Playlists are a few hundred bytes and have to be rewritten, so
+      // buffering them is fine.
+      const raw = await this.r2.getObjectBuffer(targetKey);
       const proxyBase = `${this.getApiBaseUrl()}/api/v1/media/stream/${assetId}/hls/${variant}`;
       const rewritten = this.rewriteM3u8(
         raw.toString('utf-8'),
@@ -732,7 +738,20 @@ export class MediaService {
       };
     }
 
-    return { body: raw, contentType: 'video/mp2t' };
+    // Segments are streamed straight through rather than buffered.
+    //
+    // `getObjectBuffer` pulls the whole object into the API process before
+    // a single byte reaches the client. A 6s segment of the 1080p variant
+    // at 5000kbps is ~4MB, and the ladder's top variant dominates: with
+    // several viewers the worker was holding tens of MB of segment bodies
+    // at once. Under memory pressure the *largest* segments are the ones
+    // that fail, which shows up as a video that plays fine and then stalls
+    // at the exact moment hls.js switches up to a higher rendition — the
+    // low variants keep working, so it looks like "the video only opens
+    // partway". Streaming keeps memory flat regardless of segment size or
+    // viewer count.
+    const stream = await this.r2.getObjectReadStream(targetKey);
+    return { stream, contentType: 'video/mp2t' };
   }
 
   /**
