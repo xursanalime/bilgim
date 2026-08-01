@@ -22,7 +22,17 @@ function makeRepoFake(initialMembers: FakeMember[]) {
   const members = new Map<string, FakeMember>(
     initialMembers.map((m) => [`${m.groupId}:${m.userId}`, m]),
   );
-  const messages: Array<{ id: string; roomId: string; seq: bigint; authorId: string; body: string; assetId: string | null; createdAt: Date }> = [];
+  const messages: Array<{
+    id: string;
+    roomId: string;
+    seq: bigint;
+    authorId: string;
+    body: string;
+    assetId: string | null;
+    editedAt: Date | null;
+    deletedAt: Date | null;
+    createdAt: Date;
+  }> = [];
   let nextSeq = 0n;
 
   return {
@@ -66,15 +76,41 @@ function makeRepoFake(initialMembers: FakeMember[]) {
         authorId: input.authorId,
         body: input.body,
         assetId: input.assetId ?? null,
+        editedAt: null,
+        deletedAt: null,
         createdAt: new Date(),
       };
       messages.push(row);
       return row;
     }),
-    listMessages: jest.fn(async () => []),
+    listMessages: jest.fn(
+      async (roomId: string, opts: { cursor?: bigint; pageSize: number }) => {
+        return messages
+          .filter((m) => m.deletedAt === null && m.roomId === roomId)
+          .filter((m) => (opts.cursor !== undefined ? m.seq < opts.cursor : true))
+          .sort((a, b) => (b.seq > a.seq ? 1 : b.seq < a.seq ? -1 : 0))
+          .slice(0, opts.pageSize);
+      },
+    ),
     findLatestMessagesByRoom: jest.fn(async () => new Map()),
     listGroupIdsForUser: jest.fn(async () => []),
+    findMessageById: jest.fn(async (messageId: string) => {
+      const row = messages.find((m) => m.id === messageId && m.deletedAt === null);
+      return row ?? null;
+    }),
+    softDeleteMessage: jest.fn(async (messageId: string) => {
+      const row = messages.find((m) => m.id === messageId);
+      if (row) row.deletedAt = new Date();
+    }),
+    updateMessageBody: jest.fn(async (messageId: string, body: string) => {
+      const row = messages.find((m) => m.id === messageId);
+      if (!row) throw new Error(`message ${messageId} not found`);
+      row.body = body;
+      row.editedAt = new Date();
+      return row;
+    }),
     _members: members,
+    _messages: messages,
   };
 }
 
@@ -231,6 +267,95 @@ describe('GroupChatService', () => {
       await expect(service.leaveGroup(ownerActor, GROUP_ID)).rejects.toThrow(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('editMessage', () => {
+    it('lets the author edit their own message within the edit window', async () => {
+      const { service } = makeService(baseMembers());
+      const sent = await service.sendMessage(memberActor, GROUP_ID, 'original');
+
+      const edited = await service.editMessage(memberActor, GROUP_ID, sent.message.id, 'updated');
+
+      expect(edited.text).toBe('updated');
+      expect(edited.editedAt).not.toBeNull();
+    });
+
+    it('rejects editing another member’s message, even for OWNER/ADMIN', async () => {
+      const { service } = makeService(baseMembers());
+      const sent = await service.sendMessage(memberActor, GROUP_ID, 'original');
+
+      await expect(
+        service.editMessage(ownerActor, GROUP_ID, sent.message.id, 'hijacked'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rejects editing after the 48h edit window has passed', async () => {
+      const { service, repo } = makeService(baseMembers());
+      const sent = await service.sendMessage(memberActor, GROUP_ID, 'original');
+      const row = (repo as any)._messages.find((m: { id: string }) => m.id === sent.message.id);
+      row.createdAt = new Date(Date.now() - 49 * 60 * 60 * 1000);
+
+      await expect(
+        service.editMessage(memberActor, GROUP_ID, sent.message.id, 'too late'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('404s on a nonexistent message', async () => {
+      const { service } = makeService(baseMembers());
+      await expect(
+        service.editMessage(memberActor, GROUP_ID, 'does-not-exist', 'text'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('deleteMessage', () => {
+    it('lets the author delete their own message', async () => {
+      const { service } = makeService(baseMembers());
+      const sent = await service.sendMessage(memberActor, GROUP_ID, 'to be deleted');
+
+      await service.deleteMessage(memberActor, GROUP_ID, sent.message.id);
+
+      const page = await service.listMessages(memberActor, GROUP_ID, {});
+      expect(page.items.find((m) => m.id === sent.message.id)).toBeUndefined();
+    });
+
+    it('lets an OWNER moderate-delete another member’s message', async () => {
+      const { service } = makeService(baseMembers());
+      const sent = await service.sendMessage(memberActor, GROUP_ID, 'rule-breaking message');
+
+      await service.deleteMessage(ownerActor, GROUP_ID, sent.message.id);
+
+      const page = await service.listMessages(memberActor, GROUP_ID, {});
+      expect(page.items.find((m) => m.id === sent.message.id)).toBeUndefined();
+    });
+
+    it('lets an ADMIN moderate-delete another member’s message', async () => {
+      const { service } = makeService(baseMembers());
+      const sent = await service.sendMessage(memberActor, GROUP_ID, 'rule-breaking message');
+
+      await service.deleteMessage(adminActor, GROUP_ID, sent.message.id);
+
+      const page = await service.listMessages(memberActor, GROUP_ID, {});
+      expect(page.items.find((m) => m.id === sent.message.id)).toBeUndefined();
+    });
+
+    it('forbids a plain MEMBER from deleting another member’s message', async () => {
+      const members = baseMembers();
+      members.push({ groupId: GROUP_ID, userId: 'member-2', role: 'MEMBER', joinedAt: new Date(), removedAt: null });
+      const { service } = makeService(members);
+      const sent = await service.sendMessage(memberActor, GROUP_ID, 'not yours');
+
+      await expect(
+        service.deleteMessage({ userId: 'member-2', role: 'STUDENT' }, GROUP_ID, sent.message.id),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('404s on a nonexistent message', async () => {
+      const { service } = makeService(baseMembers());
+      await expect(
+        service.deleteMessage(memberActor, GROUP_ID, 'does-not-exist'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

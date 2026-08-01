@@ -28,6 +28,8 @@ export interface GroupChatMessage {
   text: string;
   assetId?: string | null;
   assetUrl?: string | null;
+  /** Set when the author edited this message after sending; null/undefined otherwise. */
+  editedAt?: string | null;
   createdAt: string;
 }
 
@@ -98,6 +100,21 @@ export const groupChatApi = {
     return apiClient.post<SendGroupMessageResult>(
       `/group-chat/groups/${groupId}/messages`,
       { text, assetId },
+    );
+  },
+
+  /** Edit the text of a message the caller authored (within the 48h edit window). */
+  editMessage(groupId: string, messageId: string, text: string) {
+    return apiClient.patch<GroupChatMessage>(
+      `/group-chat/groups/${groupId}/messages/${messageId}`,
+      { text },
+    );
+  },
+
+  /** Soft-delete a message. Author can always delete their own; OWNER/ADMIN can delete any member's message. */
+  deleteMessage(groupId: string, messageId: string) {
+    return apiClient.delete<void>(
+      `/group-chat/groups/${groupId}/messages/${messageId}`,
     );
   },
 

@@ -27,6 +27,8 @@ export interface DmMessage {
   text: string;
   assetId?: string | null;
   assetUrl?: string | null;
+  /** Set when the author edited this message after sending; null/undefined otherwise. */
+  editedAt?: string | null;
   createdAt: string;
 }
 
@@ -126,6 +128,21 @@ export const dmApi = {
     const qs = search.toString();
     return apiClient.get<DmMessageListResponse>(
       `/dm/threads/${threadId}/messages${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  /** Edit the text of a message the caller authored (within the 48h edit window). */
+  editMessage(threadId: string, messageId: string, text: string) {
+    return apiClient.patch<DmMessage>(
+      `/dm/threads/${threadId}/messages/${messageId}`,
+      { text },
+    );
+  },
+
+  /** Soft-delete a message the caller authored. */
+  deleteMessage(threadId: string, messageId: string) {
+    return apiClient.delete<void>(
+      `/dm/threads/${threadId}/messages/${messageId}`,
     );
   },
 };

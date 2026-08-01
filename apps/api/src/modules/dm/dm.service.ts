@@ -27,6 +27,7 @@ import {
   peerFromScopeRef,
 } from './repositories/dm.repository';
 import { countUnreadBatch } from '../../common/chat/count-unread-batch';
+import { MESSAGE_EDIT_WINDOW_HOURS, isWithinEditWindow } from '../../common/chat/message-edit-window';
 import { stripHtml } from '../../common/sanitization';
 import { LiveChatGateway } from '../live/chat/live-chat.gateway';
 import { MediaAccessService } from '../media/media-access.service';
@@ -82,6 +83,8 @@ export interface DmMessage {
   text: string;
   assetId: string | null;
   assetUrl?: string | null;
+  /** Set when the author edited this message after sending; null otherwise. */
+  editedAt: Date | null;
   createdAt: Date;
 }
 
@@ -474,6 +477,103 @@ export class DmService {
   }
 
   // ------------------------------------------------------------------
+  // Edit / delete
+  // ------------------------------------------------------------------
+
+  /**
+   * Edit the text of a message the caller authored, within the 48h
+   * edit window (Telegram parity). Attachments are immutable — only
+   * `body` can change.
+   */
+  async editMessage(
+    actor: DmActor,
+    threadId: string,
+    messageId: string,
+    text: string,
+  ): Promise<DmMessage> {
+    this.assertActorAllowed(actor);
+    const { thread } = await this.resolveParticipantThread(
+      actor.userId,
+      threadId,
+    );
+
+    const message = await this.repo.findMessageById(messageId);
+    if (!message || message.roomId !== thread.id) {
+      throw new NotFoundException({
+        code: 'DM_MESSAGE_NOT_FOUND',
+        message: 'Message not found',
+      });
+    }
+    if (message.authorId !== actor.userId) {
+      throw new ForbiddenException({
+        code: 'DM_EDIT_NOT_AUTHOR',
+        message: 'You can only edit your own messages',
+      });
+    }
+    if (!isWithinEditWindow(message.createdAt)) {
+      throw new ForbiddenException({
+        code: 'DM_EDIT_WINDOW_EXPIRED',
+        message: `Messages can only be edited within ${MESSAGE_EDIT_WINDOW_HOURS}h of sending`,
+      });
+    }
+
+    const body = this.normalizeBody(text, !!message.assetId);
+    const updated = await this.repo.updateMessageBody(messageId, body);
+    const result = this.toDmMessage(updated);
+
+    this.liveChatGateway.server
+      .to(`lesson:dm:${thread.id}`)
+      .emit('chat:message-edited', {
+        lessonId: `dm:${thread.id}`,
+        messageId: updated.id,
+        text: updated.body,
+        editedAt: (updated.editedAt ?? new Date()).getTime(),
+      });
+
+    return result;
+  }
+
+  /**
+   * Soft-delete a message the caller authored. DM has no moderator
+   * role (unlike group chat) — only the author can delete their own
+   * message.
+   */
+  async deleteMessage(
+    actor: DmActor,
+    threadId: string,
+    messageId: string,
+  ): Promise<void> {
+    this.assertActorAllowed(actor);
+    const { thread } = await this.resolveParticipantThread(
+      actor.userId,
+      threadId,
+    );
+
+    const message = await this.repo.findMessageById(messageId);
+    if (!message || message.roomId !== thread.id) {
+      throw new NotFoundException({
+        code: 'DM_MESSAGE_NOT_FOUND',
+        message: 'Message not found',
+      });
+    }
+    if (message.authorId !== actor.userId) {
+      throw new ForbiddenException({
+        code: 'DM_DELETE_NOT_AUTHOR',
+        message: 'You can only delete your own messages',
+      });
+    }
+
+    await this.repo.softDeleteMessage(messageId);
+
+    this.liveChatGateway.server
+      .to(`lesson:dm:${thread.id}`)
+      .emit('chat:message-deleted', {
+        lessonId: `dm:${thread.id}`,
+        messageId,
+      });
+  }
+
+  // ------------------------------------------------------------------
   // Access control
   // ------------------------------------------------------------------
 
@@ -723,6 +823,7 @@ export class DmService {
       text: row.body,
       assetId: row.assetId,
       assetUrl: assetUrl ?? null,
+      editedAt: row.editedAt,
       createdAt: row.createdAt,
     };
   }

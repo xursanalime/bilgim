@@ -1157,6 +1157,10 @@ model ChatMessage {
   authorId  String    @db.Uuid
   body      String
   assetId   String?   @db.Uuid
+  /// Set when the author edits `body` after sending. Null for
+  /// never-edited messages — distinct from `createdAt` changing, which
+  /// never happens post-insert.
+  editedAt  DateTime?
   deletedAt DateTime?
   createdAt DateTime  @default(now())
 

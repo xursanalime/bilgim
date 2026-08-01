@@ -32,6 +32,9 @@ import {
   AlertCircle,
   AlertTriangle,
   FileUp,
+  Pencil,
+  Trash2,
+  Check,
 } from 'lucide-react';
 
 import {
@@ -127,6 +130,7 @@ export function GroupChatThread({
   });
 
   const [draft, setDraft] = useState('');
+  const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<OptimisticMessage[]>([]);
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [attachmentMode, setAttachmentMode] = useState<AttachmentMode>('document');
@@ -221,14 +225,51 @@ export function GroupChatThread({
       });
     }
 
+    function handleEdited(payload: { lessonId?: string; messageId?: string; text?: string; editedAt?: number }) {
+      if (!payload?.messageId || payload.lessonId !== roomKey) return;
+      queryClient.setQueryData<{
+        items: GroupChatMessage[];
+        nextCursor: string | null;
+      }>(['group-chat', 'messages', groupId], (prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: prev.items.map((m) =>
+            m.id === payload.messageId
+              ? {
+                  ...m,
+                  text: payload.text ?? m.text,
+                  editedAt: new Date(payload.editedAt ?? Date.now()).toISOString(),
+                }
+              : m,
+          ),
+        };
+      });
+    }
+
+    function handleDeleted(payload: { lessonId?: string; messageId?: string }) {
+      if (!payload?.messageId || payload.lessonId !== roomKey) return;
+      queryClient.setQueryData<{
+        items: GroupChatMessage[];
+        nextCursor: string | null;
+      }>(['group-chat', 'messages', groupId], (prev) => {
+        if (!prev) return prev;
+        return { ...prev, items: prev.items.filter((m) => m.id !== payload.messageId) };
+      });
+    }
+
     socket.on('connect', handleConnect);
     socket.on('chat:message', handleMessage);
+    socket.on('chat:message-edited', handleEdited);
+    socket.on('chat:message-deleted', handleDeleted);
     if (socket.connected) emitJoin();
 
     return () => {
       if (!socket) return;
       socket.off('connect', handleConnect);
       socket.off('chat:message', handleMessage);
+      socket.off('chat:message-edited', handleEdited);
+      socket.off('chat:message-deleted', handleDeleted);
       socket.emit('chat:leave', { lessonId: roomKey });
     };
   }, [groupId, queryClient]);
@@ -243,6 +284,45 @@ export function GroupChatThread({
       if (fileInputRef.current) fileInputRef.current.value = '';
     },
   });
+
+  const editMutation = useMutation({
+    mutationFn: ({ messageId, text }: { messageId: string; text: string }) =>
+      groupChatApi.editMessage(groupId, messageId, text),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group-chat', 'messages', groupId] });
+      setEditingMessage(null);
+      setDraft('');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (messageId: string) => groupChatApi.deleteMessage(groupId, messageId),
+    onSuccess: (_data, messageId) => {
+      queryClient.setQueryData<{
+        items: GroupChatMessage[];
+        nextCursor: string | null;
+      }>(['group-chat', 'messages', groupId], (prev) => {
+        if (!prev) return prev;
+        return { ...prev, items: prev.items.filter((m) => m.id !== messageId) };
+      });
+      queryClient.invalidateQueries({ queryKey: ['group-chat', 'groups'] });
+    },
+  });
+
+  function startEdit(message: GroupChatMessage) {
+    setEditingMessage({ id: message.id, text: message.text });
+    setDraft(message.text);
+  }
+
+  function cancelEdit() {
+    setEditingMessage(null);
+    setDraft('');
+  }
+
+  function handleDelete(messageId: string) {
+    if (!window.confirm("Xabarni o'chirmoqchimisiz?")) return;
+    deleteMutation.mutate(messageId);
+  }
 
   async function startUpload(file: File, optId: string) {
     try {
@@ -334,9 +414,14 @@ export function GroupChatThread({
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (sendMutation.isPending) return;
     const text = draft.trim();
     if (!text) return;
+    if (editingMessage) {
+      if (editMutation.isPending) return;
+      editMutation.mutate({ messageId: editingMessage.id, text });
+      return;
+    }
+    if (sendMutation.isPending) return;
     sendMutation.mutate({ text });
   }
 
@@ -433,6 +518,7 @@ export function GroupChatThread({
             {ordered.map((m) => {
               const isMine = m.authorId === myId;
               const author = memberMap.get(m.authorId);
+              const canModerate = group?.myRole === 'OWNER' || group?.myRole === 'ADMIN';
               return (
                 <GroupMessageBubble
                   key={m.id}
@@ -441,6 +527,8 @@ export function GroupChatThread({
                   authorName={author?.user.fullName ?? "Noma'lum foydalanuvchi"}
                   authorAvatar={author?.user.avatarUrl ?? null}
                   resolved={m.assetId ? assetBatch.byAssetId.get(m.assetId) : undefined}
+                  {...(isMine ? { onEdit: () => startEdit(m) } : {})}
+                  {...(isMine || canModerate ? { onDelete: () => handleDelete(m.id) } : {})}
                 />
               );
             })}
@@ -480,6 +568,21 @@ export function GroupChatThread({
                   ? sendMutation.error.message
                   : 'Xatolik yuz berdi.'}
               </div>
+            </div>
+          )}
+
+          {editingMessage && (
+            <div className="mb-2 flex items-center gap-3 rounded-2xl border border-blue/20 bg-blue-tint/40 px-4 py-2.5 text-xs font-bold text-blue">
+              <Pencil className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1">Xabarni tahrirlash</span>
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-blue/10"
+                aria-label="Tahrirlashni bekor qilish"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           )}
 
@@ -556,30 +659,36 @@ export function GroupChatThread({
               onChange={(e) => setDraft(e.target.value)}
               onPaste={handlePaste}
               onKeyDown={(e) => {
+                if (e.key === 'Escape' && editingMessage) {
+                  cancelEdit();
+                  return;
+                }
                 if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault();
-                  if (!sendMutation.isPending) {
+                  if (!sendMutation.isPending && !editMutation.isPending) {
                     handleSubmit(e as unknown as FormEvent<HTMLFormElement>);
                   }
                 }
               }}
               rows={1}
-              placeholder="Guruhga xabar yozing..."
+              placeholder={editingMessage ? 'Tahrirlangan xabar...' : 'Guruhga xabar yozing...'}
               className="flex-1 max-h-32 min-h-[2.75rem] py-3 text-sm font-medium text-ink-strong placeholder:text-ink-faint bg-transparent outline-none resize-none scrollbar-hide"
             />
 
             <button
               type="submit"
-              disabled={sendMutation.isPending || draft.trim().length === 0}
+              disabled={(sendMutation.isPending || editMutation.isPending) || draft.trim().length === 0}
               className={cn(
                 'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-all active:scale-90 shadow-sm',
-                draft.trim() && !sendMutation.isPending
+                draft.trim() && !sendMutation.isPending && !editMutation.isPending
                   ? 'bg-blue text-white shadow-blue-soft'
                   : 'bg-tint text-ink-faint',
               )}
             >
-              {sendMutation.isPending ? (
+              {sendMutation.isPending || editMutation.isPending ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
+              ) : editingMessage ? (
+                <Check className="h-5 w-5" />
               ) : (
                 <Send className="h-5 w-5 ml-0.5" />
               )}
@@ -600,6 +709,8 @@ function GroupMessageBubble({
   onRetry,
   onCancel,
   resolved,
+  onEdit,
+  onDelete,
 }: {
   message: GroupChatMessage;
   isMine: boolean;
@@ -610,6 +721,10 @@ function GroupMessageBubble({
   onCancel?: () => void;
   /** Batched metadata/playback lookup result for `message.assetId` (see `useAssetBatch`). */
   resolved?: MediaAssetBatchResult | undefined;
+  /** Present only for the caller's own messages — edit is author-only. */
+  onEdit?: () => void;
+  /** Present for own messages, or for any message when the caller can moderate (OWNER/ADMIN). */
+  onDelete?: () => void;
 }): React.ReactElement {
   const isPersisted = !message.id.startsWith('socket-') && !message.id.startsWith('opt-');
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -771,6 +886,35 @@ function GroupMessageBubble({
         </div>
 
         <div className="flex items-center gap-1.5 px-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {!optimistic && (onEdit || onDelete) && (
+            <div className="flex items-center gap-0.5">
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="flex h-5 w-5 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-tint hover:text-blue"
+                  aria-label="Tahrirlash"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="flex h-5 w-5 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-red-tint hover:text-red"
+                  aria-label="O'chirish"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          )}
+          {message.editedAt && (
+            <span className="text-[9px] font-bold uppercase tracking-wider text-ink-faint">
+              tahrirlangan
+            </span>
+          )}
           <span className="text-[9px] font-bold uppercase tracking-wider text-ink-faint">
             {formatClock(message.createdAt)}
           </span>

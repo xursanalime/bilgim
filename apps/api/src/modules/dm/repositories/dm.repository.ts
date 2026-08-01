@@ -60,8 +60,20 @@ export interface DmMessageRow {
   authorId: string;
   body: string;
   assetId: string | null;
+  editedAt: Date | null;
   createdAt: Date;
 }
+
+const MESSAGE_SELECT = {
+  id: true,
+  roomId: true,
+  seq: true,
+  authorId: true,
+  body: true,
+  assetId: true,
+  editedAt: true,
+  createdAt: true,
+} as const;
 
 /**
  * `DmRepository` — thin Prisma adapter for the Direct-Messaging
@@ -189,15 +201,7 @@ export class DmRepository {
         body: input.body,
         assetId: input.assetId ?? null,
       },
-      select: {
-        id: true,
-        roomId: true,
-        seq: true,
-        authorId: true,
-        body: true,
-        assetId: true,
-        createdAt: true,
-      },
+      select: MESSAGE_SELECT,
     });
   }
 
@@ -221,15 +225,7 @@ export class DmRepository {
       },
       orderBy: { seq: 'desc' },
       take: opts.pageSize,
-      select: {
-        id: true,
-        roomId: true,
-        seq: true,
-        authorId: true,
-        body: true,
-        assetId: true,
-        createdAt: true,
-      },
+      select: MESSAGE_SELECT,
     });
   }
 
@@ -246,15 +242,7 @@ export class DmRepository {
     return client.chatMessage.findFirst({
       where: { roomId: threadId, deletedAt: null },
       orderBy: { seq: 'desc' },
-      select: {
-        id: true,
-        roomId: true,
-        seq: true,
-        authorId: true,
-        body: true,
-        assetId: true,
-        createdAt: true,
-      },
+      select: MESSAGE_SELECT,
     });
   }
 
@@ -284,15 +272,7 @@ export class DmRepository {
     const rows = await client.chatMessage.findMany({
       where: { roomId: { in: threadIds }, deletedAt: null },
       orderBy: { seq: 'desc' },
-      select: {
-        id: true,
-        roomId: true,
-        seq: true,
-        authorId: true,
-        body: true,
-        assetId: true,
-        createdAt: true,
-      },
+      select: MESSAGE_SELECT,
     });
     const out = new Map<string, DmMessageRow>();
     for (const row of rows) {
@@ -320,6 +300,49 @@ export class DmRepository {
       select: { id: true },
     });
     return row !== null;
+  }
+
+  // ------------------------------------------------------------------
+  // Edit / delete
+  // ------------------------------------------------------------------
+
+  /** A single non-deleted message by id, or `null`. Used by edit/delete to load the row before authorizing the action. */
+  async findMessageById(
+    messageId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<DmMessageRow | null> {
+    const client = tx ?? this.prisma;
+    const row = await client.chatMessage.findFirst({
+      where: { id: messageId, deletedAt: null },
+      select: MESSAGE_SELECT,
+    });
+    return row ?? null;
+  }
+
+  /** Soft-delete: sets `deletedAt` so every read path (list/latest/reciprocation) excludes it, without losing the row for audit. */
+  async softDeleteMessage(
+    messageId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const client = tx ?? this.prisma;
+    await client.chatMessage.update({
+      where: { id: messageId },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  /** Update a message's body and stamp `editedAt`. Caller (service) has already authorized the edit. */
+  async updateMessageBody(
+    messageId: string,
+    body: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<DmMessageRow> {
+    const client = tx ?? this.prisma;
+    return client.chatMessage.update({
+      where: { id: messageId },
+      data: { body, editedAt: new Date() },
+      select: MESSAGE_SELECT,
+    });
   }
 }
 

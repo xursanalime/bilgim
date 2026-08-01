@@ -84,6 +84,24 @@ export const SendDmMessageSchema = z
 
 export type SendDmMessageDto = z.infer<typeof SendDmMessageSchema>;
 
+/**
+ * `PATCH /dm/threads/:id/messages/:messageId` body schema. Text-only —
+ * attachments are immutable once sent, matching Telegram's own edit
+ * behaviour (you can edit the caption, not swap the file).
+ */
+export const EditDmMessageSchema = z.object({
+  text: z
+    .string()
+    .min(1, 'text is required')
+    .max(
+      MAX_DM_BODY_LENGTH,
+      `text must be at most ${MAX_DM_BODY_LENGTH} characters`,
+    )
+    .transform((t) => stripHtml(t)),
+});
+
+export type EditDmMessageDto = z.infer<typeof EditDmMessageSchema>;
+
 /** `GET /dm/threads` query schema. */
 export const ListDmThreadsSchema = z.object({
   cursor: CursorSchema,

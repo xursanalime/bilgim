@@ -19,6 +19,7 @@ import {
   GroupChatRoomRow,
 } from './repositories/group-chat.repository';
 import { countUnreadBatch } from '../../common/chat/count-unread-batch';
+import { MESSAGE_EDIT_WINDOW_HOURS, isWithinEditWindow } from '../../common/chat/message-edit-window';
 import { stripHtml } from '../../common/sanitization';
 import { LiveChatGateway } from '../live/chat/live-chat.gateway';
 import { R2Service } from '../../infra/r2/r2.service';
@@ -56,6 +57,8 @@ export interface GroupChatMessage {
   text: string;
   assetId: string | null;
   assetUrl?: string | null;
+  /** Set when the author edited this message after sending; null otherwise. */
+  editedAt: Date | null;
   createdAt: Date;
 }
 
@@ -310,6 +313,103 @@ export class GroupChatService {
       });
 
     return { message: this.toGroupMessage(created, groupId, assetUrl) };
+  }
+
+  // ------------------------------------------------------------------
+  // Edit / delete
+  // ------------------------------------------------------------------
+
+  /**
+   * Edit the text of a message the caller authored, within the 48h
+   * edit window (Telegram parity). Unlike delete, editing is
+   * author-only even for OWNER/ADMIN — moderators can remove abusive
+   * content but shouldn't be able to put words in someone else's
+   * mouth.
+   */
+  async editMessage(
+    actor: GroupChatActor,
+    groupId: string,
+    messageId: string,
+    text: string,
+  ): Promise<GroupChatMessage> {
+    this.assertActorAllowed(actor);
+    await this.assertMembership(groupId, actor.userId);
+
+    const room = await this.repo.upsertRoomForGroup(groupId);
+    const message = await this.repo.findMessageById(messageId);
+    if (!message || message.roomId !== room.id) {
+      throw new NotFoundException({
+        code: 'GROUP_CHAT_MESSAGE_NOT_FOUND',
+        message: 'Message not found',
+      });
+    }
+    if (message.authorId !== actor.userId) {
+      throw new ForbiddenException({
+        code: 'GROUP_CHAT_EDIT_NOT_AUTHOR',
+        message: 'You can only edit your own messages',
+      });
+    }
+    if (!isWithinEditWindow(message.createdAt)) {
+      throw new ForbiddenException({
+        code: 'GROUP_CHAT_EDIT_WINDOW_EXPIRED',
+        message: `Messages can only be edited within ${MESSAGE_EDIT_WINDOW_HOURS}h of sending`,
+      });
+    }
+
+    const body = this.normalizeBody(text, !!message.assetId);
+    const updated = await this.repo.updateMessageBody(messageId, body);
+    const result = this.toGroupMessage(updated, groupId);
+
+    this.liveChatGateway.server
+      .to(`lesson:group:${groupId}`)
+      .emit('chat:message-edited', {
+        lessonId: `group:${groupId}`,
+        messageId: updated.id,
+        text: updated.body,
+        editedAt: (updated.editedAt ?? new Date()).getTime(),
+      });
+
+    return result;
+  }
+
+  /**
+   * Soft-delete a message. The author can always delete their own
+   * message; OWNER/ADMIN can additionally delete any member's message
+   * (moderation — Telegram-style admin takedown).
+   */
+  async deleteMessage(
+    actor: GroupChatActor,
+    groupId: string,
+    messageId: string,
+  ): Promise<void> {
+    this.assertActorAllowed(actor);
+    const member = await this.assertMembership(groupId, actor.userId);
+
+    const room = await this.repo.upsertRoomForGroup(groupId);
+    const message = await this.repo.findMessageById(messageId);
+    if (!message || message.roomId !== room.id) {
+      throw new NotFoundException({
+        code: 'GROUP_CHAT_MESSAGE_NOT_FOUND',
+        message: 'Message not found',
+      });
+    }
+
+    const isModerator = member.role === 'OWNER' || member.role === 'ADMIN';
+    if (message.authorId !== actor.userId && !isModerator) {
+      throw new ForbiddenException({
+        code: 'GROUP_CHAT_DELETE_FORBIDDEN',
+        message: 'You can only delete your own messages',
+      });
+    }
+
+    await this.repo.softDeleteMessage(messageId);
+
+    this.liveChatGateway.server
+      .to(`lesson:group:${groupId}`)
+      .emit('chat:message-deleted', {
+        lessonId: `group:${groupId}`,
+        messageId,
+      });
   }
 
   async markRead(actor: GroupChatActor, groupId: string): Promise<void> {
@@ -651,6 +751,7 @@ export class GroupChatService {
       text: row.body,
       assetId: row.assetId,
       assetUrl: assetUrl ?? null,
+      editedAt: row.editedAt,
       createdAt: row.createdAt,
     };
   }

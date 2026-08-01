@@ -68,6 +68,23 @@ export const SendGroupMessageSchema = z
 
 export type SendGroupMessageDto = z.infer<typeof SendGroupMessageSchema>;
 
+/**
+ * `PATCH /group-chat/groups/:groupId/messages/:messageId` body schema.
+ * Text-only — attachments are immutable once sent.
+ */
+export const EditGroupMessageSchema = z.object({
+  text: z
+    .string()
+    .min(1, 'text is required')
+    .max(
+      MAX_GROUP_MESSAGE_BODY_LENGTH,
+      `text must be at most ${MAX_GROUP_MESSAGE_BODY_LENGTH} characters`,
+    )
+    .transform((t) => stripHtml(t)),
+});
+
+export type EditGroupMessageDto = z.infer<typeof EditGroupMessageSchema>;
+
 /** `POST /group-chat/groups/:groupId/members` body schema. */
 export const AddGroupMemberSchema = z.object({
   userId: UuidSchema,

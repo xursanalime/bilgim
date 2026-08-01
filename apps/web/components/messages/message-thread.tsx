@@ -35,7 +35,9 @@ import {
   Download,
   Play,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 
 import { dmApi, type DmMessage } from '../../lib/api/dm';
@@ -129,6 +131,7 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
   });
 
   const [draft, setDraft] = useState('');
+  const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<OptimisticMessage[]>([]);
   const [rateLimitedUntil, setRateLimitedUntil] = useState<number | null>(null);
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
@@ -246,8 +249,51 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
       });
     }
 
+    function matchesRoom(payloadLessonId?: string): boolean {
+      return (
+        !payloadLessonId ||
+        payloadLessonId === `dm:${threadId}` ||
+        payloadLessonId === lessonId
+      );
+    }
+
+    function handleEdited(payload: { lessonId?: string; messageId?: string; text?: string; editedAt?: number }) {
+      if (!payload?.messageId || !matchesRoom(payload.lessonId)) return;
+      queryClient.setQueryData<{
+        items: DmMessage[];
+        nextCursor: string | null;
+      }>(['dm', 'messages', threadId], (prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: prev.items.map((m) =>
+            m.id === payload.messageId
+              ? {
+                  ...m,
+                  text: payload.text ?? m.text,
+                  editedAt: new Date(payload.editedAt ?? Date.now()).toISOString(),
+                }
+              : m,
+          ),
+        };
+      });
+    }
+
+    function handleDeleted(payload: { lessonId?: string; messageId?: string }) {
+      if (!payload?.messageId || !matchesRoom(payload.lessonId)) return;
+      queryClient.setQueryData<{
+        items: DmMessage[];
+        nextCursor: string | null;
+      }>(['dm', 'messages', threadId], (prev) => {
+        if (!prev) return prev;
+        return { ...prev, items: prev.items.filter((m) => m.id !== payload.messageId) };
+      });
+    }
+
     socket.on('connect', handleConnect);
     socket.on('chat:message', handleMessage);
+    socket.on('chat:message-edited', handleEdited);
+    socket.on('chat:message-deleted', handleDeleted);
     if (socket.connected) {
       emitJoin();
     }
@@ -256,6 +302,8 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
       if (!socket) return;
       socket.off('connect', handleConnect);
       socket.off('chat:message', handleMessage);
+      socket.off('chat:message-edited', handleEdited);
+      socket.off('chat:message-deleted', handleDeleted);
       socket.emit(
         'chat:leave',
         lessonId
@@ -295,6 +343,45 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
       : 0;
   const isRateLimited =
     rateLimitedUntil !== null && rateLimitedUntil > now;
+
+  const editMutation = useMutation({
+    mutationFn: ({ messageId, text }: { messageId: string; text: string }) =>
+      dmApi.editMessage(threadId, messageId, text),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dm', 'messages', threadId] });
+      setEditingMessage(null);
+      setDraft('');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (messageId: string) => dmApi.deleteMessage(threadId, messageId),
+    onSuccess: (_data, messageId) => {
+      queryClient.setQueryData<{
+        items: DmMessage[];
+        nextCursor: string | null;
+      }>(['dm', 'messages', threadId], (prev) => {
+        if (!prev) return prev;
+        return { ...prev, items: prev.items.filter((m) => m.id !== messageId) };
+      });
+      queryClient.invalidateQueries({ queryKey: ['dm', 'threads'] });
+    },
+  });
+
+  function startEdit(message: DmMessage) {
+    setEditingMessage({ id: message.id, text: message.text });
+    setDraft(message.text);
+  }
+
+  function cancelEdit() {
+    setEditingMessage(null);
+    setDraft('');
+  }
+
+  function handleDelete(messageId: string) {
+    if (!window.confirm("Xabarni o'chirmoqchimisiz?")) return;
+    deleteMutation.mutate(messageId);
+  }
 
   async function startUpload(file: File, optId: string) {
     try {
@@ -400,11 +487,16 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (isRateLimited || sendMutation.isPending) return;
-
     const text = draft.trim();
     if (!text) return;
 
+    if (editingMessage) {
+      if (editMutation.isPending) return;
+      editMutation.mutate({ messageId: editingMessage.id, text });
+      return;
+    }
+
+    if (isRateLimited || sendMutation.isPending) return;
     sendMutation.mutate({ text });
   }
 
@@ -507,6 +599,7 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
                   {...(thread?.peer.fullName ? { peerName: thread.peer.fullName } : {})}
                   {...(thread?.peer.avatarUrl !== undefined ? { peerAvatar: thread.peer.avatarUrl } : {})}
                   resolved={m.assetId ? assetBatch.byAssetId.get(m.assetId) : undefined}
+                  {...(isMine ? { onEdit: () => startEdit(m), onDelete: () => handleDelete(m.id) } : {})}
                 />
               );
             })}
@@ -572,6 +665,21 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
             </div>
           )}
 
+          {editingMessage && (
+            <div className="mb-2 flex items-center gap-3 rounded-2xl border border-blue/20 bg-blue-tint/40 px-4 py-2.5 text-xs font-bold text-blue">
+              <Pencil className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1">Xabarni tahrirlash</span>
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-blue/10"
+                aria-label="Tahrirlashni bekor qilish"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
           <div className="flex items-end gap-2 px-2">
             <div className="relative shrink-0">
               <button
@@ -630,30 +738,38 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
               onChange={(e) => setDraft(e.target.value)}
               onPaste={handlePaste}
               onKeyDown={(e) => {
+                if (e.key === 'Escape' && editingMessage) {
+                  cancelEdit();
+                  return;
+                }
                 if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault();
-                  if (!isRateLimited && !sendMutation.isPending) {
+                  if (!isRateLimited && !sendMutation.isPending && !editMutation.isPending) {
                     handleSubmit(e as unknown as FormEvent<HTMLFormElement>);
                   }
                 }
               }}
               rows={1}
-              placeholder="Sizning xabaringiz..."
+              placeholder={editingMessage ? 'Tahrirlangan xabar...' : 'Sizning xabaringiz...'}
               disabled={isRateLimited}
               className="flex-1 max-h-32 min-h-[2.75rem] py-3 text-sm font-medium text-ink-strong placeholder:text-ink-faint bg-transparent outline-none resize-none scrollbar-hide"
             />
 
             <button
               type="submit"
-              disabled={isRateLimited || sendMutation.isPending || draft.trim().length === 0}
+              disabled={isRateLimited || sendMutation.isPending || editMutation.isPending || draft.trim().length === 0}
               className={cn(
                 "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-all active:scale-90 shadow-sm",
-                draft.trim() && !isRateLimited && !sendMutation.isPending
+                draft.trim() && !isRateLimited && !sendMutation.isPending && !editMutation.isPending
                   ? "bg-blue text-white shadow-blue-soft"
                   : "bg-tint text-ink-faint"
               )}
             >
-              {sendMutation.isPending ? (
+              {editMutation.isPending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : editingMessage ? (
+                <Check className="h-5 w-5" />
+              ) : sendMutation.isPending ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <Send className="h-5 w-5 ml-0.5" />
@@ -676,6 +792,8 @@ function MessageBubble({
   onRetry,
   onCancel,
   resolved,
+  onEdit,
+  onDelete,
 }: {
   message: DmMessage;
   isMine: boolean;
@@ -687,6 +805,9 @@ function MessageBubble({
   onCancel?: () => void;
   /** Batched metadata/playback lookup result for `message.assetId` (see `useAssetBatch`). */
   resolved?: MediaAssetBatchResult | undefined;
+  /** Present only for the caller's own messages — edit/delete is author-only in DM (no moderator role). */
+  onEdit?: () => void;
+  onDelete?: () => void;
 }): React.ReactElement {
   const isPersisted = !message.id.startsWith('socket-') && !message.id.startsWith('opt-');
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -856,6 +977,35 @@ function MessageBubble({
           "flex items-center gap-1.5 px-1 opacity-0 transition-opacity group-hover:opacity-100",
           isMine ? "flex-row-reverse" : "flex-row"
         )}>
+          {!optimistic && (onEdit || onDelete) && (
+            <div className="flex items-center gap-0.5">
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="flex h-5 w-5 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-tint hover:text-blue"
+                  aria-label="Tahrirlash"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="flex h-5 w-5 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-red-tint hover:text-red"
+                  aria-label="O'chirish"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          )}
+          {message.editedAt && (
+            <span className="text-[9px] font-bold uppercase tracking-wider text-ink-faint">
+              tahrirlangan
+            </span>
+          )}
           <span className="text-[9px] font-bold uppercase tracking-wider text-ink-faint">
             {formatClock(message.createdAt)}
           </span>

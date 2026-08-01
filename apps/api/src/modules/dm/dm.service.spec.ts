@@ -35,6 +35,7 @@ interface FakeMessage {
   authorId: string;
   body: string;
   createdAt: Date;
+  editedAt: Date | null;
   deletedAt: Date | null;
 }
 
@@ -113,6 +114,20 @@ function makePrismaFake(opts: {
   };
 }
 
+/** Strips internal-only fields (`deletedAt`) off a `FakeMessage` to match `DmMessageRow`. */
+function toMessageRow(m: FakeMessage) {
+  return {
+    id: m.id,
+    roomId: m.roomId,
+    seq: m.seq,
+    authorId: m.authorId,
+    body: m.body,
+    assetId: null,
+    editedAt: m.editedAt,
+    createdAt: m.createdAt,
+  };
+}
+
 /** Fake `DmRepository` backed by in-memory rows. */
 function makeRepoFake(initialMessages: FakeMessage[] = []) {
   const messages: FakeMessage[] = initialMessages;
@@ -161,17 +176,11 @@ function makeRepoFake(initialMessages: FakeMessage[] = []) {
           authorId: input.authorId,
           body: input.body,
           createdAt: new Date(),
+          editedAt: null,
           deletedAt: null,
         };
         messages.push(row);
-        return {
-          id: row.id,
-          roomId: row.roomId,
-          seq: row.seq,
-          authorId: row.authorId,
-          body: row.body,
-          createdAt: row.createdAt,
-        };
+        return toMessageRow(row);
       },
     ),
     listMessages: jest.fn(
@@ -179,59 +188,27 @@ function makeRepoFake(initialMessages: FakeMessage[] = []) {
         threadId: string,
         opts: { cursor?: bigint; pageSize: number },
       ) => {
-        const filtered = messages
+        return messages
           .filter((m) => m.deletedAt === null && m.roomId === threadId)
           .filter((m) => (opts.cursor !== undefined ? m.seq < opts.cursor : true))
           .sort((a, b) => (b.seq > a.seq ? 1 : b.seq < a.seq ? -1 : 0))
           .slice(0, opts.pageSize)
-          .map((m) => ({
-            id: m.id,
-            roomId: m.roomId,
-            seq: m.seq,
-            authorId: m.authorId,
-            body: m.body,
-            createdAt: m.createdAt,
-          }));
-        return filtered;
+          .map(toMessageRow);
       },
     ),
     findLatestMessage: jest.fn(async (threadId: string) => {
       const row = messages
         .filter((m) => m.deletedAt === null && m.roomId === threadId)
         .sort((a, b) => (b.seq > a.seq ? 1 : b.seq < a.seq ? -1 : 0))[0];
-      if (!row) return null;
-      return {
-        id: row.id,
-        roomId: row.roomId,
-        seq: row.seq,
-        authorId: row.authorId,
-        body: row.body,
-        createdAt: row.createdAt,
-      };
+      return row ? toMessageRow(row) : null;
     }),
     findLatestMessagesByThread: jest.fn(async (threadIds: string[]) => {
-      const out = new Map<string, {
-        id: string;
-        roomId: string;
-        seq: bigint;
-        authorId: string;
-        body: string;
-        createdAt: Date;
-      }>();
+      const out = new Map<string, ReturnType<typeof toMessageRow>>();
       for (const tid of threadIds) {
         const row = messages
           .filter((m) => m.deletedAt === null && m.roomId === tid)
           .sort((a, b) => (b.seq > a.seq ? 1 : b.seq < a.seq ? -1 : 0))[0];
-        if (row) {
-          out.set(tid, {
-            id: row.id,
-            roomId: row.roomId,
-            seq: row.seq,
-            authorId: row.authorId,
-            body: row.body,
-            createdAt: row.createdAt,
-          });
-        }
+        if (row) out.set(tid, toMessageRow(row));
       }
       return out;
     }),
@@ -242,6 +219,21 @@ function makeRepoFake(initialMessages: FakeMessage[] = []) {
           m.roomId === threadId &&
           m.authorId === authorId,
       );
+    }),
+    findMessageById: jest.fn(async (messageId: string) => {
+      const row = messages.find((m) => m.id === messageId && m.deletedAt === null);
+      return row ? toMessageRow(row) : null;
+    }),
+    softDeleteMessage: jest.fn(async (messageId: string) => {
+      const row = messages.find((m) => m.id === messageId);
+      if (row) row.deletedAt = new Date();
+    }),
+    updateMessageBody: jest.fn(async (messageId: string, body: string) => {
+      const row = messages.find((m) => m.id === messageId);
+      if (!row) throw new Error(`message ${messageId} not found`);
+      row.body = body;
+      row.editedAt = new Date();
+      return toMessageRow(row);
     }),
     _state: { messages, rooms },
   };
@@ -743,6 +735,159 @@ describe('DmService', () => {
       await expect(
         service.listThreads({ userId: ADMIN_ID, role: 'ADMIN' }, {}),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('editMessage', () => {
+    it('lets the author edit their own message within the edit window', async () => {
+      const { service } = makeService();
+      const opened = await service.openThread(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        TEACHER_ID,
+      );
+      const sent = await service.sendMessage(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        'original',
+      );
+
+      const edited = await service.editMessage(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        sent.message.id,
+        'updated',
+      );
+
+      expect(edited.text).toBe('updated');
+      expect(edited.editedAt).not.toBeNull();
+    });
+
+    it('rejects editing another user’s message', async () => {
+      const { service } = makeService();
+      const opened = await service.openThread(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        TEACHER_ID,
+      );
+      const sent = await service.sendMessage(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        'original',
+      );
+
+      await expect(
+        service.editMessage(
+          { userId: TEACHER_ID, role: 'TEACHER' },
+          opened.thread.id,
+          sent.message.id,
+          'hijacked',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rejects editing after the 48h edit window has passed', async () => {
+      const { service, repo } = makeService();
+      const opened = await service.openThread(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        TEACHER_ID,
+      );
+      const sent = await service.sendMessage(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        'original',
+      );
+      const row = repo._state.messages.find(
+        (m: { id: string }) => m.id === sent.message.id,
+      );
+      row.createdAt = new Date(Date.now() - 49 * 60 * 60 * 1000);
+
+      await expect(
+        service.editMessage(
+          { userId: STUDENT_ID, role: 'STUDENT' },
+          opened.thread.id,
+          sent.message.id,
+          'too late',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('404s on a nonexistent message', async () => {
+      const { service } = makeService();
+      const opened = await service.openThread(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        TEACHER_ID,
+      );
+      await expect(
+        service.editMessage(
+          { userId: STUDENT_ID, role: 'STUDENT' },
+          opened.thread.id,
+          'does-not-exist',
+          'text',
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('deleteMessage', () => {
+    it('lets the author delete their own message', async () => {
+      const { service } = makeService();
+      const opened = await service.openThread(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        TEACHER_ID,
+      );
+      const sent = await service.sendMessage(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        'to be deleted',
+      );
+
+      await service.deleteMessage(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        sent.message.id,
+      );
+
+      const page = await service.listMessages(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        {},
+      );
+      expect(page.items.find((m) => m.id === sent.message.id)).toBeUndefined();
+    });
+
+    it('rejects deleting another user’s message', async () => {
+      const { service } = makeService();
+      const opened = await service.openThread(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        TEACHER_ID,
+      );
+      const sent = await service.sendMessage(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        'mine',
+      );
+
+      await expect(
+        service.deleteMessage(
+          { userId: TEACHER_ID, role: 'TEACHER' },
+          opened.thread.id,
+          sent.message.id,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('404s on a nonexistent message', async () => {
+      const { service } = makeService();
+      const opened = await service.openThread(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        TEACHER_ID,
+      );
+      await expect(
+        service.deleteMessage(
+          { userId: STUDENT_ID, role: 'STUDENT' },
+          opened.thread.id,
+          'does-not-exist',
+        ),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

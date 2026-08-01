@@ -25,8 +25,20 @@ export interface GroupChatMessageRow {
   authorId: string;
   body: string;
   assetId: string | null;
+  editedAt: Date | null;
   createdAt: Date;
 }
+
+const MESSAGE_SELECT = {
+  id: true,
+  roomId: true,
+  seq: true,
+  authorId: true,
+  body: true,
+  assetId: true,
+  editedAt: true,
+  createdAt: true,
+} as const;
 
 /**
  * `GroupChatRepository` — thin Prisma adapter for the group-chat
@@ -201,15 +213,7 @@ export class GroupChatRepository {
         body: input.body,
         assetId: input.assetId ?? null,
       },
-      select: {
-        id: true,
-        roomId: true,
-        seq: true,
-        authorId: true,
-        body: true,
-        assetId: true,
-        createdAt: true,
-      },
+      select: MESSAGE_SELECT,
     });
   }
 
@@ -232,15 +236,7 @@ export class GroupChatRepository {
       },
       orderBy: { seq: 'desc' },
       take: opts.pageSize,
-      select: {
-        id: true,
-        roomId: true,
-        seq: true,
-        authorId: true,
-        body: true,
-        assetId: true,
-        createdAt: true,
-      },
+      select: MESSAGE_SELECT,
     });
   }
 
@@ -253,15 +249,7 @@ export class GroupChatRepository {
     const rows = await client.chatMessage.findMany({
       where: { roomId: { in: roomIds }, deletedAt: null },
       orderBy: { seq: 'desc' },
-      select: {
-        id: true,
-        roomId: true,
-        seq: true,
-        authorId: true,
-        body: true,
-        assetId: true,
-        createdAt: true,
-      },
+      select: MESSAGE_SELECT,
     });
     const out = new Map<string, GroupChatMessageRow>();
     for (const row of rows) {
@@ -270,6 +258,49 @@ export class GroupChatRepository {
       }
     }
     return out;
+  }
+
+  // ------------------------------------------------------------------
+  // Edit / delete
+  // ------------------------------------------------------------------
+
+  /** A single non-deleted message by id, or `null`. Used by edit/delete to load the row before authorizing the action. */
+  async findMessageById(
+    messageId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<GroupChatMessageRow | null> {
+    const client = tx ?? this.prisma;
+    const row = await client.chatMessage.findFirst({
+      where: { id: messageId, deletedAt: null },
+      select: MESSAGE_SELECT,
+    });
+    return row ?? null;
+  }
+
+  /** Soft-delete: sets `deletedAt` so every read path (list/latest) excludes it, without losing the row for audit. */
+  async softDeleteMessage(
+    messageId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const client = tx ?? this.prisma;
+    await client.chatMessage.update({
+      where: { id: messageId },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  /** Update a message's body and stamp `editedAt`. Caller (service) has already authorized the edit. */
+  async updateMessageBody(
+    messageId: string,
+    body: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<GroupChatMessageRow> {
+    const client = tx ?? this.prisma;
+    return client.chatMessage.update({
+      where: { id: messageId },
+      data: { body, editedAt: new Date() },
+      select: MESSAGE_SELECT,
+    });
   }
 }
 
