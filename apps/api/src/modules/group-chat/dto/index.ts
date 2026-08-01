@@ -85,6 +85,17 @@ export const EditGroupMessageSchema = z.object({
 
 export type EditGroupMessageDto = z.infer<typeof EditGroupMessageSchema>;
 
+/**
+ * `PUT /group-chat/groups/:groupId/messages/:messageId/reactions` body
+ * schema. See the identical comment on `ToggleReactionSchema` in the
+ * DM module for why `emoji` isn't validated against a fixed allow-list.
+ */
+export const ToggleReactionSchema = z.object({
+  emoji: z.string().min(1, 'emoji is required').max(16, 'emoji must be at most 16 characters'),
+});
+
+export type ToggleReactionDto = z.infer<typeof ToggleReactionSchema>;
+
 /** `POST /group-chat/groups/:groupId/members` body schema. */
 export const AddGroupMemberSchema = z.object({
   userId: UuidSchema,

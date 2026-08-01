@@ -20,6 +20,7 @@ import {
 } from './repositories/group-chat.repository';
 import { countUnreadBatch } from '../../common/chat/count-unread-batch';
 import { MESSAGE_EDIT_WINDOW_HOURS, isWithinEditWindow } from '../../common/chat/message-edit-window';
+import { getReactionsForMessages, toggleReaction, type ReactionSummary } from '../../common/chat/reactions';
 import { stripHtml } from '../../common/sanitization';
 import { LiveChatGateway } from '../live/chat/live-chat.gateway';
 import { R2Service } from '../../infra/r2/r2.service';
@@ -59,6 +60,8 @@ export interface GroupChatMessage {
   assetUrl?: string | null;
   /** Set when the author edited this message after sending; null otherwise. */
   editedAt: Date | null;
+  /** Empty for messages returned outside `listMessages` (e.g. a fresh `sendMessage` result) — nothing has reacted yet. */
+  reactions: ReactionSummary[];
   createdAt: Date;
 }
 
@@ -247,7 +250,16 @@ export class GroupChatService {
       pageSize,
     });
 
-    const items = rows.map((row) => this.toGroupMessage(row, groupId));
+    // One batched query for the whole page's reactions instead of one
+    // per message — see `getReactionsForMessages`.
+    const reactionsByMessage = await getReactionsForMessages(
+      this.prisma,
+      rows.map((r) => r.id),
+      actor.userId,
+    );
+    const items = rows.map((row) =>
+      this.toGroupMessage(row, groupId, undefined, reactionsByMessage.get(row.id) ?? []),
+    );
     const last = rows[rows.length - 1];
     const nextCursor =
       rows.length === pageSize && last ? last.seq.toString() : null;
@@ -410,6 +422,53 @@ export class GroupChatService {
         lessonId: `group:${groupId}`,
         messageId,
       });
+  }
+
+  // ------------------------------------------------------------------
+  // Reactions
+  // ------------------------------------------------------------------
+
+  /**
+   * Toggle the caller's `emoji` reaction on a message: adds it if
+   * absent, removes it if present. Any member may react to any
+   * message — unlike edit/delete, reacting isn't author-restricted.
+   */
+  async toggleReaction(
+    actor: GroupChatActor,
+    groupId: string,
+    messageId: string,
+    emoji: string,
+  ): Promise<{ added: boolean }> {
+    this.assertActorAllowed(actor);
+    await this.assertMembership(groupId, actor.userId);
+
+    const room = await this.repo.upsertRoomForGroup(groupId);
+    const message = await this.repo.findMessageById(messageId);
+    if (!message || message.roomId !== room.id) {
+      throw new NotFoundException({
+        code: 'GROUP_CHAT_MESSAGE_NOT_FOUND',
+        message: 'Message not found',
+      });
+    }
+
+    const result = await toggleReaction(
+      this.prisma,
+      messageId,
+      actor.userId,
+      emoji,
+    );
+
+    this.liveChatGateway.server
+      .to(`lesson:group:${groupId}`)
+      .emit('chat:reaction', {
+        lessonId: `group:${groupId}`,
+        messageId,
+        emoji,
+        userId: actor.userId,
+        added: result.added,
+      });
+
+    return result;
   }
 
   async markRead(actor: GroupChatActor, groupId: string): Promise<void> {
@@ -742,6 +801,7 @@ export class GroupChatService {
     row: GroupChatMessageRow,
     groupId: string,
     assetUrl?: string | null,
+    reactions: ReactionSummary[] = [],
   ): GroupChatMessage {
     return {
       id: row.id,
@@ -752,6 +812,7 @@ export class GroupChatService {
       assetId: row.assetId,
       assetUrl: assetUrl ?? null,
       editedAt: row.editedAt,
+      reactions,
       createdAt: row.createdAt,
     };
   }

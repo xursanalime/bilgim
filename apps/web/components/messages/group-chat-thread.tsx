@@ -52,6 +52,7 @@ import { cn } from '../../lib/utils';
 import { HlsPlayer } from '../lesson/hls-player';
 import { Lightbox } from '../ui/lightbox';
 import { CircularProgress } from '../ui/circular-progress';
+import { MessageReactions } from './message-reactions';
 
 interface GroupChatThreadProps {
   groupId: string;
@@ -258,10 +259,20 @@ export function GroupChatThread({
       });
     }
 
+    function handleReaction(payload: { lessonId?: string }) {
+      // Reaction aggregation (count + reactedByMe per emoji) is fiddlier
+      // to patch correctly than a refetch is expensive — this event
+      // fires far less often than chat:message, so a light invalidate
+      // beats hand-rolled cache surgery risking a wrong count.
+      if (payload?.lessonId !== roomKey) return;
+      queryClient.invalidateQueries({ queryKey: ['group-chat', 'messages', groupId] });
+    }
+
     socket.on('connect', handleConnect);
     socket.on('chat:message', handleMessage);
     socket.on('chat:message-edited', handleEdited);
     socket.on('chat:message-deleted', handleDeleted);
+    socket.on('chat:reaction', handleReaction);
     if (socket.connected) emitJoin();
 
     return () => {
@@ -270,6 +281,7 @@ export function GroupChatThread({
       socket.off('chat:message', handleMessage);
       socket.off('chat:message-edited', handleEdited);
       socket.off('chat:message-deleted', handleDeleted);
+      socket.off('chat:reaction', handleReaction);
       socket.emit('chat:leave', { lessonId: roomKey });
     };
   }, [groupId, queryClient]);
@@ -306,6 +318,14 @@ export function GroupChatThread({
         return { ...prev, items: prev.items.filter((m) => m.id !== messageId) };
       });
       queryClient.invalidateQueries({ queryKey: ['group-chat', 'groups'] });
+    },
+  });
+
+  const reactionMutation = useMutation({
+    mutationFn: ({ messageId, emoji }: { messageId: string; emoji: string }) =>
+      groupChatApi.toggleReaction(groupId, messageId, emoji),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group-chat', 'messages', groupId] });
     },
   });
 
@@ -527,6 +547,7 @@ export function GroupChatThread({
                   authorName={author?.user.fullName ?? "Noma'lum foydalanuvchi"}
                   authorAvatar={author?.user.avatarUrl ?? null}
                   resolved={m.assetId ? assetBatch.byAssetId.get(m.assetId) : undefined}
+                  onToggleReaction={(emoji) => reactionMutation.mutate({ messageId: m.id, emoji })}
                   {...(isMine ? { onEdit: () => startEdit(m) } : {})}
                   {...(isMine || canModerate ? { onDelete: () => handleDelete(m.id) } : {})}
                 />
@@ -711,6 +732,7 @@ function GroupMessageBubble({
   resolved,
   onEdit,
   onDelete,
+  onToggleReaction,
 }: {
   message: GroupChatMessage;
   isMine: boolean;
@@ -725,6 +747,7 @@ function GroupMessageBubble({
   onEdit?: () => void;
   /** Present for own messages, or for any message when the caller can moderate (OWNER/ADMIN). */
   onDelete?: () => void;
+  onToggleReaction?: (emoji: string) => void;
 }): React.ReactElement {
   const isPersisted = !message.id.startsWith('socket-') && !message.id.startsWith('opt-');
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -884,6 +907,14 @@ function GroupMessageBubble({
 
           {message.text && <p className="whitespace-pre-wrap break-words">{message.text}</p>}
         </div>
+
+        {!optimistic && onToggleReaction && (
+          <MessageReactions
+            reactions={message.reactions ?? []}
+            onToggle={onToggleReaction}
+            align={isMine ? 'right' : 'left'}
+          />
+        )}
 
         <div className="flex items-center gap-1.5 px-1 opacity-0 transition-opacity group-hover:opacity-100">
           {!optimistic && (onEdit || onDelete) && (

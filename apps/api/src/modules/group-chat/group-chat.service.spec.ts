@@ -116,6 +116,7 @@ function makeRepoFake(initialMembers: FakeMember[]) {
 
 function makePrismaFake(overrides?: { users?: Record<string, { id: string; role: string; status: string } | undefined> }) {
   const users = overrides?.users ?? {};
+  const reactions: { messageId: string; userId: string; emoji: string }[] = [];
   return {
     user: {
       findUnique: jest.fn(async ({ where }: any) => users[where.id] ?? null),
@@ -137,6 +138,36 @@ function makePrismaFake(overrides?: { users?: Record<string, { id: string; role:
     // Backs `countUnreadBatch` — see the identical comment in
     // `dm.service.spec.ts`.
     $queryRaw: jest.fn().mockResolvedValue([]),
+    // In-memory double for `toggleReaction` / `getReactionsForMessages` —
+    // see the identical block in `dm.service.spec.ts`.
+    messageReaction: {
+      findUnique: jest.fn(async ({ where }: any) => {
+        const k = where.messageId_userId_emoji;
+        return (
+          reactions.find(
+            (r) => r.messageId === k.messageId && r.userId === k.userId && r.emoji === k.emoji,
+          ) ?? null
+        );
+      }),
+      create: jest.fn(async ({ data }: any) => {
+        reactions.push({ messageId: data.messageId, userId: data.userId, emoji: data.emoji });
+        return data;
+      }),
+      delete: jest.fn(async ({ where }: any) => {
+        const k = where.messageId_userId_emoji;
+        const idx = reactions.findIndex(
+          (r) => r.messageId === k.messageId && r.userId === k.userId && r.emoji === k.emoji,
+        );
+        if (idx >= 0) reactions.splice(idx, 1);
+      }),
+      count: jest.fn(async ({ where }: any) =>
+        reactions.filter((r) => r.messageId === where.messageId && r.userId === where.userId).length,
+      ),
+      findMany: jest.fn(async ({ where }: any) => {
+        const ids: string[] = where.messageId.in;
+        return reactions.filter((r) => ids.includes(r.messageId));
+      }),
+    },
   };
 }
 
@@ -355,6 +386,55 @@ describe('GroupChatService', () => {
       const { service } = makeService(baseMembers());
       await expect(
         service.deleteMessage(memberActor, GROUP_ID, 'does-not-exist'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('toggleReaction', () => {
+    it('adds a reaction, then removes it on a second call (toggle)', async () => {
+      const { service } = makeService(baseMembers());
+      const sent = await service.sendMessage(memberActor, GROUP_ID, 'react to me');
+
+      const first = await service.toggleReaction(ownerActor, GROUP_ID, sent.message.id, '👍');
+      expect(first.added).toBe(true);
+
+      const page = await service.listMessages(memberActor, GROUP_ID, {});
+      expect(page.items.find((m) => m.id === sent.message.id)?.reactions).toEqual([
+        { emoji: '👍', count: 1, reactedByMe: false },
+      ]);
+
+      const second = await service.toggleReaction(ownerActor, GROUP_ID, sent.message.id, '👍');
+      expect(second.added).toBe(false);
+
+      const pageAfterRemove = await service.listMessages(memberActor, GROUP_ID, {});
+      expect(pageAfterRemove.items.find((m) => m.id === sent.message.id)?.reactions).toEqual([]);
+    });
+
+    it('any member (not just OWNER/ADMIN) can react', async () => {
+      const { service } = makeService(baseMembers());
+      const sent = await service.sendMessage(ownerActor, GROUP_ID, 'owner said something');
+
+      const result = await service.toggleReaction(memberActor, GROUP_ID, sent.message.id, '🔥');
+      expect(result.added).toBe(true);
+    });
+
+    it('caps distinct reactions at 3 per user per message', async () => {
+      const { service } = makeService(baseMembers());
+      const sent = await service.sendMessage(memberActor, GROUP_ID, 'react to me');
+
+      await service.toggleReaction(ownerActor, GROUP_ID, sent.message.id, '👍');
+      await service.toggleReaction(ownerActor, GROUP_ID, sent.message.id, '🔥');
+      await service.toggleReaction(ownerActor, GROUP_ID, sent.message.id, '😁');
+
+      await expect(
+        service.toggleReaction(ownerActor, GROUP_ID, sent.message.id, '😮'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('404s on a nonexistent message', async () => {
+      const { service } = makeService(baseMembers());
+      await expect(
+        service.toggleReaction(memberActor, GROUP_ID, 'does-not-exist', '👍'),
       ).rejects.toThrow(NotFoundException);
     });
   });

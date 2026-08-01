@@ -51,6 +51,7 @@ import { cn } from '../../lib/utils';
 import { HlsPlayer } from '../lesson/hls-player';
 import { Lightbox } from '../ui/lightbox';
 import { CircularProgress } from '../ui/circular-progress';
+import { MessageReactions } from './message-reactions';
 
 interface MessageThreadProps {
   threadId: string;
@@ -290,10 +291,20 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
       });
     }
 
+    function handleReaction(payload: { lessonId?: string }) {
+      // Reaction aggregation (count + reactedByMe per emoji) is fiddlier
+      // to patch correctly than a refetch is expensive — this event
+      // fires far less often than chat:message, so a light invalidate
+      // beats hand-rolled cache surgery risking a wrong count.
+      if (!matchesRoom(payload?.lessonId)) return;
+      queryClient.invalidateQueries({ queryKey: ['dm', 'messages', threadId] });
+    }
+
     socket.on('connect', handleConnect);
     socket.on('chat:message', handleMessage);
     socket.on('chat:message-edited', handleEdited);
     socket.on('chat:message-deleted', handleDeleted);
+    socket.on('chat:reaction', handleReaction);
     if (socket.connected) {
       emitJoin();
     }
@@ -304,6 +315,7 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
       socket.off('chat:message', handleMessage);
       socket.off('chat:message-edited', handleEdited);
       socket.off('chat:message-deleted', handleDeleted);
+      socket.off('chat:reaction', handleReaction);
       socket.emit(
         'chat:leave',
         lessonId
@@ -365,6 +377,14 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
         return { ...prev, items: prev.items.filter((m) => m.id !== messageId) };
       });
       queryClient.invalidateQueries({ queryKey: ['dm', 'threads'] });
+    },
+  });
+
+  const reactionMutation = useMutation({
+    mutationFn: ({ messageId, emoji }: { messageId: string; emoji: string }) =>
+      dmApi.toggleReaction(threadId, messageId, emoji),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dm', 'messages', threadId] });
     },
   });
 
@@ -599,6 +619,7 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
                   {...(thread?.peer.fullName ? { peerName: thread.peer.fullName } : {})}
                   {...(thread?.peer.avatarUrl !== undefined ? { peerAvatar: thread.peer.avatarUrl } : {})}
                   resolved={m.assetId ? assetBatch.byAssetId.get(m.assetId) : undefined}
+                  onToggleReaction={(emoji) => reactionMutation.mutate({ messageId: m.id, emoji })}
                   {...(isMine ? { onEdit: () => startEdit(m), onDelete: () => handleDelete(m.id) } : {})}
                 />
               );
@@ -794,6 +815,7 @@ function MessageBubble({
   resolved,
   onEdit,
   onDelete,
+  onToggleReaction,
 }: {
   message: DmMessage;
   isMine: boolean;
@@ -808,6 +830,7 @@ function MessageBubble({
   /** Present only for the caller's own messages — edit/delete is author-only in DM (no moderator role). */
   onEdit?: () => void;
   onDelete?: () => void;
+  onToggleReaction?: (emoji: string) => void;
 }): React.ReactElement {
   const isPersisted = !message.id.startsWith('socket-') && !message.id.startsWith('opt-');
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -972,6 +995,14 @@ function MessageBubble({
 
           {message.text && <p className="whitespace-pre-wrap break-words">{message.text}</p>}
         </div>
+
+        {!optimistic && onToggleReaction && (
+          <MessageReactions
+            reactions={message.reactions ?? []}
+            onToggle={onToggleReaction}
+            align={isMine ? 'right' : 'left'}
+          />
+        )}
 
         <div className={cn(
           "flex items-center gap-1.5 px-1 opacity-0 transition-opacity group-hover:opacity-100",

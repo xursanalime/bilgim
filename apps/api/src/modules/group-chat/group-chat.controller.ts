@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 
@@ -30,6 +31,8 @@ import {
   SetGroupAvatarSchema,
   SetGroupMemberRoleDto,
   SetGroupMemberRoleSchema,
+  ToggleReactionDto,
+  ToggleReactionSchema,
 } from './dto';
 import {
   CursorPage,
@@ -148,6 +151,27 @@ export class GroupChatController {
       { userId: user.sub, role: user.role },
       groupId,
       messageId,
+    );
+  }
+
+  /**
+   * `PUT /group-chat/groups/:groupId/messages/:messageId/reactions` —
+   * toggle the caller's `emoji` reaction on a message (adds if absent,
+   * removes if present).
+   */
+  @Put('groups/:groupId/messages/:messageId/reactions')
+  @HttpCode(HttpStatus.OK)
+  async toggleReaction(
+    @CurrentUser() user: JwtPayload,
+    @Param('groupId', new ParseUUIDPipe()) groupId: string,
+    @Param('messageId', new ParseUUIDPipe()) messageId: string,
+    @Body(new ZodValidationPipe(ToggleReactionSchema)) dto: ToggleReactionDto,
+  ): Promise<{ added: boolean }> {
+    return this.groupChatService.toggleReaction(
+      { userId: user.sub, role: user.role },
+      groupId,
+      messageId,
+      dto.emoji,
     );
   }
 

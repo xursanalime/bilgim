@@ -1164,9 +1164,26 @@ model ChatMessage {
   deletedAt DateTime?
   createdAt DateTime  @default(now())
 
+  reactions MessageReaction[]
+
   @@unique([roomId, seq])
   @@index([roomId, createdAt])
   @@index([roomId, seq])
+}
+
+/// Emoji reaction on a `ChatMessage` (Telegram-style quick reactions).
+/// `userId` is a plain field rather than a `User` relation — same
+/// choice as `ChatMessage.authorId` — so `User` doesn't carry a
+/// reverse `MessageReaction[]` collection nobody needs to traverse.
+model MessageReaction {
+  messageId String      @db.Uuid
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String      @db.Uuid
+  emoji     String      @db.VarChar(16)
+  createdAt DateTime    @default(now())
+
+  @@id([messageId, userId, emoji])
+  @@index([messageId])
 }
 
 // ============ ADMIN / OUTBOX ============

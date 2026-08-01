@@ -72,6 +72,7 @@ function makePrismaFake(opts: {
   const users = opts.users ?? {};
   const enrollments = opts.enrollments ?? [];
   const teacherProfiles = opts.teacherProfiles ?? {};
+  const reactions: { messageId: string; userId: string; emoji: string }[] = [];
 
   return {
     user: {
@@ -111,6 +112,35 @@ function makePrismaFake(opts: {
     // numbers (all of them, today) just see an empty batch → 0 for
     // every room, matching the old `count: () => 0` behaviour.
     $queryRaw: jest.fn().mockResolvedValue([]),
+    // In-memory double for `toggleReaction` / `getReactionsForMessages`.
+    messageReaction: {
+      findUnique: jest.fn(async ({ where }: any) => {
+        const k = where.messageId_userId_emoji;
+        return (
+          reactions.find(
+            (r) => r.messageId === k.messageId && r.userId === k.userId && r.emoji === k.emoji,
+          ) ?? null
+        );
+      }),
+      create: jest.fn(async ({ data }: any) => {
+        reactions.push({ messageId: data.messageId, userId: data.userId, emoji: data.emoji });
+        return data;
+      }),
+      delete: jest.fn(async ({ where }: any) => {
+        const k = where.messageId_userId_emoji;
+        const idx = reactions.findIndex(
+          (r) => r.messageId === k.messageId && r.userId === k.userId && r.emoji === k.emoji,
+        );
+        if (idx >= 0) reactions.splice(idx, 1);
+      }),
+      count: jest.fn(async ({ where }: any) =>
+        reactions.filter((r) => r.messageId === where.messageId && r.userId === where.userId).length,
+      ),
+      findMany: jest.fn(async ({ where }: any) => {
+        const ids: string[] = where.messageId.in;
+        return reactions.filter((r) => ids.includes(r.messageId));
+      }),
+    },
   };
 }
 
@@ -886,6 +916,130 @@ describe('DmService', () => {
           { userId: STUDENT_ID, role: 'STUDENT' },
           opened.thread.id,
           'does-not-exist',
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('toggleReaction', () => {
+    it('adds a reaction, then removes it on a second call (toggle)', async () => {
+      const { service } = makeService();
+      const opened = await service.openThread(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        TEACHER_ID,
+      );
+      const sent = await service.sendMessage(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        'react to me',
+      );
+
+      const first = await service.toggleReaction(
+        { userId: TEACHER_ID, role: 'TEACHER' },
+        opened.thread.id,
+        sent.message.id,
+        '👍',
+      );
+      expect(first.added).toBe(true);
+
+      const page = await service.listMessages(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        {},
+      );
+      const reacted = page.items.find((m) => m.id === sent.message.id);
+      expect(reacted?.reactions).toEqual([
+        { emoji: '👍', count: 1, reactedByMe: false },
+      ]);
+
+      const second = await service.toggleReaction(
+        { userId: TEACHER_ID, role: 'TEACHER' },
+        opened.thread.id,
+        sent.message.id,
+        '👍',
+      );
+      expect(second.added).toBe(false);
+
+      const pageAfterRemove = await service.listMessages(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        {},
+      );
+      expect(
+        pageAfterRemove.items.find((m) => m.id === sent.message.id)?.reactions,
+      ).toEqual([]);
+    });
+
+    it('reflects reactedByMe from the caller’s own perspective', async () => {
+      const { service } = makeService();
+      const opened = await service.openThread(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        TEACHER_ID,
+      );
+      const sent = await service.sendMessage(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        'react to me',
+      );
+      await service.toggleReaction(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        sent.message.id,
+        '🔥',
+      );
+
+      const asReactor = await service.listMessages(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        {},
+      );
+      expect(
+        asReactor.items.find((m) => m.id === sent.message.id)?.reactions,
+      ).toEqual([{ emoji: '🔥', count: 1, reactedByMe: true }]);
+
+      const asBystander = await service.listMessages(
+        { userId: TEACHER_ID, role: 'TEACHER' },
+        opened.thread.id,
+        {},
+      );
+      expect(
+        asBystander.items.find((m) => m.id === sent.message.id)?.reactions,
+      ).toEqual([{ emoji: '🔥', count: 1, reactedByMe: false }]);
+    });
+
+    it('caps distinct reactions at 3 per user per message', async () => {
+      const { service } = makeService();
+      const opened = await service.openThread(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        TEACHER_ID,
+      );
+      const sent = await service.sendMessage(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        'react to me',
+      );
+
+      await service.toggleReaction({ userId: TEACHER_ID, role: 'TEACHER' }, opened.thread.id, sent.message.id, '👍');
+      await service.toggleReaction({ userId: TEACHER_ID, role: 'TEACHER' }, opened.thread.id, sent.message.id, '🔥');
+      await service.toggleReaction({ userId: TEACHER_ID, role: 'TEACHER' }, opened.thread.id, sent.message.id, '😁');
+
+      await expect(
+        service.toggleReaction({ userId: TEACHER_ID, role: 'TEACHER' }, opened.thread.id, sent.message.id, '😮'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('404s on a nonexistent message', async () => {
+      const { service } = makeService();
+      const opened = await service.openThread(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        TEACHER_ID,
+      );
+      await expect(
+        service.toggleReaction(
+          { userId: STUDENT_ID, role: 'STUDENT' },
+          opened.thread.id,
+          'does-not-exist',
+          '👍',
         ),
       ).rejects.toThrow(NotFoundException);
     });

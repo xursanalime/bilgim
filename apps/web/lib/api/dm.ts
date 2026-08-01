@@ -18,6 +18,12 @@ import { apiClient } from '../api-client';
 // Types
 // ──────────────────────────────────────────────────────────────────────
 
+export interface MessageReactionSummary {
+  emoji: string;
+  count: number;
+  reactedByMe: boolean;
+}
+
 export interface DmMessage {
   id: string;
   threadId: string;
@@ -29,6 +35,8 @@ export interface DmMessage {
   assetUrl?: string | null;
   /** Set when the author edited this message after sending; null/undefined otherwise. */
   editedAt?: string | null;
+  /** Absent for messages that never went through `listMessages` (e.g. a fresh send result). */
+  reactions?: MessageReactionSummary[];
   createdAt: string;
 }
 
@@ -143,6 +151,14 @@ export const dmApi = {
   deleteMessage(threadId: string, messageId: string) {
     return apiClient.delete<void>(
       `/dm/threads/${threadId}/messages/${messageId}`,
+    );
+  },
+
+  /** Toggle the caller's `emoji` reaction on a message (adds if absent, removes if present). */
+  toggleReaction(threadId: string, messageId: string, emoji: string) {
+    return apiClient.put<{ added: boolean }>(
+      `/dm/threads/${threadId}/messages/${messageId}/reactions`,
+      { emoji },
     );
   },
 };

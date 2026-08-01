@@ -102,6 +102,20 @@ export const EditDmMessageSchema = z.object({
 
 export type EditDmMessageDto = z.infer<typeof EditDmMessageSchema>;
 
+/**
+ * `PUT /dm/threads/:id/messages/:messageId/reactions` body schema.
+ * `emoji` isn't validated against a fixed allow-list — any short
+ * string is accepted, since a valid emoji can be a multi-codepoint
+ * ZWJ sequence (e.g. skin-tone modifiers) that a naive single-emoji
+ * regex would reject. The 16-char cap matches `MessageReaction.emoji`'s
+ * column width.
+ */
+export const ToggleReactionSchema = z.object({
+  emoji: z.string().min(1, 'emoji is required').max(16, 'emoji must be at most 16 characters'),
+});
+
+export type ToggleReactionDto = z.infer<typeof ToggleReactionSchema>;
+
 /** `GET /dm/threads` query schema. */
 export const ListDmThreadsSchema = z.object({
   cursor: CursorSchema,

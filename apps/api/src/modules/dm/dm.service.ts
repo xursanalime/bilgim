@@ -28,6 +28,7 @@ import {
 } from './repositories/dm.repository';
 import { countUnreadBatch } from '../../common/chat/count-unread-batch';
 import { MESSAGE_EDIT_WINDOW_HOURS, isWithinEditWindow } from '../../common/chat/message-edit-window';
+import { getReactionsForMessages, toggleReaction, type ReactionSummary } from '../../common/chat/reactions';
 import { stripHtml } from '../../common/sanitization';
 import { LiveChatGateway } from '../live/chat/live-chat.gateway';
 import { MediaAccessService } from '../media/media-access.service';
@@ -85,6 +86,8 @@ export interface DmMessage {
   assetUrl?: string | null;
   /** Set when the author edited this message after sending; null otherwise. */
   editedAt: Date | null;
+  /** Empty for messages returned outside `listMessages` (e.g. a fresh `sendMessage` result) — nothing has reacted yet. */
+  reactions: ReactionSummary[];
   createdAt: Date;
 }
 
@@ -361,7 +364,16 @@ export class DmService {
       pageSize,
     });
 
-    const items = rows.map((row) => this.toDmMessage(row));
+    // One batched query for the whole page's reactions instead of one
+    // per message — see `getReactionsForMessages`.
+    const reactionsByMessage = await getReactionsForMessages(
+      this.prisma,
+      rows.map((r) => r.id),
+      actor.userId,
+    );
+    const items = rows.map((row) =>
+      this.toDmMessage(row, undefined, reactionsByMessage.get(row.id) ?? []),
+    );
     const last = rows[rows.length - 1];
     const nextCursor =
       rows.length === pageSize && last ? last.seq.toString() : null;
@@ -571,6 +583,56 @@ export class DmService {
         lessonId: `dm:${thread.id}`,
         messageId,
       });
+  }
+
+  // ------------------------------------------------------------------
+  // Reactions
+  // ------------------------------------------------------------------
+
+  /**
+   * Toggle the caller's `emoji` reaction on a message: adds it if
+   * absent, removes it if present. Either participant may react to
+   * either side's messages — unlike edit/delete, reacting isn't
+   * author-restricted.
+   */
+  async toggleReaction(
+    actor: DmActor,
+    threadId: string,
+    messageId: string,
+    emoji: string,
+  ): Promise<{ added: boolean }> {
+    this.assertActorAllowed(actor);
+    const { thread } = await this.resolveParticipantThread(
+      actor.userId,
+      threadId,
+    );
+
+    const message = await this.repo.findMessageById(messageId);
+    if (!message || message.roomId !== thread.id) {
+      throw new NotFoundException({
+        code: 'DM_MESSAGE_NOT_FOUND',
+        message: 'Message not found',
+      });
+    }
+
+    const result = await toggleReaction(
+      this.prisma,
+      messageId,
+      actor.userId,
+      emoji,
+    );
+
+    this.liveChatGateway.server
+      .to(`lesson:dm:${thread.id}`)
+      .emit('chat:reaction', {
+        lessonId: `dm:${thread.id}`,
+        messageId,
+        emoji,
+        userId: actor.userId,
+        added: result.added,
+      });
+
+    return result;
   }
 
   // ------------------------------------------------------------------
@@ -814,7 +876,11 @@ export class DmService {
     };
   }
 
-  private toDmMessage(row: DmMessageRow, assetUrl?: string | null): DmMessage {
+  private toDmMessage(
+    row: DmMessageRow,
+    assetUrl?: string | null,
+    reactions: ReactionSummary[] = [],
+  ): DmMessage {
     return {
       id: row.id,
       threadId: row.roomId,
@@ -824,6 +890,7 @@ export class DmService {
       assetId: row.assetId,
       assetUrl: assetUrl ?? null,
       editedAt: row.editedAt,
+      reactions,
       createdAt: row.createdAt,
     };
   }

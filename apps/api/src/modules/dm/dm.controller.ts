@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 
@@ -37,6 +38,8 @@ import {
   OpenDmThreadSchema,
   SendDmMessageDto,
   SendDmMessageSchema,
+  ToggleReactionDto,
+  ToggleReactionSchema,
 } from './dto';
 
 /**
@@ -207,6 +210,27 @@ export class DmController {
       { userId: user.sub, role: user.role },
       threadId,
       messageId,
+    );
+  }
+
+  /**
+   * `PUT /dm/threads/:id/messages/:messageId/reactions` — toggle the
+   * caller's `emoji` reaction on a message (adds if absent, removes if
+   * present).
+   */
+  @Put('threads/:id/messages/:messageId/reactions')
+  @HttpCode(HttpStatus.OK)
+  async toggleReaction(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) threadId: string,
+    @Param('messageId', new ParseUUIDPipe()) messageId: string,
+    @Body(new ZodValidationPipe(ToggleReactionSchema)) dto: ToggleReactionDto,
+  ): Promise<{ added: boolean }> {
+    return this.dmService.toggleReaction(
+      { userId: user.sub, role: user.role },
+      threadId,
+      messageId,
+      dto.emoji,
     );
   }
 }

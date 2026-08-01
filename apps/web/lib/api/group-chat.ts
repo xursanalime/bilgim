@@ -12,6 +12,7 @@
  */
 
 import { apiClient } from '../api-client';
+import type { MessageReactionSummary } from './dm';
 
 // ──────────────────────────────────────────────────────────────────────
 // Types
@@ -30,6 +31,8 @@ export interface GroupChatMessage {
   assetUrl?: string | null;
   /** Set when the author edited this message after sending; null/undefined otherwise. */
   editedAt?: string | null;
+  /** Absent for messages that never went through `listMessages` (e.g. a fresh send result). */
+  reactions?: MessageReactionSummary[];
   createdAt: string;
 }
 
@@ -115,6 +118,14 @@ export const groupChatApi = {
   deleteMessage(groupId: string, messageId: string) {
     return apiClient.delete<void>(
       `/group-chat/groups/${groupId}/messages/${messageId}`,
+    );
+  },
+
+  /** Toggle the caller's `emoji` reaction on a message (adds if absent, removes if present). */
+  toggleReaction(groupId: string, messageId: string, emoji: string) {
+    return apiClient.put<{ added: boolean }>(
+      `/group-chat/groups/${groupId}/messages/${messageId}/reactions`,
+      { emoji },
     );
   },
 
