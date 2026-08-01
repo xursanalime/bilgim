@@ -1162,13 +1162,19 @@ model ChatMessage {
   /// never happens post-insert.
   editedAt  DateTime?
   deletedAt DateTime?
-  createdAt DateTime  @default(now())
+  /// Set while this message is pinned to the room; null otherwise. A
+  /// room can have several pinned messages at once (Telegram-style) —
+  /// this isn't a single `ChatRoom.pinnedMessageId` pointer.
+  pinnedAt   DateTime?
+  pinnedById String?   @db.Uuid
+  createdAt  DateTime  @default(now())
 
   reactions MessageReaction[]
 
   @@unique([roomId, seq])
   @@index([roomId, createdAt])
   @@index([roomId, seq])
+  @@index([roomId, pinnedAt])
 }
 
 /// Emoji reaction on a `ChatMessage` (Telegram-style quick reactions).

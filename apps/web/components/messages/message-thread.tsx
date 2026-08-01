@@ -38,6 +38,7 @@ import {
   AlertCircle,
   Pencil,
   Trash2,
+  Pin,
 } from 'lucide-react';
 
 import { dmApi, type DmMessage } from '../../lib/api/dm';
@@ -52,6 +53,7 @@ import { HlsPlayer } from '../lesson/hls-player';
 import { Lightbox } from '../ui/lightbox';
 import { CircularProgress } from '../ui/circular-progress';
 import { MessageReactions } from './message-reactions';
+import { PinnedBar } from './pinned-bar';
 
 interface MessageThreadProps {
   threadId: string;
@@ -128,6 +130,12 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
     // query's cache directly. 60s (was 30s) until the Phase 1 realtime
     // rework (ack'd sends + reconnect resync) removes polling entirely.
     refetchInterval: 60_000,
+    enabled: !!threadId,
+  });
+
+  const pinnedQuery = useQuery({
+    queryKey: ['dm', 'pinned', threadId],
+    queryFn: () => dmApi.listPinnedMessages(threadId),
     enabled: !!threadId,
   });
 
@@ -300,11 +308,18 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
       queryClient.invalidateQueries({ queryKey: ['dm', 'messages', threadId] });
     }
 
+    function handlePinned(payload: { lessonId?: string }) {
+      if (!matchesRoom(payload?.lessonId)) return;
+      queryClient.invalidateQueries({ queryKey: ['dm', 'messages', threadId] });
+      queryClient.invalidateQueries({ queryKey: ['dm', 'pinned', threadId] });
+    }
+
     socket.on('connect', handleConnect);
     socket.on('chat:message', handleMessage);
     socket.on('chat:message-edited', handleEdited);
     socket.on('chat:message-deleted', handleDeleted);
     socket.on('chat:reaction', handleReaction);
+    socket.on('chat:message-pinned', handlePinned);
     if (socket.connected) {
       emitJoin();
     }
@@ -316,6 +331,7 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
       socket.off('chat:message-edited', handleEdited);
       socket.off('chat:message-deleted', handleDeleted);
       socket.off('chat:reaction', handleReaction);
+      socket.off('chat:message-pinned', handlePinned);
       socket.emit(
         'chat:leave',
         lessonId
@@ -385,6 +401,14 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
       dmApi.toggleReaction(threadId, messageId, emoji),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dm', 'messages', threadId] });
+    },
+  });
+
+  const pinMutation = useMutation({
+    mutationFn: (messageId: string) => dmApi.togglePin(threadId, messageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dm', 'messages', threadId] });
+      queryClient.invalidateQueries({ queryKey: ['dm', 'pinned', threadId] });
     },
   });
 
@@ -577,6 +601,12 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
         </div>
       </header>
 
+      <PinnedBar
+        pinnedMessages={(pinnedQuery.data ?? []).map((m) => ({ id: m.id, text: m.text }))}
+        canUnpin
+        onUnpin={(messageId) => pinMutation.mutate(messageId)}
+      />
+
       <div
         ref={scrollRef}
         className="flex-1 space-y-6 overflow-y-auto px-6 py-8 scroll-smooth"
@@ -620,6 +650,7 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
                   {...(thread?.peer.avatarUrl !== undefined ? { peerAvatar: thread.peer.avatarUrl } : {})}
                   resolved={m.assetId ? assetBatch.byAssetId.get(m.assetId) : undefined}
                   onToggleReaction={(emoji) => reactionMutation.mutate({ messageId: m.id, emoji })}
+                  onTogglePin={() => pinMutation.mutate(m.id)}
                   {...(isMine ? { onEdit: () => startEdit(m), onDelete: () => handleDelete(m.id) } : {})}
                 />
               );
@@ -816,6 +847,7 @@ function MessageBubble({
   onEdit,
   onDelete,
   onToggleReaction,
+  onTogglePin,
 }: {
   message: DmMessage;
   isMine: boolean;
@@ -831,6 +863,8 @@ function MessageBubble({
   onEdit?: () => void;
   onDelete?: () => void;
   onToggleReaction?: (emoji: string) => void;
+  /** Either DM participant may pin/unpin — no moderator role to restrict this to. */
+  onTogglePin?: () => void;
 }): React.ReactElement {
   const isPersisted = !message.id.startsWith('socket-') && !message.id.startsWith('opt-');
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -1008,8 +1042,21 @@ function MessageBubble({
           "flex items-center gap-1.5 px-1 opacity-0 transition-opacity group-hover:opacity-100",
           isMine ? "flex-row-reverse" : "flex-row"
         )}>
-          {!optimistic && (onEdit || onDelete) && (
+          {!optimistic && (onEdit || onDelete || onTogglePin) && (
             <div className="flex items-center gap-0.5">
+              {onTogglePin && (
+                <button
+                  type="button"
+                  onClick={onTogglePin}
+                  className={cn(
+                    'flex h-5 w-5 items-center justify-center rounded-md transition-colors hover:bg-tint hover:text-blue',
+                    message.pinnedAt ? 'text-blue' : 'text-ink-faint',
+                  )}
+                  aria-label={message.pinnedAt ? "Qadashni bekor qilish" : "Qadash"}
+                >
+                  <Pin className="h-3 w-3" />
+                </button>
+              )}
               {onEdit && (
                 <button
                   type="button"
@@ -1031,6 +1078,9 @@ function MessageBubble({
                 </button>
               )}
             </div>
+          )}
+          {message.pinnedAt && (
+            <Pin className="h-2.5 w-2.5 text-blue" aria-label="Qadalgan" />
           )}
           {message.editedAt && (
             <span className="text-[9px] font-bold uppercase tracking-wider text-ink-faint">

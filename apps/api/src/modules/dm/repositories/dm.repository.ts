@@ -61,6 +61,7 @@ export interface DmMessageRow {
   body: string;
   assetId: string | null;
   editedAt: Date | null;
+  pinnedAt: Date | null;
   createdAt: Date;
 }
 
@@ -72,6 +73,7 @@ const MESSAGE_SELECT = {
   body: true,
   assetId: true,
   editedAt: true,
+  pinnedAt: true,
   createdAt: true,
 } as const;
 
@@ -341,6 +343,48 @@ export class DmRepository {
     return client.chatMessage.update({
       where: { id: messageId },
       data: { body, editedAt: new Date() },
+      select: MESSAGE_SELECT,
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Pin
+  // ------------------------------------------------------------------
+
+  async pinMessage(
+    messageId: string,
+    pinnedById: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<DmMessageRow> {
+    const client = tx ?? this.prisma;
+    return client.chatMessage.update({
+      where: { id: messageId },
+      data: { pinnedAt: new Date(), pinnedById },
+      select: MESSAGE_SELECT,
+    });
+  }
+
+  async unpinMessage(
+    messageId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<DmMessageRow> {
+    const client = tx ?? this.prisma;
+    return client.chatMessage.update({
+      where: { id: messageId },
+      data: { pinnedAt: null, pinnedById: null },
+      select: MESSAGE_SELECT,
+    });
+  }
+
+  /** Currently-pinned, non-deleted messages in a room, most recently pinned first. */
+  async listPinnedMessages(
+    roomId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<DmMessageRow[]> {
+    const client = tx ?? this.prisma;
+    return client.chatMessage.findMany({
+      where: { roomId, deletedAt: null, pinnedAt: { not: null } },
+      orderBy: { pinnedAt: 'desc' },
       select: MESSAGE_SELECT,
     });
   }

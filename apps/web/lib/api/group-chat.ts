@@ -31,6 +31,8 @@ export interface GroupChatMessage {
   assetUrl?: string | null;
   /** Set when the author edited this message after sending; null/undefined otherwise. */
   editedAt?: string | null;
+  /** Set while this message is pinned to the group; null/undefined otherwise. */
+  pinnedAt?: string | null;
   /** Absent for messages that never went through `listMessages` (e.g. a fresh send result). */
   reactions?: MessageReactionSummary[];
   createdAt: string;
@@ -127,6 +129,18 @@ export const groupChatApi = {
       `/group-chat/groups/${groupId}/messages/${messageId}/reactions`,
       { emoji },
     );
+  },
+
+  /** Toggle a message's pinned state. OWNER/ADMIN only. */
+  togglePin(groupId: string, messageId: string) {
+    return apiClient.put<{ pinned: boolean; message: GroupChatMessage }>(
+      `/group-chat/groups/${groupId}/messages/${messageId}/pin`,
+    );
+  },
+
+  /** Currently-pinned messages in a group, most recently pinned first. */
+  listPinnedMessages(groupId: string) {
+    return apiClient.get<GroupChatMessage[]>(`/group-chat/groups/${groupId}/pinned`);
   },
 
   /** Mark all messages in the group as read. */

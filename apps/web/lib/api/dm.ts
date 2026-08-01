@@ -35,6 +35,8 @@ export interface DmMessage {
   assetUrl?: string | null;
   /** Set when the author edited this message after sending; null/undefined otherwise. */
   editedAt?: string | null;
+  /** Set while this message is pinned to the thread; null/undefined otherwise. */
+  pinnedAt?: string | null;
   /** Absent for messages that never went through `listMessages` (e.g. a fresh send result). */
   reactions?: MessageReactionSummary[];
   createdAt: string;
@@ -160,5 +162,17 @@ export const dmApi = {
       `/dm/threads/${threadId}/messages/${messageId}/reactions`,
       { emoji },
     );
+  },
+
+  /** Toggle a message's pinned state. Either participant may pin/unpin in a DM. */
+  togglePin(threadId: string, messageId: string) {
+    return apiClient.put<{ pinned: boolean; message: DmMessage }>(
+      `/dm/threads/${threadId}/messages/${messageId}/pin`,
+    );
+  },
+
+  /** Currently-pinned messages in a thread, most recently pinned first. */
+  listPinnedMessages(threadId: string) {
+    return apiClient.get<DmMessage[]>(`/dm/threads/${threadId}/pinned`);
   },
 };

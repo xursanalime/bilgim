@@ -60,6 +60,8 @@ export interface GroupChatMessage {
   assetUrl?: string | null;
   /** Set when the author edited this message after sending; null otherwise. */
   editedAt: Date | null;
+  /** Set while this message is pinned to the group; null otherwise. */
+  pinnedAt: Date | null;
   /** Empty for messages returned outside `listMessages` (e.g. a fresh `sendMessage` result) — nothing has reacted yet. */
   reactions: ReactionSummary[];
   createdAt: Date;
@@ -471,6 +473,59 @@ export class GroupChatService {
     return result;
   }
 
+  // ------------------------------------------------------------------
+  // Pin
+  // ------------------------------------------------------------------
+
+  /**
+   * Toggle a message's pinned state. Restricted to OWNER/ADMIN
+   * (moderation action) — unlike reactions, which any member can add.
+   */
+  async togglePin(
+    actor: GroupChatActor,
+    groupId: string,
+    messageId: string,
+  ): Promise<{ pinned: boolean; message: GroupChatMessage }> {
+    this.assertActorAllowed(actor);
+    await this.assertAdminOrOwner(groupId, actor.userId);
+
+    const room = await this.repo.upsertRoomForGroup(groupId);
+    const message = await this.repo.findMessageById(messageId);
+    if (!message || message.roomId !== room.id) {
+      throw new NotFoundException({
+        code: 'GROUP_CHAT_MESSAGE_NOT_FOUND',
+        message: 'Message not found',
+      });
+    }
+
+    const pinned = message.pinnedAt === null;
+    const updated = pinned
+      ? await this.repo.pinMessage(messageId, actor.userId)
+      : await this.repo.unpinMessage(messageId);
+
+    this.liveChatGateway.server
+      .to(`lesson:group:${groupId}`)
+      .emit('chat:message-pinned', {
+        lessonId: `group:${groupId}`,
+        messageId,
+        pinned,
+      });
+
+    return { pinned, message: this.toGroupMessage(updated, groupId) };
+  }
+
+  /** Currently-pinned messages in a group, most recently pinned first. */
+  async listPinnedMessages(
+    actor: GroupChatActor,
+    groupId: string,
+  ): Promise<GroupChatMessage[]> {
+    this.assertActorAllowed(actor);
+    await this.assertMembership(groupId, actor.userId);
+    const room = await this.repo.upsertRoomForGroup(groupId);
+    const rows = await this.repo.listPinnedMessages(room.id);
+    return rows.map((row) => this.toGroupMessage(row, groupId));
+  }
+
   async markRead(actor: GroupChatActor, groupId: string): Promise<void> {
     this.assertActorAllowed(actor);
     await this.assertMembership(groupId, actor.userId);
@@ -812,6 +867,7 @@ export class GroupChatService {
       assetId: row.assetId,
       assetUrl: assetUrl ?? null,
       editedAt: row.editedAt,
+      pinnedAt: row.pinnedAt,
       reactions,
       createdAt: row.createdAt,
     };

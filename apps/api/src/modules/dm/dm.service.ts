@@ -86,6 +86,8 @@ export interface DmMessage {
   assetUrl?: string | null;
   /** Set when the author edited this message after sending; null otherwise. */
   editedAt: Date | null;
+  /** Set while this message is pinned to the thread; null otherwise. */
+  pinnedAt: Date | null;
   /** Empty for messages returned outside `listMessages` (e.g. a fresh `sendMessage` result) — nothing has reacted yet. */
   reactions: ReactionSummary[];
   createdAt: Date;
@@ -636,6 +638,64 @@ export class DmService {
   }
 
   // ------------------------------------------------------------------
+  // Pin
+  // ------------------------------------------------------------------
+
+  /**
+   * Toggle a message's pinned state. Either DM participant may pin or
+   * unpin — DM has no moderator role to restrict this to (unlike group
+   * chat, where only OWNER/ADMIN can pin).
+   */
+  async togglePin(
+    actor: DmActor,
+    threadId: string,
+    messageId: string,
+  ): Promise<{ pinned: boolean; message: DmMessage }> {
+    this.assertActorAllowed(actor);
+    const { thread } = await this.resolveParticipantThread(
+      actor.userId,
+      threadId,
+    );
+
+    const message = await this.repo.findMessageById(messageId);
+    if (!message || message.roomId !== thread.id) {
+      throw new NotFoundException({
+        code: 'DM_MESSAGE_NOT_FOUND',
+        message: 'Message not found',
+      });
+    }
+
+    const pinned = message.pinnedAt === null;
+    const updated = pinned
+      ? await this.repo.pinMessage(messageId, actor.userId)
+      : await this.repo.unpinMessage(messageId);
+
+    this.liveChatGateway.server
+      .to(`lesson:dm:${thread.id}`)
+      .emit('chat:message-pinned', {
+        lessonId: `dm:${thread.id}`,
+        messageId,
+        pinned,
+      });
+
+    return { pinned, message: this.toDmMessage(updated) };
+  }
+
+  /** Currently-pinned messages in a thread, most recently pinned first. */
+  async listPinnedMessages(
+    actor: DmActor,
+    threadId: string,
+  ): Promise<DmMessage[]> {
+    this.assertActorAllowed(actor);
+    const { thread } = await this.resolveParticipantThread(
+      actor.userId,
+      threadId,
+    );
+    const rows = await this.repo.listPinnedMessages(thread.id);
+    return rows.map((row) => this.toDmMessage(row));
+  }
+
+  // ------------------------------------------------------------------
   // Access control
   // ------------------------------------------------------------------
 
@@ -890,6 +950,7 @@ export class DmService {
       assetId: row.assetId,
       assetUrl: assetUrl ?? null,
       editedAt: row.editedAt,
+      pinnedAt: row.pinnedAt,
       reactions,
       createdAt: row.createdAt,
     };

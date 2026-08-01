@@ -233,4 +233,38 @@ export class DmController {
       dto.emoji,
     );
   }
+
+  /**
+   * `PUT /dm/threads/:id/messages/:messageId/pin` — toggle a message's
+   * pinned state. Either participant may pin/unpin in a DM.
+   */
+  @Put('threads/:id/messages/:messageId/pin')
+  @HttpCode(HttpStatus.OK)
+  async togglePin(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) threadId: string,
+    @Param('messageId', new ParseUUIDPipe()) messageId: string,
+  ): Promise<{ pinned: boolean; message: DmMessage }> {
+    return this.dmService.togglePin(
+      { userId: user.sub, role: user.role },
+      threadId,
+      messageId,
+    );
+  }
+
+  /**
+   * `GET /dm/threads/:id/pinned` — currently-pinned messages in a
+   * thread, most recently pinned first.
+   */
+  @Get('threads/:id/pinned')
+  @HttpCode(HttpStatus.OK)
+  async listPinnedMessages(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) threadId: string,
+  ): Promise<DmMessage[]> {
+    return this.dmService.listPinnedMessages(
+      { userId: user.sub, role: user.role },
+      threadId,
+    );
+  }
 }

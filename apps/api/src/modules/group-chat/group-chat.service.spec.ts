@@ -30,6 +30,7 @@ function makeRepoFake(initialMembers: FakeMember[]) {
     body: string;
     assetId: string | null;
     editedAt: Date | null;
+    pinnedAt: Date | null;
     deletedAt: Date | null;
     createdAt: Date;
   }> = [];
@@ -77,6 +78,7 @@ function makeRepoFake(initialMembers: FakeMember[]) {
         body: input.body,
         assetId: input.assetId ?? null,
         editedAt: null,
+        pinnedAt: null,
         deletedAt: null,
         createdAt: new Date(),
       };
@@ -108,6 +110,23 @@ function makeRepoFake(initialMembers: FakeMember[]) {
       row.body = body;
       row.editedAt = new Date();
       return row;
+    }),
+    pinMessage: jest.fn(async (messageId: string) => {
+      const row = messages.find((m) => m.id === messageId);
+      if (!row) throw new Error(`message ${messageId} not found`);
+      row.pinnedAt = new Date();
+      return row;
+    }),
+    unpinMessage: jest.fn(async (messageId: string) => {
+      const row = messages.find((m) => m.id === messageId);
+      if (!row) throw new Error(`message ${messageId} not found`);
+      row.pinnedAt = null;
+      return row;
+    }),
+    listPinnedMessages: jest.fn(async (roomId: string) => {
+      return messages
+        .filter((m) => m.deletedAt === null && m.roomId === roomId && m.pinnedAt !== null)
+        .sort((a, b) => (b.pinnedAt! > a.pinnedAt! ? 1 : -1));
     }),
     _members: members,
     _messages: messages,
@@ -435,6 +454,50 @@ describe('GroupChatService', () => {
       const { service } = makeService(baseMembers());
       await expect(
         service.toggleReaction(memberActor, GROUP_ID, 'does-not-exist', '👍'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('togglePin', () => {
+    it('lets an OWNER pin, then unpin on a second call (toggle)', async () => {
+      const { service } = makeService(baseMembers());
+      const sent = await service.sendMessage(memberActor, GROUP_ID, 'pin me');
+
+      const first = await service.togglePin(ownerActor, GROUP_ID, sent.message.id);
+      expect(first.pinned).toBe(true);
+      expect(first.message.pinnedAt).not.toBeNull();
+
+      const pinnedList = await service.listPinnedMessages(memberActor, GROUP_ID);
+      expect(pinnedList.map((m) => m.id)).toEqual([sent.message.id]);
+
+      const second = await service.togglePin(ownerActor, GROUP_ID, sent.message.id);
+      expect(second.pinned).toBe(false);
+
+      const pinnedListAfterUnpin = await service.listPinnedMessages(memberActor, GROUP_ID);
+      expect(pinnedListAfterUnpin).toEqual([]);
+    });
+
+    it('lets an ADMIN pin', async () => {
+      const { service } = makeService(baseMembers());
+      const sent = await service.sendMessage(memberActor, GROUP_ID, 'pin me');
+
+      const result = await service.togglePin(adminActor, GROUP_ID, sent.message.id);
+      expect(result.pinned).toBe(true);
+    });
+
+    it('forbids a plain MEMBER from pinning', async () => {
+      const { service } = makeService(baseMembers());
+      const sent = await service.sendMessage(memberActor, GROUP_ID, 'pin me');
+
+      await expect(
+        service.togglePin(memberActor, GROUP_ID, sent.message.id),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('404s on a nonexistent message', async () => {
+      const { service } = makeService(baseMembers());
+      await expect(
+        service.togglePin(ownerActor, GROUP_ID, 'does-not-exist'),
       ).rejects.toThrow(NotFoundException);
     });
   });

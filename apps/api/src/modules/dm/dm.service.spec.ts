@@ -36,6 +36,7 @@ interface FakeMessage {
   body: string;
   createdAt: Date;
   editedAt: Date | null;
+  pinnedAt: Date | null;
   deletedAt: Date | null;
 }
 
@@ -154,6 +155,7 @@ function toMessageRow(m: FakeMessage) {
     body: m.body,
     assetId: null,
     editedAt: m.editedAt,
+    pinnedAt: m.pinnedAt,
     createdAt: m.createdAt,
   };
 }
@@ -207,6 +209,7 @@ function makeRepoFake(initialMessages: FakeMessage[] = []) {
           body: input.body,
           createdAt: new Date(),
           editedAt: null,
+          pinnedAt: null,
           deletedAt: null,
         };
         messages.push(row);
@@ -264,6 +267,24 @@ function makeRepoFake(initialMessages: FakeMessage[] = []) {
       row.body = body;
       row.editedAt = new Date();
       return toMessageRow(row);
+    }),
+    pinMessage: jest.fn(async (messageId: string) => {
+      const row = messages.find((m) => m.id === messageId);
+      if (!row) throw new Error(`message ${messageId} not found`);
+      row.pinnedAt = new Date();
+      return toMessageRow(row);
+    }),
+    unpinMessage: jest.fn(async (messageId: string) => {
+      const row = messages.find((m) => m.id === messageId);
+      if (!row) throw new Error(`message ${messageId} not found`);
+      row.pinnedAt = null;
+      return toMessageRow(row);
+    }),
+    listPinnedMessages: jest.fn(async (threadId: string) => {
+      return messages
+        .filter((m) => m.deletedAt === null && m.roomId === threadId && m.pinnedAt !== null)
+        .sort((a, b) => (b.pinnedAt! > a.pinnedAt! ? 1 : -1))
+        .map(toMessageRow);
     }),
     _state: { messages, rooms },
   };
@@ -1040,6 +1061,64 @@ describe('DmService', () => {
           opened.thread.id,
           'does-not-exist',
           '👍',
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('togglePin', () => {
+    it('pins, then unpins on a second call (toggle) — either participant may act', async () => {
+      const { service } = makeService();
+      const opened = await service.openThread(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        TEACHER_ID,
+      );
+      const sent = await service.sendMessage(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        'pin me',
+      );
+
+      const first = await service.togglePin(
+        { userId: TEACHER_ID, role: 'TEACHER' },
+        opened.thread.id,
+        sent.message.id,
+      );
+      expect(first.pinned).toBe(true);
+      expect(first.message.pinnedAt).not.toBeNull();
+
+      const pinnedList = await service.listPinnedMessages(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+      );
+      expect(pinnedList.map((m) => m.id)).toEqual([sent.message.id]);
+
+      const second = await service.togglePin(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+        sent.message.id,
+      );
+      expect(second.pinned).toBe(false);
+      expect(second.message.pinnedAt).toBeNull();
+
+      const pinnedListAfterUnpin = await service.listPinnedMessages(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        opened.thread.id,
+      );
+      expect(pinnedListAfterUnpin).toEqual([]);
+    });
+
+    it('404s on a nonexistent message', async () => {
+      const { service } = makeService();
+      const opened = await service.openThread(
+        { userId: STUDENT_ID, role: 'STUDENT' },
+        TEACHER_ID,
+      );
+      await expect(
+        service.togglePin(
+          { userId: STUDENT_ID, role: 'STUDENT' },
+          opened.thread.id,
+          'does-not-exist',
         ),
       ).rejects.toThrow(NotFoundException);
     });

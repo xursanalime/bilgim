@@ -35,6 +35,7 @@ import {
   Pencil,
   Trash2,
   Check,
+  Pin,
 } from 'lucide-react';
 
 import {
@@ -53,6 +54,7 @@ import { HlsPlayer } from '../lesson/hls-player';
 import { Lightbox } from '../ui/lightbox';
 import { CircularProgress } from '../ui/circular-progress';
 import { MessageReactions } from './message-reactions';
+import { PinnedBar } from './pinned-bar';
 
 interface GroupChatThreadProps {
   groupId: string;
@@ -127,6 +129,12 @@ export function GroupChatThread({
     // Interim safety net, not the primary sync path — see the identical
     // comment in `message-thread.tsx`.
     refetchInterval: 60_000,
+    enabled: !!groupId,
+  });
+
+  const pinnedQuery = useQuery({
+    queryKey: ['group-chat', 'pinned', groupId],
+    queryFn: () => groupChatApi.listPinnedMessages(groupId),
     enabled: !!groupId,
   });
 
@@ -268,11 +276,18 @@ export function GroupChatThread({
       queryClient.invalidateQueries({ queryKey: ['group-chat', 'messages', groupId] });
     }
 
+    function handlePinned(payload: { lessonId?: string }) {
+      if (payload?.lessonId !== roomKey) return;
+      queryClient.invalidateQueries({ queryKey: ['group-chat', 'messages', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['group-chat', 'pinned', groupId] });
+    }
+
     socket.on('connect', handleConnect);
     socket.on('chat:message', handleMessage);
     socket.on('chat:message-edited', handleEdited);
     socket.on('chat:message-deleted', handleDeleted);
     socket.on('chat:reaction', handleReaction);
+    socket.on('chat:message-pinned', handlePinned);
     if (socket.connected) emitJoin();
 
     return () => {
@@ -282,6 +297,7 @@ export function GroupChatThread({
       socket.off('chat:message-edited', handleEdited);
       socket.off('chat:message-deleted', handleDeleted);
       socket.off('chat:reaction', handleReaction);
+      socket.off('chat:message-pinned', handlePinned);
       socket.emit('chat:leave', { lessonId: roomKey });
     };
   }, [groupId, queryClient]);
@@ -326,6 +342,14 @@ export function GroupChatThread({
       groupChatApi.toggleReaction(groupId, messageId, emoji),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['group-chat', 'messages', groupId] });
+    },
+  });
+
+  const pinMutation = useMutation({
+    mutationFn: (messageId: string) => groupChatApi.togglePin(groupId, messageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group-chat', 'messages', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['group-chat', 'pinned', groupId] });
     },
   });
 
@@ -447,6 +471,7 @@ export function GroupChatThread({
 
   const ordered = useMemo(() => [...messages].reverse(), [messages]);
   const avatarUrl = avatarQuery.data?.url ?? null;
+  const canModerate = group?.myRole === 'OWNER' || group?.myRole === 'ADMIN';
   const assetBatch = useAssetBatch(ordered.map((m) => m.assetId));
 
   return (
@@ -510,6 +535,12 @@ export function GroupChatThread({
         </button>
       </header>
 
+      <PinnedBar
+        pinnedMessages={(pinnedQuery.data ?? []).map((m) => ({ id: m.id, text: m.text }))}
+        canUnpin={canModerate}
+        {...(canModerate ? { onUnpin: (messageId: string) => pinMutation.mutate(messageId) } : {})}
+      />
+
       <div ref={scrollRef} className="flex-1 space-y-6 overflow-y-auto px-6 py-8 scroll-smooth">
         {messagesQuery.isLoading ? (
           <div className="flex h-full items-center justify-center">
@@ -538,7 +569,6 @@ export function GroupChatThread({
             {ordered.map((m) => {
               const isMine = m.authorId === myId;
               const author = memberMap.get(m.authorId);
-              const canModerate = group?.myRole === 'OWNER' || group?.myRole === 'ADMIN';
               return (
                 <GroupMessageBubble
                   key={m.id}
@@ -550,6 +580,7 @@ export function GroupChatThread({
                   onToggleReaction={(emoji) => reactionMutation.mutate({ messageId: m.id, emoji })}
                   {...(isMine ? { onEdit: () => startEdit(m) } : {})}
                   {...(isMine || canModerate ? { onDelete: () => handleDelete(m.id) } : {})}
+                  {...(canModerate ? { onTogglePin: () => pinMutation.mutate(m.id) } : {})}
                 />
               );
             })}
@@ -733,6 +764,7 @@ function GroupMessageBubble({
   onEdit,
   onDelete,
   onToggleReaction,
+  onTogglePin,
 }: {
   message: GroupChatMessage;
   isMine: boolean;
@@ -748,6 +780,8 @@ function GroupMessageBubble({
   /** Present for own messages, or for any message when the caller can moderate (OWNER/ADMIN). */
   onDelete?: () => void;
   onToggleReaction?: (emoji: string) => void;
+  /** Present only when the caller can moderate (OWNER/ADMIN) — pin is a moderation action in groups. */
+  onTogglePin?: () => void;
 }): React.ReactElement {
   const isPersisted = !message.id.startsWith('socket-') && !message.id.startsWith('opt-');
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -917,8 +951,21 @@ function GroupMessageBubble({
         )}
 
         <div className="flex items-center gap-1.5 px-1 opacity-0 transition-opacity group-hover:opacity-100">
-          {!optimistic && (onEdit || onDelete) && (
+          {!optimistic && (onEdit || onDelete || onTogglePin) && (
             <div className="flex items-center gap-0.5">
+              {onTogglePin && (
+                <button
+                  type="button"
+                  onClick={onTogglePin}
+                  className={cn(
+                    'flex h-5 w-5 items-center justify-center rounded-md transition-colors hover:bg-tint hover:text-blue',
+                    message.pinnedAt ? 'text-blue' : 'text-ink-faint',
+                  )}
+                  aria-label={message.pinnedAt ? "Qadashni bekor qilish" : "Qadash"}
+                >
+                  <Pin className="h-3 w-3" />
+                </button>
+              )}
               {onEdit && (
                 <button
                   type="button"
@@ -940,6 +987,9 @@ function GroupMessageBubble({
                 </button>
               )}
             </div>
+          )}
+          {message.pinnedAt && (
+            <Pin className="h-2.5 w-2.5 text-blue" aria-label="Qadalgan" />
           )}
           {message.editedAt && (
             <span className="text-[9px] font-bold uppercase tracking-wider text-ink-faint">

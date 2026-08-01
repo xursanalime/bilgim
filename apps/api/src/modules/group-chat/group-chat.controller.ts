@@ -175,6 +175,40 @@ export class GroupChatController {
     );
   }
 
+  /**
+   * `PUT /group-chat/groups/:groupId/messages/:messageId/pin` — toggle
+   * a message's pinned state. OWNER/ADMIN only (moderation action).
+   */
+  @Put('groups/:groupId/messages/:messageId/pin')
+  @HttpCode(HttpStatus.OK)
+  async togglePin(
+    @CurrentUser() user: JwtPayload,
+    @Param('groupId', new ParseUUIDPipe()) groupId: string,
+    @Param('messageId', new ParseUUIDPipe()) messageId: string,
+  ): Promise<{ pinned: boolean; message: GroupChatMessage }> {
+    return this.groupChatService.togglePin(
+      { userId: user.sub, role: user.role },
+      groupId,
+      messageId,
+    );
+  }
+
+  /**
+   * `GET /group-chat/groups/:groupId/pinned` — currently-pinned
+   * messages in a group, most recently pinned first.
+   */
+  @Get('groups/:groupId/pinned')
+  @HttpCode(HttpStatus.OK)
+  async listPinnedMessages(
+    @CurrentUser() user: JwtPayload,
+    @Param('groupId', new ParseUUIDPipe()) groupId: string,
+  ): Promise<GroupChatMessage[]> {
+    return this.groupChatService.listPinnedMessages(
+      { userId: user.sub, role: user.role },
+      groupId,
+    );
+  }
+
   @Patch('groups/:groupId/read')
   @HttpCode(HttpStatus.NO_CONTENT)
   async markRead(
