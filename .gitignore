@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+out/
+.turbo/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+
+# Prisma
+packages/db/prisma/migrations/**/migration_lock.toml
+
+# Docker
+infra/docker/pgdata/
+infra/docker/miniodata/
+
+# Local dev stack (bilgim command, no-Docker fallback)
+infra/local/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# TypeScript incremental build cache — machine-specific, never commit
+*.tsbuildinfo

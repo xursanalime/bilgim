@@ -7,6 +7,8 @@ import React, {
   useState,
   type FormEvent,
 } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import {
   useMutation,
   useQuery,
@@ -39,6 +41,7 @@ import {
   Pencil,
   Trash2,
   Pin,
+  ArrowLeft,
 } from 'lucide-react';
 
 import { dmApi, type DmMessage } from '../../lib/api/dm';
@@ -115,6 +118,7 @@ const ATTACHMENT_ACCEPT: Record<AttachmentMode, string> = {
 };
 
 export function MessageThread({ threadId, lessonId }: MessageThreadProps): React.ReactElement {
+  const { locale } = useParams<{ locale: string }>();
   const queryClient = useQueryClient();
   const threadQuery = useQuery({
     queryKey: ['dm', 'thread', threadId],
@@ -573,8 +577,15 @@ export function MessageThread({ threadId, lessonId }: MessageThreadProps): React
         </div>
       )}
 
-      <header className="flex items-center justify-between border-b border-rim bg-white/80 px-6 py-4 backdrop-blur-xl">
-        <div className="flex items-center gap-4">
+      <header className="flex items-center justify-between border-b border-rim bg-white/80 px-4 py-4 backdrop-blur-xl sm:px-6">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+          <Link
+            href={`/${locale}/messages`}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-ink-soft transition-colors hover:bg-tint hover:text-ink-strong lg:hidden"
+            aria-label="Suhbatlar ro'yxatiga qaytish"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue/5 text-blue shadow-sm border border-blue/10 overflow-hidden">
             {thread?.peer.avatarUrl && !avatarError ? (
               <img

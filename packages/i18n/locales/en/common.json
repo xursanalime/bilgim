@@ -1,0 +1,14 @@
+{
+  "app_name": "Bilgim",
+  "welcome": "Welcome",
+  "login": "Login",
+  "register": "Register",
+  "logout": "Logout",
+  "dashboard": "Dashboard",
+  "courses": "Courses",
+  "groups": "Groups",
+  "lessons": "Lessons",
+  "students": "Students",
+  "teachers": "Teachers",
+  "settings": "Settings"
+}

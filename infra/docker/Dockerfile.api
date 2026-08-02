@@ -1,0 +1,123 @@
+# Production Dockerfile for EduBridge API (NestJS)
+# Validates: Requirement 31.8
+#
+# Base image: Node 20 on Debian bookworm-slim (glibc), pinned by sha256
+# digest. mediasoup (the SFU dependency used by the live-classroom
+# module) ships glibc-only prebuilt binaries and, when it has to
+# compile from source, needs a C/C++ toolchain + Python that Alpine's
+# musl-based image can't satisfy cleanly — bookworm-slim matches the
+# distroless-debian12 runtime below so no glibc/musl mismatch exists
+# between what's built and what's run.
+# Final stage: distroless Node.js image for minimal attack surface.
+#
+# Multi-stage build:
+#   1. builder — compile TypeScript + generate Prisma client
+#   2. runner  — minimal distroless runtime
+#
+# (There used to be a separate "deps" prod-only-install stage, but
+# nothing ever copied from it — dead weight that shared identical
+# early layers with "builder" on the same base image, which is a
+# plausible contributor to a Railway remote-builder cache-key bug that
+# made COPY --from=builder .../dist intermittently fail. Removed.)
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 1: ffmpeg — static binaries for video transcoding
+# (distroless has no package manager, so this is copied in pre-built)
+# ─────────────────────────────────────────────────────────────────
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS ffmpeg
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl xz-utils ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -sSL -o /tmp/ffmpeg.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
+    && mkdir -p /tmp/ffmpeg-extract \
+    && tar -xJf /tmp/ffmpeg.tar.xz -C /tmp/ffmpeg-extract \
+    && mkdir -p /ffmpeg-bin \
+    && cp /tmp/ffmpeg-extract/ffmpeg-*-amd64-static/ffmpeg /tmp/ffmpeg-extract/ffmpeg-*-amd64-static/ffprobe /ffmpeg-bin/ \
+    && rm -rf /tmp/ffmpeg.tar.xz /tmp/ffmpeg-extract
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 2: Builder
+# ─────────────────────────────────────────────────────────────────
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@9.6.0 --activate
+
+# Copy full source for build
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.json ./
+COPY apps/api/ ./apps/api/
+COPY packages/ ./packages/
+
+# Install all dependencies (including devDependencies for build)
+RUN pnpm install --frozen-lockfile
+
+# Generate Prisma client
+RUN pnpm run db:generate
+
+# Build the API
+RUN pnpm --filter @edubridge/api build
+
+# NOTE: `pnpm prune --prod` used to run here to drop devDependencies
+# before the final COPY, but on Railway's remote builder it silently
+# corrupted the layer (prompts "remove and reinstall node_modules from
+# scratch", which is a full reinstall, not a plain prune) and the
+# following COPY --from=builder .../dist steps then failed with
+# "not found" — reproducible even after reordering/cache-busting.
+# Devdependency bloat in node_modules is an acceptable trade-off for a
+# reliable build; the distroless runner still drops everything not
+# explicitly COPYed (source, build tools, apt caches).
+
+# ─────────────────────────────────────────────────────────────────
+# Stage 3: Runner (distroless)
+# ─────────────────────────────────────────────────────────────────
+# Google distroless Node.js 20 — minimal image, no shell, no package manager
+# Pinned by sha256 digest for supply chain integrity (Req 31.8)
+FROM gcr.io/distroless/nodejs20-debian12@sha256:6fe218dbad37e979c7542e670d28d6e23d3f53d2929693bc9cdded8b622f339f AS runner
+
+# OCI image labels
+LABEL org.opencontainers.image.source="https://github.com/xursanalime/bilgim"
+LABEL org.opencontainers.image.description="EduBridge API - NestJS production build"
+LABEL org.opencontainers.image.licenses="UNLICENSED"
+
+WORKDIR /app
+
+# Copy built application. dist is kept at apps/api/dist (not flattened
+# to ./dist) because pnpm hoists @nestjs/* etc. into apps/api/node_modules
+# as symlinks into the root .pnpm store, not into root node_modules
+# directly — Node's require() resolution walks up from the entry file's
+# own directory, so main.js has to live under apps/api/ to see them.
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+
+# Copy Prisma schema (the generated client itself is already included in
+# the full node_modules copy above; .prisma/@prisma got pruned to
+# non-existent paths by `pnpm prune --prod` in some layouts, so copying
+# them again here as a separate step is both redundant and fragile).
+COPY --from=builder /app/packages/db/prisma ./packages/db/prisma
+
+# Statically-linked ffmpeg/ffprobe for video transcoding (Req 8.3-8.5) —
+# distroless has no apk/apt, so these are copied in pre-built.
+COPY --from=ffmpeg /ffmpeg-bin/ffmpeg /usr/local/bin/ffmpeg
+COPY --from=ffmpeg /ffmpeg-bin/ffprobe /usr/local/bin/ffprobe
+
+# Non-root user (distroless runs as nonroot:65534 by default)
+USER nonroot:nonroot
+
+# Expose API port
+EXPOSE 3000
+
+# Health check endpoint
+ENV PORT=3000
+ENV NODE_ENV=production
+ENV FFMPEG_PATH=/usr/local/bin/ffmpeg
+ENV FFPROBE_PATH=/usr/local/bin/ffprobe
+
+# Start the application
+CMD ["apps/api/dist/main.js"]

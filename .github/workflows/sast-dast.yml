@@ -1,0 +1,311 @@
+# SAST + DAST Security Pipeline
+# Validates: Requirements 32.1, 32.5, 32.8
+#
+# This workflow performs:
+#   - SAST via Semgrep — statik kod tahlili (Req 32.5)
+#   - DAST via OWASP ZAP — dinamik ilova tahlili (Req 32.5)
+#   - Critical/High finding topilsa pipeline to'xtatiladi (Req 32.5)
+#   - Security headers tekshiruvi (Req 32.8)
+#
+# Existing security-scan.yml handles SCA (Snyk) + container scanning (Trivy).
+# This workflow complements it with SAST and DAST coverage.
+
+name: SAST & DAST Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Haftalik to'liq skanerlash (har dushanba 03:00 UTC)
+    - cron: "0 3 * * 1"
+
+concurrency:
+  group: sast-dast-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9.6.0"
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # Job 1: Semgrep SAST — statik kod tahlili
+  # ─────────────────────────────────────────────────────────────────
+  semgrep-sast:
+    name: Semgrep SAST Analysis
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep SAST scan
+        run: |
+          semgrep scan \
+            --config=auto \
+            --config=p/owasp-top-ten \
+            --config=p/typescript \
+            --config=p/nodejs \
+            --config=p/security-audit \
+            --config=p/secrets \
+            --sarif \
+            --output=semgrep-results.sarif \
+            --severity=ERROR \
+            --error \
+            .
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload Semgrep SARIF results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-results.sarif
+          category: semgrep-sast
+
+      - name: Upload Semgrep results as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-results
+          path: semgrep-results.sarif
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────
+  # Job 2: Semgrep custom rules — loyihaga xos qoidalar
+  # ─────────────────────────────────────────────────────────────────
+  semgrep-custom:
+    name: Semgrep Custom Rules
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run custom security rules
+        run: |
+          semgrep scan \
+            --config=p/jwt \
+            --config=p/sql-injection \
+            --config=p/xss \
+            --config=p/command-injection \
+            --sarif \
+            --output=semgrep-custom-results.sarif \
+            --severity=WARNING \
+            .
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload custom rules SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-custom-results.sarif
+          category: semgrep-custom
+
+  # ─────────────────────────────────────────────────────────────────
+  # Job 3: OWASP ZAP DAST — dinamik ilova tahlili
+  # Faqat main branch push da ishga tushadi (staging muhitga deploy kerak)
+  # ─────────────────────────────────────────────────────────────────
+  owasp-zap-dast:
+    name: OWASP ZAP DAST Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [semgrep-sast]
+    services:
+      api:
+        image: ghcr.io/${{ github.repository }}/api:main
+        ports:
+          - 3000:3000
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://postgres:postgres@postgres:5432/edubridge_test
+          REDIS_URL: redis://redis:6379
+        options: >-
+          --health-cmd "curl -f http://localhost:3000/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: edubridge_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for API to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/health; then
+              echo "API is ready"
+              break
+            fi
+            echo "Waiting for API... ($i/30)"
+            sleep 5
+          done
+
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: "http://localhost:3000"
+          rules_file_name: ".github/zap-rules.tsv"
+          cmd_options: >-
+            -a
+            -j
+            -l WARN
+            -z "-config api.disablekey=true
+                -config scanner.strength=MEDIUM
+                -config scanner.threshold=LOW"
+          fail_action: true
+          artifact_name: zap-baseline-report
+
+      - name: Run OWASP ZAP API Scan
+        if: always()
+        uses: zaproxy/action-api-scan@v0.7.0
+        with:
+          target: "http://localhost:3000/api/docs-json"
+          format: openapi
+          cmd_options: >-
+            -a
+            -l WARN
+            -z "-config api.disablekey=true"
+          fail_action: true
+          artifact_name: zap-api-report
+
+      - name: Upload ZAP SARIF results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: report_sarif.json
+          category: owasp-zap
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────────
+  # Job 4: Security Headers tekshiruvi (Req 32.8)
+  # ─────────────────────────────────────────────────────────────────
+  security-headers-check:
+    name: Security Headers Validation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [semgrep-sast]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: Validate security headers configuration
+        run: |
+          echo "=== Security Headers Validation ==="
+          echo ""
+          echo "Checking NestJS helmet configuration..."
+
+          # NestJS API headerlarini tekshirish
+          if grep -r "helmet" apps/api/src/ --include="*.ts" -l; then
+            echo "✅ Helmet middleware found in API"
+          else
+            echo "❌ Helmet middleware NOT found in API"
+            exit 1
+          fi
+
+          # Next.js security headers tekshirish
+          if grep -r "securityHeaders\|Content-Security-Policy\|X-Frame-Options" apps/web/ --include="*.ts" --include="*.js" --include="*.mjs" -l; then
+            echo "✅ Security headers configuration found in Web"
+          else
+            echo "⚠️  Security headers configuration not found in Web — check next.config"
+          fi
+
+          # Required headers ro'yxati
+          echo ""
+          echo "Required headers for A+ rating:"
+          echo "  ✓ Strict-Transport-Security (HSTS)"
+          echo "  ✓ Content-Security-Policy (CSP)"
+          echo "  ✓ X-Content-Type-Options"
+          echo "  ✓ X-Frame-Options"
+          echo "  ✓ X-XSS-Protection"
+          echo "  ✓ Referrer-Policy"
+          echo "  ✓ Permissions-Policy"
+          echo "  ✓ Cross-Origin-Embedder-Policy"
+          echo "  ✓ Cross-Origin-Opener-Policy"
+          echo "  ✓ Cross-Origin-Resource-Policy"
+
+  # ─────────────────────────────────────────────────────────────────
+  # Job 5: Security Gate — barcha tekshiruvlar muvaffaqiyatli bo'lishi shart
+  # ─────────────────────────────────────────────────────────────────
+  sast-dast-gate:
+    name: SAST/DAST Security Gate
+    runs-on: ubuntu-latest
+    needs: [semgrep-sast, semgrep-custom, owasp-zap-dast, security-headers-check]
+    if: always()
+    steps:
+      - name: Evaluate security scan results
+        run: |
+          echo "=== SAST/DAST Security Gate ==="
+          FAILED=0
+
+          if [ "${{ needs.semgrep-sast.result }}" == "failure" ]; then
+            echo "::error::❌ Semgrep SAST scan failed — critical/high vulnerabilities detected in source code"
+            FAILED=1
+          else
+            echo "✅ Semgrep SAST: passed"
+          fi
+
+          if [ "${{ needs.semgrep-custom.result }}" == "failure" ]; then
+            echo "::warning::⚠️  Semgrep custom rules found issues (non-blocking)"
+          else
+            echo "✅ Semgrep custom rules: passed"
+          fi
+
+          if [ "${{ needs.owasp-zap-dast.result }}" == "failure" ]; then
+            echo "::error::❌ OWASP ZAP DAST scan failed — runtime vulnerabilities detected"
+            FAILED=1
+          elif [ "${{ needs.owasp-zap-dast.result }}" == "skipped" ]; then
+            echo "⏭️  OWASP ZAP DAST: skipped (only runs on main push)"
+          else
+            echo "✅ OWASP ZAP DAST: passed"
+          fi
+
+          if [ "${{ needs.security-headers-check.result }}" == "failure" ]; then
+            echo "::error::❌ Security headers validation failed"
+            FAILED=1
+          elif [ "${{ needs.security-headers-check.result }}" == "skipped" ]; then
+            echo "⏭️  Security headers: skipped (only runs on main push)"
+          else
+            echo "✅ Security headers: passed"
+          fi
+
+          echo ""
+          if [ $FAILED -eq 1 ]; then
+            echo "::error::🚫 Security gate FAILED — deployment blocked"
+            echo "Critical findings must be resolved before merge/deploy."
+            exit 1
+          fi
+
+          echo "✅ All SAST/DAST security checks passed — safe to proceed"

@@ -179,13 +179,6 @@ export interface HlsVariant {
  */
 export const HLS_VARIANTS: readonly HlsVariant[] = [
   {
-    name: '240p',
-    width: 426,
-    height: 240,
-    videoBitrateKbps: 400,
-    audioBitrateKbps: 64,
-  },
-  {
     name: '480p',
     width: 854,
     height: 480,

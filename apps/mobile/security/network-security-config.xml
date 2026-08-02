@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android certificate pinning (Task 28.4, Req 28.9).
+
+  Applied via `expo prebuild` + `app.config.ts` `android.config`
+  (or by hand-editing `android/app/src/main/AndroidManifest.xml` to
+  reference this file in `android:networkSecurityConfig`).
+
+  How to populate the pins:
+
+    openssl s_client -servername edubridge.uz -connect edubridge.uz:443 \
+      </dev/null 2>/dev/null \
+      | openssl x509 -pubkey -noout \
+      | openssl pkey -pubin -outform DER \
+      | openssl dgst -sha256 -binary \
+      | openssl enc -base64
+
+  Always pin BOTH the active leaf cert AND a backup cert. When the
+  active rotates, ship a release with [new active, new backup]
+  BEFORE the old cert expires — otherwise existing installs brick.
+
+  The expiration date (`expiration="2026-12-31"`) is a soft guard:
+  Android refuses to honour expired pins, so any device on a build
+  released after that date falls back to the system trust store.
+  Bump it on every release that ships fresh pins.
+-->
+<network-security-config>
+  <domain-config cleartextTrafficPermitted="false">
+    <!-- Production API host -->
+    <domain includeSubdomains="true">edubridge.uz</domain>
+    <pin-set expiration="2026-12-31">
+      <!-- Active leaf cert SPKI SHA-256 (replace before shipping). -->
+      <pin digest="SHA-256">REPLACE_WITH_ACTIVE_PIN_SHA256_BASE64==</pin>
+      <!-- Backup leaf cert SPKI SHA-256 (replace before shipping). -->
+      <pin digest="SHA-256">REPLACE_WITH_BACKUP_PIN_SHA256_BASE64==</pin>
+    </pin-set>
+  </domain-config>
+
+  <!--
+    Debug overrides — mirror the system default + accept locally
+    installed CAs ONLY in debug builds. Release builds ignore this
+    block entirely.
+  -->
+  <debug-overrides>
+    <trust-anchors>
+      <certificates src="system" />
+      <certificates src="user" />
+    </trust-anchors>
+  </debug-overrides>
+</network-security-config>

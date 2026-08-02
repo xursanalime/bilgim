@@ -1,0 +1,14 @@
+{
+  "app_name": "Bilgim",
+  "welcome": "Добро пожаловать",
+  "login": "Войти",
+  "register": "Регистрация",
+  "logout": "Выйти",
+  "dashboard": "Панель управления",
+  "courses": "Курсы",
+  "groups": "Группы",
+  "lessons": "Уроки",
+  "students": "Студенты",
+  "teachers": "Преподаватели",
+  "settings": "Настройки"
+}

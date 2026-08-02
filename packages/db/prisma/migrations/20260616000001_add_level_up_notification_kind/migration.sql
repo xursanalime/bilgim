@@ -1,0 +1,2 @@
+-- Add GAMIFICATION_LEVEL_UP to NotificationKind enum
+ALTER TYPE "NotificationKind" ADD VALUE IF NOT EXISTS 'GAMIFICATION_LEVEL_UP';

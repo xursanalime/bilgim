@@ -1,0 +1,78 @@
+<!--
+  iOS ATS + certificate pinning snippet (Task 28.4, Req 28.9).
+
+  This is a SNIPPET — merge the contents into the top-level <dict>
+  of `ios/<appName>/Info.plist` after running `expo prebuild`. We
+  cannot ship a full Info.plist here because Expo regenerates it
+  every prebuild; the merge is one of two options:
+
+    1) Use a config-plugin (preferred). Add a custom config plugin
+       under `apps/mobile/plugins/with-cert-pinning.ts` that calls
+       `IOSConfig.Plist.modifyInfoPlist` to inject these keys, then
+       reference it in `app.config.ts`.
+
+    2) Use TrustKit (preferred for runtime overrides). Install
+       `react-native-trustkit` (or the underlying `TrustKit` pod via
+       `Podfile`), and configure pins via the
+       `TSKConfigurationKey` / `TSKPublicKeyHashes` keys below.
+
+  How to populate the pins — same command as Android:
+
+    openssl s_client -servername edubridge.uz -connect edubridge.uz:443 \
+      </dev/null 2>/dev/null \
+      | openssl x509 -pubkey -noout \
+      | openssl pkey -pubin -outform DER \
+      | openssl dgst -sha256 -binary \
+      | openssl enc -base64
+
+  Always pin BOTH active + backup leaf cert SPKI hashes.
+-->
+
+<!-- ATS: forbid plaintext, enforce TLS 1.3 minimum. -->
+<key>NSAppTransportSecurity</key>
+<dict>
+  <key>NSAllowsArbitraryLoads</key>
+  <false/>
+  <key>NSExceptionDomains</key>
+  <dict>
+    <key>edubridge.uz</key>
+    <dict>
+      <key>NSIncludesSubdomains</key>
+      <true/>
+      <key>NSExceptionAllowsInsecureHTTPLoads</key>
+      <false/>
+      <key>NSExceptionMinimumTLSVersion</key>
+      <string>TLSv1.3</string>
+      <key>NSExceptionRequiresForwardSecrecy</key>
+      <true/>
+    </dict>
+  </dict>
+</dict>
+
+<!-- TrustKit pinning configuration (requires react-native-trustkit). -->
+<key>TSKConfiguration</key>
+<dict>
+  <key>TSKSwizzleNetworkDelegates</key>
+  <true/>
+  <key>TSKPinnedDomains</key>
+  <dict>
+    <key>edubridge.uz</key>
+    <dict>
+      <key>TSKEnforcePinning</key>
+      <true/>
+      <key>TSKIncludeSubdomains</key>
+      <true/>
+      <key>TSKDisableDefaultReportUri</key>
+      <true/>
+      <key>TSKPublicKeyHashes</key>
+      <array>
+        <!-- Active leaf cert SPKI SHA-256 (base64) -->
+        <string>REPLACE_WITH_ACTIVE_PIN_SHA256_BASE64==</string>
+        <!-- Backup leaf cert SPKI SHA-256 (base64) -->
+        <string>REPLACE_WITH_BACKUP_PIN_SHA256_BASE64==</string>
+      </array>
+      <key>TSKExpirationDate</key>
+      <string>2026-12-31</string>
+    </dict>
+  </dict>
+</dict>

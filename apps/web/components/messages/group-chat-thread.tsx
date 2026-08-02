@@ -7,6 +7,8 @@ import React, {
   useState,
   type FormEvent,
 } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import {
   useMutation,
   useQuery,
@@ -36,6 +38,7 @@ import {
   Trash2,
   Check,
   Pin,
+  ArrowLeft,
 } from 'lucide-react';
 
 import {
@@ -103,6 +106,7 @@ export function GroupChatThread({
   groupId,
   onOpenMembers,
 }: GroupChatThreadProps): React.ReactElement {
+  const { locale } = useParams<{ locale: string }>();
   const queryClient = useQueryClient();
 
   const groupQuery = useQuery({
@@ -500,35 +504,44 @@ export function GroupChatThread({
         </div>
       )}
 
-      <header className="flex items-center justify-between border-b border-rim bg-white/80 px-6 py-4 backdrop-blur-xl">
-        <button
-          type="button"
-          onClick={onOpenMembers}
-          className="flex min-w-0 items-center gap-4 text-left"
-        >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-purple/10 bg-purple-tint text-purple shadow-sm">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : group?.name ? (
-              <span className="font-display text-sm font-bold uppercase">{group.name.charAt(0)}</span>
-            ) : (
-              <Users className="h-5 w-5" />
-            )}
-          </div>
-          <div className="min-w-0">
-            <h2 className="truncate font-display text-base font-extrabold text-ink-strong">
-              {group?.name ?? 'Guruh suhbati'}
-            </h2>
-            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint">
-              <Users className="h-3 w-3" />
-              {group?.memberCount ?? 0} a&apos;zo
+      <header className="flex items-center justify-between border-b border-rim bg-white/80 px-4 py-4 backdrop-blur-xl sm:px-6">
+        <div className="flex min-w-0 items-center gap-1">
+          <Link
+            href={`/${locale}/messages`}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-ink-soft transition-colors hover:bg-tint hover:text-ink-strong lg:hidden"
+            aria-label="Suhbatlar ro'yxatiga qaytish"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <button
+            type="button"
+            onClick={onOpenMembers}
+            className="flex min-w-0 items-center gap-4 text-left"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-purple/10 bg-purple-tint text-purple shadow-sm">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+              ) : group?.name ? (
+                <span className="font-display text-sm font-bold uppercase">{group.name.charAt(0)}</span>
+              ) : (
+                <Users className="h-5 w-5" />
+              )}
             </div>
-          </div>
-        </button>
+            <div className="min-w-0">
+              <h2 className="truncate font-display text-base font-extrabold text-ink-strong">
+                {group?.name ?? 'Guruh suhbati'}
+              </h2>
+              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+                <Users className="h-3 w-3" />
+                {group?.memberCount ?? 0} a&apos;zo
+              </div>
+            </div>
+          </button>
+        </div>
         <button
           type="button"
           onClick={onOpenMembers}
-          className="flex h-10 w-10 items-center justify-center rounded-xl text-ink-faint transition-colors hover:bg-tint hover:text-ink-strong"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ink-faint transition-colors hover:bg-tint hover:text-ink-strong"
           aria-label="A'zolar"
         >
           <Users className="h-4.5 w-4.5" />

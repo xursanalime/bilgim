@@ -1,0 +1,198 @@
+# ArgoCD Application Manifests for EduBridge GitOps
+# Requirement 31.4: Barcha o'zgarishlar faqat GitOps (ArgoCD) orqali
+# Requirement 31.10: Infrastructure drift detection + avtomatik rollback
+---
+# ArgoCD Project — EduBridge scope restriction
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: edubridge
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: edubridge
+spec:
+  description: "EduBridge Platform — GitOps managed deployments"
+  # Faqat EduBridge repo dan deploy qilish mumkin
+  sourceRepos:
+    - "https://github.com/edubridge-uz/edubridge-platform.git"
+  # Faqat EduBridge namespace larga deploy qilish mumkin
+  destinations:
+    - namespace: edubridge-production
+      server: https://kubernetes.default.svc
+    - namespace: edubridge-staging
+      server: https://kubernetes.default.svc
+    - namespace: edubridge-vault
+      server: https://kubernetes.default.svc
+  # Cluster-scoped resources ni cheklash
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: admissionregistration.k8s.io
+      kind: ValidatingAdmissionPolicy
+    - group: admissionregistration.k8s.io
+      kind: ValidatingAdmissionPolicyBinding
+  # Xavfli operatsiyalarni taqiqlash
+  namespaceResourceBlacklist:
+    - group: ""
+      kind: ResourceQuota
+    - group: ""
+      kind: LimitRange
+  # Rollar — faqat read-only default, admin alohida
+  roles:
+    - name: read-only
+      description: "Read-only access for developers"
+      policies:
+        - p, proj:edubridge:read-only, applications, get, edubridge/*, allow
+        - p, proj:edubridge:read-only, applications, sync, edubridge/*, deny
+      groups:
+        - edubridge-developers
+    - name: deployer
+      description: "Sync access for CI/CD pipeline"
+      policies:
+        - p, proj:edubridge:deployer, applications, sync, edubridge/*, allow
+        - p, proj:edubridge:deployer, applications, get, edubridge/*, allow
+      groups:
+        - edubridge-ci
+---
+# Production Application — main platform deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: edubridge-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    environment: production
+  annotations:
+    # Drift detection notification
+    notifications.argoproj.io/subscribe.on-sync-status-unknown.slack: edubridge-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: edubridge-alerts
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: edubridge-alerts
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: edubridge
+  source:
+    repoURL: https://github.com/edubridge-uz/edubridge-platform.git
+    targetRevision: main
+    path: infra/k8s/overlays/production
+    # Kustomize orqali environment-specific config
+    kustomize:
+      namePrefix: ""
+      commonLabels:
+        environment: production
+        managed-by: argocd
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: edubridge-production
+  # Sync policy — avtomatik sync + self-heal (drift rollback)
+  syncPolicy:
+    automated:
+      # Avtomatik sync — Git o'zgarsa deploy bo'ladi
+      prune: true
+      # Self-heal — manual o'zgarishlar avtomatik rollback qilinadi (Req 31.10)
+      selfHeal: true
+      # Namespace yaratish
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=false
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  # Drift detection — ignoreDifferences faqat ma'lum maydonlar uchun
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # HPA boshqaradi
+  # Health checks
+  revisionHistoryLimit: 10
+---
+# Staging Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: edubridge-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    environment: staging
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: edubridge-staging-alerts
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: edubridge
+  source:
+    repoURL: https://github.com/edubridge-uz/edubridge-platform.git
+    targetRevision: develop
+    path: infra/k8s/overlays/staging
+    kustomize:
+      commonLabels:
+        environment: staging
+        managed-by: argocd
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: edubridge-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - PrunePropagationPolicy=foreground
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 5
+---
+# Infrastructure base components (network policies, PSS, etc.)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: edubridge-infrastructure
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: edubridge
+    component: infrastructure
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-status-unknown.slack: edubridge-alerts
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: edubridge
+  source:
+    repoURL: https://github.com/edubridge-uz/edubridge-platform.git
+    targetRevision: main
+    path: infra/k8s/base
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: edubridge-production
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - CreateNamespace=false
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  revisionHistoryLimit: 10

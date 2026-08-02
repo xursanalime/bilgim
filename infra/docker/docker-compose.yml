@@ -1,0 +1,163 @@
+# Local development services for EduBridge
+# Usage: docker compose -f infra/docker/docker-compose.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: edubridge-postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: edubridge
+      POSTGRES_PASSWORD: edubridge_dev
+      POSTGRES_DB: edubridge
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U edubridge"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: edubridge-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6380:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-edubridge_dev}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-edubridge_dev}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: edubridge-minio
+    restart: unless-stopped
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    environment:
+      MINIO_ROOT_USER: edubridge
+      MINIO_ROOT_PASSWORD: edubridge_dev
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # MailHog — local SMTP catcher used to inspect outgoing transactional
+  # email (registration verification, password reset etc.). Emails are
+  # never sent to real recipients in dev.
+  #   SMTP    : localhost:1025
+  #   Web UI  : http://localhost:8025
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: edubridge-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8025/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # LiveKit — local WebRTC SFU for live classes.
+  #   Websocket : ws://localhost:7880
+  #   API       : http://localhost:7880
+  #
+  # Backed by the shared `redis` service (not `--dev` mode) so that the
+  # `egress` worker below can receive recording jobs from it — self-hosted
+  # Egress talks to livekit-server exclusively over Redis, not HTTP.
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: edubridge-livekit
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      # NOTE: the flag is `--config-body`, but its env var is `LIVEKIT_CONFIG`
+      # (not `LIVEKIT_CONFIG_BODY` — verified via `livekit-server --help` on
+      # 1.13.3). Getting this wrong doesn't error at startup; the binary
+      # silently falls back to defaults with no keys, which only breaks
+      # things at the next container recreate (this one had been running
+      # for weeks on an older, correctly-started instance).
+      LIVEKIT_CONFIG: |
+        port: 7880
+        rtc:
+          tcp_port: 7881
+          port_range_start: 50000
+          port_range_end: 50100
+          use_external_ip: false
+        redis:
+          address: redis:6379
+          password: ${REDIS_PASSWORD:-edubridge_dev}
+        keys:
+          devkey: secret
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50000-50100:50000-50100/udp"
+    healthcheck:
+      # The livekit/livekit-server image ships busybox, not curl — a
+      # curl-based check always fails with "executable not found",
+      # leaving this container permanently "unhealthy" even when the
+      # server itself is fine. That in turn blocked `egress` below from
+      # ever starting (`depends_on: condition: service_healthy`), so
+      # recordings failed with "egress not connected" no matter what.
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:7880/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # LiveKit Egress — records live rooms to MP4. The actual upload target
+  # (bucket, endpoint, credentials) is sent per-request by the API's
+  # `LiveKitEgressRecorderAdapter` (apps/api/src/modules/live/recording),
+  # built from the same R2_* env vars `R2Service` uses — so in local dev,
+  # pointing R2_PUBLIC_URL at this stack's `minio` (http://minio:9000)
+  # makes the recording land in the same bucket as the rest of the media
+  # pipeline. This worker does the actual recording (headless Chrome +
+  # ffmpeg); the API only issues start/stop calls over Redis.
+  #
+  # Wherever this stack is deployed (VPS, Railway, etc.), this service —
+  # or an equivalent `livekit/egress` worker pointed at the same LiveKit
+  # server's Redis and the same R2/S3 credentials — must run for
+  # "record the live class" to work; there is no way to do that from
+  # inside the Node API process itself.
+  egress:
+    image: livekit/egress:latest
+    container_name: edubridge-egress
+    restart: unless-stopped
+    cap_add:
+      - SYS_ADMIN # required for Chrome's sandbox when compositing room video
+    depends_on:
+      redis:
+        condition: service_healthy
+      livekit:
+        condition: service_healthy
+    environment:
+      EGRESS_CONFIG_BODY: |
+        log_level: info
+        api_key: devkey
+        api_secret: secret
+        ws_url: ws://livekit:7880
+        insecure: true
+        redis:
+          address: redis:6379
+          password: ${REDIS_PASSWORD:-edubridge_dev}
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

@@ -29,11 +29,14 @@ interface ConversationListProps {
   locale: string;
   /** Currently selected thread (highlighted in the list). */
   activeThreadId?: string | null;
+  /** Extra classes merged onto the root `<aside>` — e.g. to hide it below `lg` once a thread is open on mobile. */
+  className?: string;
 }
 
 export function ConversationList({
   locale,
   activeThreadId,
+  className,
 }: ConversationListProps) {
   const [query, setQuery] = useState('');
   // The inbox list has no socket push of its own yet (Phase 1 adds a
@@ -89,7 +92,7 @@ export function ConversationList({
   }, [query, items]);
 
   return (
-    <aside className="flex h-full w-full flex-col border-r border-rim bg-canvas lg:w-80 xl:w-96">
+    <aside className={cn('flex h-full w-full flex-col border-r border-rim bg-canvas lg:w-80 xl:w-96', className)}>
       <header className="space-y-4 px-6 py-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
