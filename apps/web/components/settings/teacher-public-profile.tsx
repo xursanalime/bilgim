@@ -141,7 +141,7 @@ export function TeacherPublicProfile({ locale }: TeacherPublicProfileProps) {
     setUploadProgress(0);
     setError(null);
     try {
-      const assetId = await uploadFile(file, 'IMAGE', setUploadProgress);
+      const assetId = await uploadFile(file, setUploadProgress);
       // `uploadFile` resolves to a MediaAsset id, not a URL — resolve it
       // to the stable public-image proxy URL before storing/previewing it.
       setCoverUrl(getPublicImageUrl(assetId));

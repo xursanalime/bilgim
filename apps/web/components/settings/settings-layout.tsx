@@ -7,7 +7,10 @@ import { cn } from '../../lib/utils';
 
 interface SettingsLayoutClientProps {
   locale: string;
-  role?: string;
+  // `undefined` is explicitly allowed (not just omission) because the
+  // caller passes `user?.role`, which is `undefined` when signed out —
+  // required under this project's `exactOptionalPropertyTypes: true`.
+  role?: string | undefined;
 }
 
 export function SettingsLayoutClient({ locale, role }: SettingsLayoutClientProps) {
